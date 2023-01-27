@@ -2,49 +2,61 @@ package provider
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+
+	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
-// Ensure ScaffoldingProvider satisfies various provider interfaces.
-var _ provider.Provider = &ScaffoldingProvider{}
+// Ensure TimescaleProvider satisfies various provider interfaces.
+var _ provider.Provider = &TimescaleProvider{}
 
-// ScaffoldingProvider defines the provider implementation.
-type ScaffoldingProvider struct {
+// TimescaleProvider defines the provider implementation.
+type TimescaleProvider struct {
 	// version is set to the provider version on release, "dev" when the
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
 }
 
-// ScaffoldingProviderModel describes the provider data model.
-type ScaffoldingProviderModel struct {
-	Endpoint types.String `tfsdk:"endpoint"`
+// TimescaleProviderModel describes the provider data model.
+type TimescaleProviderModel struct {
+	ProjectID   types.String `tfsdk:"project_id"`
+	AccessToken types.String `tfsdk:"access_token"`
 }
 
-func (p *ScaffoldingProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "scaffolding"
+func (p *TimescaleProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	tflog.Trace(ctx, "TimescaleProvider.Metadata")
 	resp.Version = p.version
+	resp.TypeName = "timescale"
 }
 
-func (p *ScaffoldingProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+// Schema defines the provider-level schema for configuration data.
+func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	tflog.Trace(ctx, "TimescaleProvider.Schema")
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"endpoint": schema.StringAttribute{
-				MarkdownDescription: "Example provider attribute",
-				Optional:            true,
+			"access_token": schema.StringAttribute{
+				MarkdownDescription: "Access Token",
+				Required:            true,
+			},
+			"project_id": schema.StringAttribute{
+				MarkdownDescription: "Project ID",
+				Required:            true,
 			},
 		},
 	}
 }
 
-func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
-	var data ScaffoldingProviderModel
+// Configure initializes a Timescale API client for data sources and resources.
+func (p *TimescaleProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+	tflog.Trace(ctx, "TimescaleProvider.Configure")
+	var data TimescaleProviderModel
 
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
 
@@ -52,30 +64,30 @@ func (p *ScaffoldingProvider) Configure(ctx context.Context, req provider.Config
 		return
 	}
 
-	// Configuration values are now available.
-	// if data.Endpoint.IsNull() { /* ... */ }
+	//TODO: Validate the configuration
 
-	// Example client configuration for data sources and resources
-	client := http.DefaultClient
+	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(), p.version)
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }
 
-func (p *ScaffoldingProvider) Resources(ctx context.Context) []func() resource.Resource {
+// Resources defines the resources implemented in the provider.
+func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Resource {
+	tflog.Trace(ctx, "TimescaleProvider.Resources")
 	return []func() resource.Resource{
-		NewExampleResource,
+		NewServiceResource,
 	}
 }
 
-func (p *ScaffoldingProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
-		NewExampleDataSource,
-	}
+// DataSources defines the data sources implemented in the provider.
+func (p *TimescaleProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
+	tflog.Trace(ctx, "TimescaleProvider.DataSources")
+	return []func() datasource.DataSource{}
 }
 
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
-		return &ScaffoldingProvider{
+		return &TimescaleProvider{
 			version: version,
 		}
 	}

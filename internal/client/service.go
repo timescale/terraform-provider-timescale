@@ -14,6 +14,7 @@ type Service struct {
 	ID                       string `json:"id"`
 	Name                     string `json:"name"`
 	EnableStorageAutoscaling bool   `json:"enable_storage_autoscaling"`
+	Status                   string `json:"status"`
 }
 
 type CreateServiceRequest struct {

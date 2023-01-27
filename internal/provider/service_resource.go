@@ -3,7 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -11,13 +13,18 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
+	helper "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &ServiceResource{}
 
-const ErrUpdateService = "Updating service name is currently unsupported"
+const (
+	ErrCreateTimeout = "Error waiting for service creation"
+	ErrUpdateService = "Updating service name is currently unsupported"
+)
 
 func NewServiceResource() resource.Resource {
 	return &ServiceResource{}
@@ -30,9 +37,10 @@ type ServiceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                       types.String `tfsdk:"id"`
-	Name                     types.String `tfsdk:"name"`
-	EnableStorageAutoscaling types.Bool   `tfsdk:"enable_storage_autoscaling"`
+	ID                       types.String   `tfsdk:"id"`
+	Name                     types.String   `tfsdk:"name"`
+	EnableStorageAutoscaling types.Bool     `tfsdk:"enable_storage_autoscaling"`
+	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,6 +76,9 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "service name",
 				Optional:            true,
 			},
+			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
+				Create: true,
+			}),
 		},
 	}
 }
@@ -110,12 +121,50 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	state := serviceToResource(service)
+	state, err := r.waitForServiceReadiness(ctx, service.ID, data.Timeouts)
+	if err != nil {
+		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service deployment, got error: %s", err))
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
+}
+
+func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (serviceResourceModel, error) {
+	tflog.Trace(ctx, "ServiceResource.waitForServiceReadiness")
+
+	defaultTimeout := 45 * time.Minute
+	timeout, diags := timeouts.Create(ctx, defaultTimeout)
+	if diags != nil && diags.HasError() {
+		tflog.Error(ctx, fmt.Sprintf("found errs %v", diags.Errors()))
+		return serviceResourceModel{}, fmt.Errorf("unable to get timeout from config %v", diags.Errors())
+	}
+
+	conf := helper.StateChangeConf{
+		Pending:                   []string{"QUEUED", "CONFIGURING", "UNSTABLE"},
+		Target:                    []string{"READY"},
+		Delay:                     10 * time.Second,
+		Timeout:                   timeout,
+		PollInterval:              5 * time.Second,
+		ContinuousTargetOccurence: 1,
+		Refresh: func() (result interface{}, state string, err error) {
+			s, err := r.client.GetService(ctx, ID)
+			if err != nil {
+				return nil, "", err
+			}
+			return s, s.Status, nil
+		},
+	}
+	s, err := conf.WaitForStateContext(ctx)
+	if err != nil {
+		return serviceResourceModel{}, err
+	}
+	service := s.(*tsClient.Service)
+	state := serviceToResource(service, timeouts)
+	return state, nil
 }
 
 func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -135,7 +184,7 @@ func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
-	state := serviceToResource(service)
+	state := serviceToResource(service, plan.Timeouts)
 	// Save updated plan into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	if resp.Diagnostics.HasError() {
@@ -183,10 +232,11 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
-func serviceToResource(s *tsClient.Service) serviceResourceModel {
+func serviceToResource(s *tsClient.Service, timeouts timeouts.Value) serviceResourceModel {
 	return serviceResourceModel{
 		ID:                       types.StringValue(s.ID),
 		Name:                     types.StringValue(s.Name),
 		EnableStorageAutoscaling: types.BoolValue(s.EnableStorageAutoscaling),
+		Timeouts:                 timeouts,
 	}
 }

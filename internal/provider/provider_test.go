@@ -35,6 +35,15 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"timescale": providerserver.NewProtocol6WithError(New("test")()),
 }
 
+type Config struct {
+	Name     string
+	Timeouts Timeouts
+}
+
+type Timeouts struct {
+	Create string
+}
+
 func testAccPreCheck(t *testing.T) {
 	_, ok := os.LookupEnv("TF_VAR_ts_access_token")
 	if !ok {

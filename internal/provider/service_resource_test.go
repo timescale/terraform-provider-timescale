@@ -8,14 +8,17 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestServiceResource(t *testing.T) {
+func TestServiceResource_Success(t *testing.T) {
+	// Test resource creation succeeds and update is not allowed
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Create and Read testing
 			{
-				Config: newServiceConfig("demoservice"),
+				Config: newServiceConfig(Config{
+					Name: "demoservice",
+				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify the name is set.
 					resource.TestCheckResourceAttr("timescale_service.test", "name", "demoservice"),
@@ -25,7 +28,9 @@ func TestServiceResource(t *testing.T) {
 			},
 			// Update and Read testing
 			{
-				Config:      newServiceConfig("demoservice_update"),
+				Config: newServiceConfig(Config{
+					Name: "demoservice_update",
+				}),
 				ExpectError: regexp.MustCompile(ErrUpdateService),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.test", "name", "demoservice"),
@@ -35,10 +40,16 @@ func TestServiceResource(t *testing.T) {
 	})
 }
 
-func newServiceConfig(name string) string {
+func newServiceConfig(config Config) string {
+	if config.Timeouts.Create == "" {
+		config.Timeouts.Create = "10m"
+	}
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "test" {
 					name = %q
 					enable_storage_autoscaling = false
-				}`, name)
+					timeouts = {
+						create = %q
+					}
+				}`, config.Name, config.Timeouts.Create)
 }

@@ -84,6 +84,7 @@ func (p *TimescaleProvider) DataSources(ctx context.Context) []func() datasource
 	tflog.Trace(ctx, "TimescaleProvider.DataSources")
 	return []func() datasource.DataSource{
 		NewProductsDataSource,
+		NewServiceDataSource,
 	}
 }
 

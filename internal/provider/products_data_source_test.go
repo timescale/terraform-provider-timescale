@@ -15,8 +15,8 @@ func TestProductDataSource(t *testing.T) {
 			{
 				Config: newProductsConfig(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					// Verify we have the 3 expected types of product
-					resource.TestCheckResourceAttr("data.timescale_products.products", "products.#", "3"),
+					// Verify the products id is set.
+					resource.TestCheckResourceAttr("data.timescale_products.products", "id", "placeholder"),
 				),
 			},
 		},

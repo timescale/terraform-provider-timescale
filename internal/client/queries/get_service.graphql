@@ -13,5 +13,24 @@ query GetService($projectId: ID!, $serviceId: ID!) {
             enabled
         }
         regionCode
+        spec {
+            ... on TimescaleDBServiceSpec {
+                hostname
+                username
+                port
+                defaultDBName
+            }
+        }
+        resources {
+            id
+            spec {
+                ... on ResourceNode {
+                    milliCPU
+                    memoryGB
+                    storageGB
+                }
+            }
+        }
+        created
     }
 }

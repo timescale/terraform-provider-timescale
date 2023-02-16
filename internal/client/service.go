@@ -11,10 +11,29 @@ import (
 )
 
 type Service struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	EnableStorageAutoscaling bool   `json:"enable_storage_autoscaling"`
-	Status                   string `json:"status"`
+	ID                       string         `json:"id"`
+	Name                     string         `json:"name"`
+	EnableStorageAutoscaling bool           `json:"enable_storage_autoscaling"`
+	Status                   string         `json:"status"`
+	RegionCode               string         `json:"regionCode"`
+	ServiceSpec              ServiceSpec    `json:"spec"`
+	Resources                []ResourceSpec `json:"resources"`
+	Created                  string         `json:"created"`
+}
+
+type ServiceSpec struct {
+	Hostname string `json:"hostname"`
+	Username string `json:"username"`
+	Port     int64  `json:"port"`
+}
+
+type ResourceSpec struct {
+	ID   string `json:"id"`
+	Spec struct {
+		MilliCPU  int64 `json:"milliCPU"`
+		MemoryGB  int64 `json:"memoryGB"`
+		StorageGB int64 `json:"storageGB"`
+	} `json:"spec"`
 }
 
 type CreateServiceRequest struct {

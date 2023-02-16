@@ -75,6 +75,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "Enable Storage Autoscaling",
 				Description:         "service name",
 				Optional:            true,
+				Computed:            true,
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,

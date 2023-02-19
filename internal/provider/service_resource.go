@@ -30,8 +30,9 @@ type ServiceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	ID                       types.String `tfsdk:"id"`
+	Name                     types.String `tfsdk:"name"`
+	EnableStorageAutoscaling types.Bool   `tfsdk:"enable_storage_autoscaling"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -61,6 +62,11 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				// If the name attribute is absent, the provider will generate a default.
 				Computed: true,
+			},
+			"enable_storage_autoscaling": schema.BoolAttribute{
+				MarkdownDescription: "Enable Storage Autoscaling",
+				Description:         "service name",
+				Optional:            true,
 			},
 		},
 	}
@@ -126,7 +132,7 @@ func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	service, err := r.client.GetService(ctx, plan.ID.ValueString())
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
 	state := serviceToResource(service)
@@ -179,7 +185,8 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func serviceToResource(s *tsClient.Service) serviceResourceModel {
 	return serviceResourceModel{
-		ID:   types.StringValue(s.ID),
-		Name: types.StringValue(s.Name),
+		ID:                       types.StringValue(s.ID),
+		Name:                     types.StringValue(s.Name),
+		EnableStorageAutoscaling: types.BoolValue(s.EnableStorageAutoscaling),
 	}
 }

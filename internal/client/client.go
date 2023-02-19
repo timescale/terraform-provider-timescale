@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,6 +12,17 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+)
+
+var (
+	//go:embed queries/create_service.graphql
+	CreateServiceMutation string
+	//go:embed queries/delete_service.graphql
+	DeleteServiceMutation string
+	//go:embed queries/get_service.graphql
+	GetServiceQuery string
+	//go:embed queries/products.graphql
+	ProductsQuery string
 )
 
 type Client struct {
@@ -45,7 +57,7 @@ func NewClient(apiToken, projectID, env string) *Client {
 }
 
 func getURL(env string) string {
-	url := "https://console.cloud.com/api/query"
+	url := "https://console.cloud.timescale.com/api/query"
 	if env != "test" {
 		return url
 	}

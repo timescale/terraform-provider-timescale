@@ -39,5 +39,6 @@ func newServiceConfig(name string) string {
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "test" {
 					name = %q
+					enable_storage_autoscaling = false
 				}`, name)
 }

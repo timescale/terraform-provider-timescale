@@ -11,12 +11,14 @@ import (
 )
 
 type Service struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID                       string `json:"id"`
+	Name                     string `json:"name"`
+	EnableStorageAutoscaling bool   `json:"enable_storage_autoscaling"`
 }
 
 type CreateServiceRequest struct {
-	Name string
+	Name                     string
+	EnableStorageAutoscaling bool
 }
 
 type CreateServiceResponse struct {
@@ -42,22 +44,12 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 
 	req := map[string]interface{}{
 		"operationName": "CreateService",
-		"query": `mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceConfig: ResourceConfig) 
-			{
- 			       createService(
-    					data: {projectId: $projectId, name: $name, type: $type, resourceConfig: $resourceConfig})
-					{
-    					service {
-      		   				id
-							name
-						}
-					}
-			}
-	       `,
+		"query":         CreateServiceMutation,
 		"variables": map[string]any{
-			"projectId": c.projectID,
-			"name":      request.Name,
-			"type":      "TIMESCALEDB",
+			"projectId":                  c.projectID,
+			"name":                       request.Name,
+			"enable_storage_autoscaling": request.EnableStorageAutoscaling,
+			"type":                       "TIMESCALEDB",
 			"resourceConfig": map[string]string{
 				"milliCPU":     "500",
 				"storageGB":    "10",
@@ -83,16 +75,7 @@ func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.GetService")
 	req := map[string]interface{}{
 		"operationName": "GetService",
-		"query": `query GetService($projectId: ID!, $serviceId: ID!) 
-			{
-					getService(
-						data: {projectId: $projectId, serviceId: $serviceId})
-					{
-						id
-						name
-					}
-			}
-	       `,
+		"query":         GetServiceQuery,
 		"variables": map[string]string{
 			"projectId": c.projectID,
 			"serviceId": id,
@@ -115,14 +98,7 @@ func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error)
 	tflog.Trace(ctx, "Client.DeleteService")
 	req := map[string]interface{}{
 		"operationName": "DeleteService",
-		"query": `mutation DeleteService($projectId: ID!, $serviceId: ID!) {
- 			       deleteService(
-    					data: {projectId: $projectId, serviceId: $serviceId})
-			{
-      		   id
-			}
-		}
-	       `,
+		"query":         DeleteServiceMutation,
 		"variables": map[string]string{
 			"projectId": c.projectID,
 			"serviceId": id,

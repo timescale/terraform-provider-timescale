@@ -73,6 +73,7 @@ jobs:
           TF_ACC: "1"
           TF_VAR_ts_access_token: ${{ secrets.TF_VAR_TS_ACCESS_TOKEN }}
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
+          # point to API
           TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
         run: go test -v -cover ./internal/provider/
         timeout-minutes: 10

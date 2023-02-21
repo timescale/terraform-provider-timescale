@@ -1,0 +1,24 @@
+mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceConfig:
+    ResourceConfig, $enableStorageAutoscaling: Boolean) {
+    createService(data:{
+        projectId:$projectId,
+        name:$name,
+        type:$type,
+        resourceConfig:$resourceConfig,
+        enableStorageAutoscaling:$enableStorageAutoscaling,
+    }){
+        initialPassword
+        service {
+            id
+            projectId
+            name
+            type
+            created
+            status
+            autoscaleSettings {
+                enabled
+            }
+            regionCode
+        }
+    }
+}

@@ -82,7 +82,9 @@ func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Res
 // DataSources defines the data sources implemented in the provider.
 func (p *TimescaleProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	tflog.Trace(ctx, "TimescaleProvider.DataSources")
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewProductsDataSource,
+	}
 }
 
 func New(version string) func() provider.Provider {

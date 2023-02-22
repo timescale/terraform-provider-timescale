@@ -21,5 +21,8 @@ provider "timescale" {
 }
 
 resource "timescale_service" "test" {
-  name = "kim"
+  # name       = ""
+  # milli_cpu  = 1000
+  # memory_gb  = 4
+  # storage_gb = 900
 }

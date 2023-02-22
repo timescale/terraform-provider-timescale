@@ -3,27 +3,44 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	helper "github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
+	multiplyvalidator "github.com/timescale/terraform-provider-timescale/internal/utils"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &ServiceResource{}
 
 const (
-	ErrCreateTimeout = "Error waiting for service creation"
-	ErrUpdateService = "Updating service name is currently unsupported"
+	ErrCreateTimeout    = "Error waiting for service creation"
+	ErrUpdateService    = "Updating service name is currently unsupported"
+	ErrInvalidAttribute = "Invalid Attribute Value"
+
+	DefaultMilliCPU  = 500
+	DefaultStorageGB = 10
+	DefaultMemoryGB  = 2
+)
+
+var (
+	storageSizes  = []int64{10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 800, 9000, 10000, 12000, 14000, 16000}
+	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
+	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
 )
 
 func NewServiceResource() resource.Resource {
@@ -41,6 +58,9 @@ type serviceResourceModel struct {
 	Name                     types.String   `tfsdk:"name"`
 	EnableStorageAutoscaling types.Bool     `tfsdk:"enable_storage_autoscaling"`
 	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU                 types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB                types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB                 types.Int64    `tfsdk:"memory_gb"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -73,9 +93,35 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 			},
 			"enable_storage_autoscaling": schema.BoolAttribute{
 				MarkdownDescription: "Enable Storage Autoscaling",
-				Description:         "service name",
+				Description:         "Flag to enable storage autoscaling",
 				Optional:            true,
 				Computed:            true,
+			},
+			"milli_cpu": schema.Int64Attribute{
+				MarkdownDescription: "Milli CPU",
+				Description:         "Milli CPU",
+				Optional:            true,
+				Computed:            true,
+				Validators: []validator.Int64{
+					int64validator.OneOf(milliCPUSizes...),
+					multiplyvalidator.EqualToMultipleOf(250, path.Expressions{
+						path.MatchRoot("memory_gb"),
+					}...),
+				},
+			},
+			"storage_gb": schema.Int64Attribute{
+				MarkdownDescription: "Storage GB",
+				Description:         "Storage GB",
+				Optional:            true,
+				Computed:            true,
+				Validators:          []validator.Int64{int64validator.OneOf(storageSizes...)},
+			},
+			"memory_gb": schema.Int64Attribute{
+				MarkdownDescription: "Memory GB",
+				Description:         "Memory GB",
+				Optional:            true,
+				Computed:            true,
+				Validators:          []validator.Int64{int64validator.OneOf(memorySizes...)},
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
@@ -115,8 +161,13 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	service, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{Name: data.Name.ValueString()})
+	service, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
+		Name:                     data.Name.ValueString(),
+		EnableStorageAutoscaling: data.EnableStorageAutoscaling.ValueBool(),
+		MilliCPU:                 useDefaultIfEmpty(data.MilliCPU, DefaultMilliCPU),
+		StorageGB:                useDefaultIfEmpty(data.StorageGB, DefaultStorageGB),
+		MemoryGB:                 useDefaultIfEmpty(data.MemoryGB, DefaultMemoryGB),
+	})
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
 		return
@@ -132,6 +183,13 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
+}
+
+func useDefaultIfEmpty(value basetypes.Int64Value, defaultValue int64) string {
+	if !value.IsUnknown() {
+		return strconv.FormatInt(value.ValueInt64(), 10)
+	}
+	return strconv.FormatInt(defaultValue, 10)
 }
 
 func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (serviceResourceModel, error) {
@@ -237,7 +295,10 @@ func serviceToResource(s *tsClient.Service, timeouts timeouts.Value) serviceReso
 	return serviceResourceModel{
 		ID:                       types.StringValue(s.ID),
 		Name:                     types.StringValue(s.Name),
-		EnableStorageAutoscaling: types.BoolValue(s.EnableStorageAutoscaling),
+		EnableStorageAutoscaling: types.BoolValue(s.AutoscaleSettings.Enabled),
+		MilliCPU:                 types.Int64Value(s.Resources[0].Spec.MilliCPU),
+		StorageGB:                types.Int64Value(s.Resources[0].Spec.StorageGB),
+		MemoryGB:                 types.Int64Value(s.Resources[0].Spec.MemoryGB),
 		Timeouts:                 timeouts,
 	}
 }

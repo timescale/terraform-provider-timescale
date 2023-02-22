@@ -11,14 +11,16 @@ import (
 )
 
 type Service struct {
-	ID                       string         `json:"id"`
-	Name                     string         `json:"name"`
-	EnableStorageAutoscaling bool           `json:"enable_storage_autoscaling"`
-	Status                   string         `json:"status"`
-	RegionCode               string         `json:"regionCode"`
-	ServiceSpec              ServiceSpec    `json:"spec"`
-	Resources                []ResourceSpec `json:"resources"`
-	Created                  string         `json:"created"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	AutoscaleSettings struct {
+		Enabled bool `json:"enabled"`
+	} `json:"autoscaleSettings"`
+	Status      string         `json:"status"`
+	RegionCode  string         `json:"regionCode"`
+	ServiceSpec ServiceSpec    `json:"spec"`
+	Resources   []ResourceSpec `json:"resources"`
+	Created     string         `json:"created"`
 }
 
 type ServiceSpec struct {
@@ -39,6 +41,9 @@ type ResourceSpec struct {
 type CreateServiceRequest struct {
 	Name                     string
 	EnableStorageAutoscaling bool
+	MilliCPU                 string
+	StorageGB                string
+	MemoryGB                 string
 }
 
 type CreateServiceResponse struct {
@@ -71,9 +76,9 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 			"enable_storage_autoscaling": request.EnableStorageAutoscaling,
 			"type":                       "TIMESCALEDB",
 			"resourceConfig": map[string]string{
-				"milliCPU":     "500",
-				"storageGB":    "10",
-				"memoryGB":     "2",
+				"milliCPU":     request.MilliCPU,
+				"storageGB":    request.StorageGB,
+				"memoryGB":     request.MemoryGB,
 				"replicaCount": "0",
 			},
 		},

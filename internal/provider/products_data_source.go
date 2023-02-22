@@ -30,7 +30,7 @@ type productsDataSource struct {
 // productsDataSourceModel maps the data source schema data.
 type productsDataSourceModel struct {
 	Products []productsModel `tfsdk:"products"`
-	// following is a placeholder, required by terraform
+	// following is a placeholder, required by terraform to run test suite
 	ID types.String `tfsdk:"id"`
 }
 
@@ -83,6 +83,10 @@ func (d *productsDataSource) Read(ctx context.Context, req datasource.ReadReques
 		}
 
 		for _, plan := range product.Plans {
+			// O.25 CPU instances are not available anymore
+			if plan.MilliCPU == 250 {
+				continue
+			}
 			productState.Plans = append(productState.Plans, &planModel{
 				ID:         types.StringValue(plan.ID),
 				ProductID:  types.StringValue(plan.ProductID),
@@ -95,7 +99,7 @@ func (d *productsDataSource) Read(ctx context.Context, req datasource.ReadReques
 		}
 		state.Products = append(state.Products, productState)
 	}
-	// this is a placeholder, required by terraform
+	// this is a placeholder, required by terraform to run test suite
 	state.ID = types.StringValue("placeholder")
 	// Set state
 	diags := resp.State.Set(ctx, &state)

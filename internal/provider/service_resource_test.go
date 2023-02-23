@@ -24,6 +24,10 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test init"),
 					// Verify ID value is set in state.
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "id"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "password"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "hostname"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "username"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "port"),
 				),
 			},
 			// Update service name failing

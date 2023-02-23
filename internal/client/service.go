@@ -46,10 +46,13 @@ type CreateServiceRequest struct {
 	MemoryGB                 string
 }
 
+type CreateServiceResponseData struct {
+	CreateServiceResponse CreateServiceResponse `json:"createService"`
+}
+
 type CreateServiceResponse struct {
-	CreateService struct {
-		Service Service `json:"service"`
-	} `json:"createService"`
+	Service         Service `json:"service"`
+	InitialPassword string  `json:"initialPassword"`
 }
 
 type GetServiceResponse struct {
@@ -60,7 +63,7 @@ type DeleteServiceResponse struct {
 	Service Service `json:"deleteService"`
 }
 
-func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest) (*Service, error) {
+func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest) (*CreateServiceResponse, error) {
 	tflog.Trace(ctx, "Client.CreateService")
 	if request.Name == "" {
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -83,7 +86,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 			},
 		},
 	}
-	var resp Response[CreateServiceResponse]
+	var resp Response[CreateServiceResponseData]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err
 	}
@@ -93,7 +96,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 	if resp.Data == nil {
 		return nil, errors.New("no response found")
 	}
-	return &resp.Data.CreateService.Service, nil
+	return &resp.Data.CreateServiceResponse, nil
 }
 
 func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {

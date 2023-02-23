@@ -61,6 +61,10 @@ type serviceResourceModel struct {
 	MilliCPU                 types.Int64    `tfsdk:"milli_cpu"`
 	StorageGB                types.Int64    `tfsdk:"storage_gb"`
 	MemoryGB                 types.Int64    `tfsdk:"memory_gb"`
+	Password                 types.String   `tfsdk:"password"`
+	Hostname                 types.String   `tfsdk:"hostname"`
+	Port                     types.Int64    `tfsdk:"port"`
+	Username                 types.String   `tfsdk:"username"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -126,6 +130,30 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
 				Create: true,
 			}),
+			"password": schema.StringAttribute{
+				Description:         "The Postgres password for this service. The password is provided once during service creation",
+				MarkdownDescription: "The Postgres password for this service. The password is provided once during service creation",
+				Computed:            true,
+				Sensitive:           true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"hostname": schema.StringAttribute{
+				Description:         "The hostname for this service",
+				MarkdownDescription: "The hostname for this service",
+				Computed:            true,
+			},
+			"port": schema.Int64Attribute{
+				Description:         "The port for this service",
+				MarkdownDescription: "The port for this service",
+				Computed:            true,
+			},
+			"username": schema.StringAttribute{
+				Description:         "The Postgres user for this service",
+				MarkdownDescription: "The Postgres user for this service",
+				Computed:            true,
+			},
 		},
 	}
 }
@@ -153,32 +181,35 @@ func (r *ServiceResource) Configure(ctx context.Context, req resource.ConfigureR
 
 func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "ServiceResource.Create")
-	var data serviceResourceModel
+	var plan serviceResourceModel
 
 	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	service, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
-		Name:                     data.Name.ValueString(),
-		EnableStorageAutoscaling: data.EnableStorageAutoscaling.ValueBool(),
-		MilliCPU:                 useDefaultIfEmpty(data.MilliCPU, DefaultMilliCPU),
-		StorageGB:                useDefaultIfEmpty(data.StorageGB, DefaultStorageGB),
-		MemoryGB:                 useDefaultIfEmpty(data.MemoryGB, DefaultMemoryGB),
+	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
+		Name:                     plan.Name.ValueString(),
+		EnableStorageAutoscaling: plan.EnableStorageAutoscaling.ValueBool(),
+		MilliCPU:                 useDefaultIfEmpty(plan.MilliCPU, DefaultMilliCPU),
+		StorageGB:                useDefaultIfEmpty(plan.StorageGB, DefaultStorageGB),
+		MemoryGB:                 useDefaultIfEmpty(plan.MemoryGB, DefaultMemoryGB),
 	})
+
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
 		return
 	}
 
-	state, err := r.waitForServiceReadiness(ctx, service.ID, data.Timeouts)
+	plan.Password = types.StringValue(response.InitialPassword)
+	service, err := r.waitForServiceReadiness(ctx, response.Service.ID, plan.Timeouts)
 	if err != nil {
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service deployment, got error: %s", err))
 		return
 	}
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resourceModel := serviceToResource(service, plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
@@ -192,14 +223,14 @@ func useDefaultIfEmpty(value basetypes.Int64Value, defaultValue int64) string {
 	return strconv.FormatInt(defaultValue, 10)
 }
 
-func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (serviceResourceModel, error) {
+func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (*tsClient.Service, error) {
 	tflog.Trace(ctx, "ServiceResource.waitForServiceReadiness")
 
 	defaultTimeout := 45 * time.Minute
 	timeout, diags := timeouts.Create(ctx, defaultTimeout)
 	if diags != nil && diags.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("found errs %v", diags.Errors()))
-		return serviceResourceModel{}, fmt.Errorf("unable to get timeout from config %v", diags.Errors())
+		return nil, fmt.Errorf("unable to get timeout from config %v", diags.Errors())
 	}
 
 	conf := helper.StateChangeConf{
@@ -217,35 +248,37 @@ func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string
 			return s, s.Status, nil
 		},
 	}
-	s, err := conf.WaitForStateContext(ctx)
+	result, err := conf.WaitForStateContext(ctx)
 	if err != nil {
-		return serviceResourceModel{}, err
+		return nil, err
 	}
-	service := s.(*tsClient.Service)
-	state := serviceToResource(service, timeouts)
-	return state, nil
+	s, ok := result.(*tsClient.Service)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type found, expected Service but got %T", result)
+	}
+	return s, nil
 }
 
 func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Trace(ctx, "ServiceResource.Read")
-	var plan serviceResourceModel
+	var state serviceResourceModel
 	// Read Terraform prior state plan into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &plan)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	tflog.Info(ctx, "Getting Service: "+plan.ID.ValueString())
+	tflog.Info(ctx, "Getting Service: "+state.ID.ValueString())
 
-	service, err := r.client.GetService(ctx, plan.ID.ValueString())
+	service, err := r.client.GetService(ctx, state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
-	state := serviceToResource(service, plan.Timeouts)
+	resourceModel := serviceToResource(service, state)
 	// Save updated plan into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
@@ -291,14 +324,18 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
-func serviceToResource(s *tsClient.Service, timeouts timeouts.Value) serviceResourceModel {
+func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	return serviceResourceModel{
 		ID:                       types.StringValue(s.ID),
+		Password:                 state.Password,
 		Name:                     types.StringValue(s.Name),
 		EnableStorageAutoscaling: types.BoolValue(s.AutoscaleSettings.Enabled),
 		MilliCPU:                 types.Int64Value(s.Resources[0].Spec.MilliCPU),
 		StorageGB:                types.Int64Value(s.Resources[0].Spec.StorageGB),
 		MemoryGB:                 types.Int64Value(s.Resources[0].Spec.MemoryGB),
-		Timeouts:                 timeouts,
+		Hostname:                 types.StringValue(s.ServiceSpec.Hostname),
+		Username:                 types.StringValue(s.ServiceSpec.Username),
+		Port:                     types.Int64Value(s.ServiceSpec.Port),
+		Timeouts:                 state.Timeouts,
 	}
 }

@@ -1,11 +1,13 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestServiceResource_Default_Success(t *testing.T) {
@@ -86,6 +88,40 @@ func TestServiceResource_CustomConf(t *testing.T) {
 	})
 }
 
+func TestServiceResource_Import(t *testing.T) {
+	config := newServiceConfig(Config{Name: "import test"})
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			// Create the service to import
+			{
+				Config: config,
+			},
+			// Import the resource. This step compares the resource attributes for "test" defined above with the imported resource
+			// "test_import" defined in the config for this step. This check is done by specifying the ImportStateVerify configuration option.
+			{
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					resources := state.RootModule().Resources
+					for name, r := range resources {
+						if name == "timescale_service.resource" {
+							return r.Primary.ID, nil
+						}
+					}
+					return "", errors.New("import ID not found")
+				},
+				ResourceName: "timescale_service.resource_import",
+				Config: config + ` 
+				resource "timescale_service" "resource_import" {}
+				`,
+			},
+		},
+	})
+}
+
 func newServiceConfig(config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
@@ -102,7 +138,7 @@ func newServiceConfig(config Config) string {
 
 func newServiceCustomConfig(config Config) string {
 	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "10m"
+		config.Timeouts.Create = "30m"
 	}
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "resource" {

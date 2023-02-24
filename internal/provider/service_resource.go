@@ -26,6 +26,7 @@ import (
 
 // Ensure provider defined types fully satisfy framework interfaces
 var _ resource.Resource = &ServiceResource{}
+var _ resource.ResourceWithImportState = &ServiceResource{}
 
 const (
 	ErrCreateTimeout    = "Error waiting for service creation"
@@ -331,6 +332,10 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 		)
 		return
 	}
+}
+
+func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceResourceModel {

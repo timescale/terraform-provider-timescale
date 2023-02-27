@@ -22,6 +22,8 @@ type TimescaleProvider struct {
 	// provider is built and ran locally, and "test" when running acceptance
 	// testing.
 	version string
+	// terraformVersion is the caller's terraform version.
+	terraformVersion string
 }
 
 // TimescaleProviderModel describes the provider data model.
@@ -65,8 +67,8 @@ func (p *TimescaleProvider) Configure(ctx context.Context, req provider.Configur
 	}
 
 	//TODO: Validate the configuration
-
-	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(), p.version)
+	p.terraformVersion = req.TerraformVersion
+	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(), p.version, p.terraformVersion)
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }

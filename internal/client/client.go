@@ -30,6 +30,8 @@ type Client struct {
 	apiToken   string
 	projectID  string
 	url        string
+	version    string
+	terraformVersion string
 }
 
 type Response[T any] struct {
@@ -41,7 +43,7 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-func NewClient(apiToken, projectID, env string) *Client {
+func NewClient(apiToken, projectID, env, terraformVersion string) *Client {
 	c := &http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -53,6 +55,8 @@ func NewClient(apiToken, projectID, env string) *Client {
 		apiToken:   apiToken,
 		projectID:  projectID,
 		url:        url,
+		version: 	env,
+		terraformVersion:terraformVersion,
 	}
 }
 
@@ -85,6 +89,12 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 	}
 	request.Header.Set("Authorization", "Bearer "+c.apiToken)
 	request.Header.Set("Content-Type", "application/json")
+
+	userAgent := request.UserAgent()
+	// add provider and client terraform version
+	userAgent = userAgent + " terraform-provider-timescale/"+c.version 
+	userAgent = userAgent + " terraform/"+c.terraformVersion 
+	request.Header.Set("User-Agent", userAgent)
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))

@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
-	helper "github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	helper "github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )

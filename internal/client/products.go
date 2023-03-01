@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/machinebox/graphql"
 )
 
 type Product struct {
@@ -30,10 +31,7 @@ type ProductsResponse struct {
 
 func (c *Client) GetProducts(ctx context.Context) ([]*Product, error) {
 	tflog.Trace(ctx, "Client.GetProducts")
-	req := map[string]interface{}{
-		"operationName": "GetProducts",
-		"query":         ProductsQuery,
-	}
+	req := graphql.NewRequest(ProductsQuery)
 	var resp Response[ProductsResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err

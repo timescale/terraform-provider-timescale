@@ -1,16 +1,13 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	_ "embed"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"time"
 
+	"github.com/machinebox/graphql"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -26,11 +23,10 @@ var (
 )
 
 type Client struct {
-	httpClient       *http.Client
-	apiToken         string
-	projectID        string
-	url              string
-	version          string
+	Client    *graphql.Client
+	apiToken   string
+	projectID  string
+	version    string
 	terraformVersion string
 }
 
@@ -44,19 +40,16 @@ type Error struct {
 }
 
 func NewClient(apiToken, projectID, env, terraformVersion string) *Client {
-	c := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-
 	url := getURL(env)
 
+	client := graphql.NewClient(url)
+
 	return &Client{
-		httpClient:       c,
-		apiToken:         apiToken,
-		projectID:        projectID,
-		url:              url,
-		version:          env,
-		terraformVersion: terraformVersion,
+		Client: client,
+		apiToken:   apiToken,
+		projectID:  projectID,
+		version: 	env,
+		terraformVersion:terraformVersion,
 	}
 }
 
@@ -77,36 +70,23 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
-func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interface{}) error {
+func (c *Client) do(ctx context.Context, request *graphql.Request, resp interface{}) error {
 	tflog.Trace(ctx, "Client.do")
-	jsonValue, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewBuffer(jsonValue))
-	if err != nil {
-		return err
-	}
-	request.Header.Set("Authorization", "Bearer "+c.apiToken)
-	request.Header.Set("Content-Type", "application/json")
 
-	userAgent := request.UserAgent()
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	request.Header.Set("authorization", "Bearer "+c.apiToken)
+	request.Header.Set("content-type", "application/json")
+
+	userAgent := request.Header.Get("user-agent")
 	// add provider and client terraform version
-	userAgent = userAgent + " terraform-provider-timescale/" + c.version
-	userAgent = userAgent + " terraform/" + c.terraformVersion
-	request.Header.Set("User-Agent", userAgent)
-	response, err := c.httpClient.Do(request)
+	userAgent = userAgent + " terraform-provider-timescale/"+c.version 
+	userAgent = userAgent + " terraform/"+c.terraformVersion 
+	request.Header.Set("user-agent", userAgent)
+	err := c.Client.Run(ctx, request, &resp)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
-		return err
-	}
-	defer response.Body.Close()
-	data, err := io.ReadAll(response.Body)
-	if err != nil {
-		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
-		return err
-	}
-	if err = json.Unmarshal(data, resp); err != nil {
 		return err
 	}
 	return nil

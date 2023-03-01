@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/machinebox/graphql"
 )
 
 type Service struct {
@@ -66,23 +67,19 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		r := rand.New(rand.NewSource(time.Now().UnixNano()))
 		request.Name = fmt.Sprintf("db-%d", 10000+r.Intn(90000))
 	}
-
-	req := map[string]interface{}{
-		"operationName": "CreateService",
-		"query":         CreateServiceMutation,
-		"variables": map[string]any{
-			"projectId":                  c.projectID,
-			"name":                       request.Name,
-			"enable_storage_autoscaling": request.EnableStorageAutoscaling,
-			"type":                       "TIMESCALEDB",
-			"resourceConfig": map[string]string{
-				"milliCPU":     request.MilliCPU,
-				"storageGB":    request.StorageGB,
-				"memoryGB":     request.MemoryGB,
-				"replicaCount": "0",
-			},
-		},
+	req := graphql.NewRequest(CreateServiceMutation)
+	req.Var("projectId",                c.projectID)
+	req.Var("name",               request.Name)
+	req.Var("enable_storage_autoscaling",               request.EnableStorageAutoscaling)
+	req.Var("type",              "TIMESCALEDB")
+	conf := map[string]string{
+		"milliCPU":     "500",
+		"storageGB":    "10",
+		"memoryGB":     "2",
+		"replicaCount": "0",
 	}
+	req.Var("resourceConfig", conf )
+
 	var resp Response[CreateServiceResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err
@@ -98,14 +95,9 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 
 func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.GetService")
-	req := map[string]interface{}{
-		"operationName": "GetService",
-		"query":         GetServiceQuery,
-		"variables": map[string]string{
-			"projectId": c.projectID,
-			"serviceId": id,
-		},
-	}
+	req := graphql.NewRequest(GetServiceQuery)
+	req.Var("projectId",                c.projectID)
+	req.Var("serviceId",               id)
 	var resp Response[GetServiceResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err
@@ -121,14 +113,9 @@ func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 
 func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.DeleteService")
-	req := map[string]interface{}{
-		"operationName": "DeleteService",
-		"query":         DeleteServiceMutation,
-		"variables": map[string]string{
-			"projectId": c.projectID,
-			"serviceId": id,
-		},
-	}
+	req := graphql.NewRequest(DeleteServiceMutation)
+	req.Var("projectId",                c.projectID)
+	req.Var("serviceId",               id)
 	var resp Response[DeleteServiceResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err

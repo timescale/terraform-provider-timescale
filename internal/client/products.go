@@ -20,7 +20,7 @@ type Plan struct {
 	RegionCode string  `json:"regionCode"`
 	Price      float64 `json:"price"`
 	MilliCPU   int64   `json:"milliCPU"`
-	RamGB      int64   `json:"ramGB"`
+	MemoryGB   int64   `json:"memoryGB"`
 	StorageGB  int64   `json:"storageGB"`
 }
 

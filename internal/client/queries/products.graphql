@@ -8,7 +8,7 @@ query GetProducts {
             productId
             price
             milliCPU
-            ramGB
+            memoryGB
             storageGB
             regionCode
         }

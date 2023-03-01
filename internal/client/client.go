@@ -26,11 +26,11 @@ var (
 )
 
 type Client struct {
-	httpClient *http.Client
-	apiToken   string
-	projectID  string
-	url        string
-	version    string
+	httpClient       *http.Client
+	apiToken         string
+	projectID        string
+	url              string
+	version          string
 	terraformVersion string
 }
 
@@ -51,12 +51,12 @@ func NewClient(apiToken, projectID, env, terraformVersion string) *Client {
 	url := getURL(env)
 
 	return &Client{
-		httpClient: c,
-		apiToken:   apiToken,
-		projectID:  projectID,
-		url:        url,
-		version: 	env,
-		terraformVersion:terraformVersion,
+		httpClient:       c,
+		apiToken:         apiToken,
+		projectID:        projectID,
+		url:              url,
+		version:          env,
+		terraformVersion: terraformVersion,
 	}
 }
 
@@ -92,8 +92,8 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 
 	userAgent := request.UserAgent()
 	// add provider and client terraform version
-	userAgent = userAgent + " terraform-provider-timescale/"+c.version 
-	userAgent = userAgent + " terraform/"+c.terraformVersion 
+	userAgent = userAgent + " terraform-provider-timescale/" + c.version
+	userAgent = userAgent + " terraform/" + c.terraformVersion
 	request.Header.Set("User-Agent", userAgent)
 	response, err := c.httpClient.Do(request)
 	if err != nil {

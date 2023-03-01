@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
@@ -46,7 +47,7 @@ type planModel struct {
 	ProductID  types.String  `tfsdk:"product_id"`
 	Price      types.Float64 `tfsdk:"price"`
 	MilliCPU   types.Int64   `tfsdk:"milli_cpu"`
-	RamGB      types.Int64   `tfsdk:"ram_gb"`
+	MemoryGB   types.Int64   `tfsdk:"memory_gb"`
 	StorageGB  types.Int64   `tfsdk:"storage_gb"`
 	RegionCode types.String  `tfsdk:"region_code"`
 }
@@ -88,7 +89,7 @@ func (d *productsDataSource) Read(ctx context.Context, req datasource.ReadReques
 				RegionCode: types.StringValue(plan.RegionCode),
 				Price:      types.Float64Value(plan.Price),
 				MilliCPU:   types.Int64Value(plan.MilliCPU),
-				RamGB:      types.Int64Value(plan.RamGB),
+				MemoryGB:   types.Int64Value(plan.MemoryGB),
 				StorageGB:  types.Int64Value(plan.StorageGB),
 			})
 		}
@@ -152,7 +153,7 @@ func (d *productsDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 									"milli_cpu": schema.Int64Attribute{
 										Computed: true,
 									},
-									"ram_gb": schema.Int64Attribute{
+									"memory_gb": schema.Int64Attribute{
 										Computed: true,
 									},
 									"storage_gb": schema.Int64Attribute{

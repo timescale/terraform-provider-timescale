@@ -1,0 +1,6 @@
+query GetJWTForClientCredentials($accessKey: String!, $secretKey: String!) {
+    getJWTForClientCredentials (data:{
+        accessKey: $accessKey,
+        secretKey: $secretKey
+    }) 
+}

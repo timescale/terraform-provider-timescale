@@ -23,11 +23,13 @@ var (
 	GetServiceQuery string
 	//go:embed queries/products.graphql
 	ProductsQuery string
+	//go:embed queries/jwt_cc.graphql
+	JWTFromCCQuery string
 )
 
 type Client struct {
 	httpClient       *http.Client
-	apiToken         string
+	token            string
 	projectID        string
 	url              string
 	version          string
@@ -43,7 +45,7 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-func NewClient(apiToken, projectID, env, terraformVersion string) *Client {
+func NewClient(token, projectID, env, terraformVersion string) *Client {
 	c := &http.Client{
 		Timeout: 5 * time.Second,
 	}
@@ -52,7 +54,7 @@ func NewClient(apiToken, projectID, env, terraformVersion string) *Client {
 
 	return &Client{
 		httpClient:       c,
-		apiToken:         apiToken,
+		token:            token,
 		projectID:        projectID,
 		url:              url,
 		version:          env,
@@ -73,6 +75,28 @@ func getURL(env string) string {
 	return value
 }
 
+type JWTFromCCResponse struct {
+	Token string `json:"getJWTForClientCredentials"`
+}
+
+func JWTFromCC(c *Client, accessKey, secretKey string) error {
+	req := map[string]interface{}{
+		"operationName": "GetJWTForClientCredentials",
+		"query":         JWTFromCCQuery,
+		"variables": map[string]any{
+			"accessKey": accessKey,
+			"secretKey": secretKey,
+		},
+	}
+	var resp Response[JWTFromCCResponse]
+
+	if err := c.do(context.Background(), req, &resp); err != nil {
+		return err
+	}
+	c.token = resp.Data.Token
+	return nil
+}
+
 func (e *Error) Error() string {
 	return e.Message
 }
@@ -87,14 +111,8 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", "Bearer "+c.apiToken)
-	request.Header.Set("Content-Type", "application/json")
+	c.setRequestHeaders(request)
 
-	userAgent := request.UserAgent()
-	// add provider and client terraform version
-	userAgent = userAgent + " terraform-provider-timescale/" + c.version
-	userAgent = userAgent + " terraform/" + c.terraformVersion
-	request.Header.Set("User-Agent", userAgent)
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
@@ -110,4 +128,17 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 		return err
 	}
 	return nil
+}
+
+func (c *Client) setRequestHeaders(request *http.Request) {
+	if c.token != "" {
+		request.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	userAgent := request.UserAgent()
+	// add provider and client terraform version
+	userAgent = userAgent + " terraform-provider-timescale/" + c.version
+	userAgent = userAgent + " terraform/" + c.terraformVersion
+	request.Header.Set("User-Agent", userAgent)
 }

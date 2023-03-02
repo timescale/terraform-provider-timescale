@@ -18,6 +18,24 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
             autoscaleSettings {
                 enabled
             }
+            spec {
+                ... on TimescaleDBServiceSpec {
+                    hostname
+                    username
+                    port
+                    defaultDBName
+                }
+            }
+            resources {
+                id
+                spec {
+                    ... on ResourceNode {
+                        milliCPU
+                        memoryGB
+                        storageGB
+                    }
+                }
+            }
             regionCode
         }
     }

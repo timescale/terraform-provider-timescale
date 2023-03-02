@@ -45,6 +45,7 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 		Attributes: map[string]schema.Attribute{
 			"access_token": schema.StringAttribute{
 				MarkdownDescription: "Access Token",
+				Sensitive:           true,
 				Required:            true,
 			},
 			"project_id": schema.StringAttribute{

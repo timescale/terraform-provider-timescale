@@ -2,8 +2,11 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -30,6 +33,8 @@ type TimescaleProvider struct {
 type TimescaleProviderModel struct {
 	ProjectID   types.String `tfsdk:"project_id"`
 	AccessToken types.String `tfsdk:"access_token"`
+	AccessKey   types.String `tfsdk:"access_key"`
+	SecretKey   types.String `tfsdk:"secret_key"`
 }
 
 func (p *TimescaleProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -45,14 +50,36 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 		Attributes: map[string]schema.Attribute{
 			"access_token": schema.StringAttribute{
 				MarkdownDescription: "Access Token",
+				Optional:            true,
 				Sensitive:           true,
-				Required:            true,
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
-				Required:            true,
+				Optional:            true,
+			},
+			"access_key": schema.StringAttribute{
+				MarkdownDescription: "Access Key",
+				Optional:            true,
+			},
+			"secret_key": schema.StringAttribute{
+				MarkdownDescription: "Secret Key",
+				Optional:            true,
+				Sensitive:           true,
 			},
 		},
+	}
+}
+
+func (p *TimescaleProvider) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.Conflicting(
+			path.MatchRoot("access_token"),
+			path.MatchRoot("access_key"),
+		),
+		resourcevalidator.Conflicting(
+			path.MatchRoot("access_token"),
+			path.MatchRoot("secret_key"),
+		),
 	}
 }
 
@@ -67,9 +94,15 @@ func (p *TimescaleProvider) Configure(ctx context.Context, req provider.Configur
 		return
 	}
 
-	//TODO: Validate the configuration
 	p.terraformVersion = req.TerraformVersion
-	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(), p.version, p.terraformVersion)
+	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(),
+		p.version, p.terraformVersion)
+	if !data.AccessKey.IsNull() && !data.SecretKey.IsNull() {
+		err := tsClient.JWTFromCC(client, data.AccessKey.ValueString(), data.SecretKey.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get JWT from CC, got error: %s", err))
+		}
+	}
 	resp.DataSourceData = client
 	resp.ResourceData = client
 }

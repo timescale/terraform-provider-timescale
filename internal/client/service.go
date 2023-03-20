@@ -74,10 +74,10 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		"operationName": "CreateService",
 		"query":         CreateServiceMutation,
 		"variables": map[string]any{
-			"projectId":                  c.projectID,
-			"name":                       request.Name,
-			"enable_storage_autoscaling": request.EnableStorageAutoscaling,
-			"type":                       "TIMESCALEDB",
+			"projectId":                c.projectID,
+			"name":                     request.Name,
+			"enableStorageAutoscaling": request.EnableStorageAutoscaling,
+			"type":                     "TIMESCALEDB",
 			"resourceConfig": map[string]string{
 				"milliCPU":     request.MilliCPU,
 				"storageGB":    request.StorageGB,

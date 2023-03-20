@@ -17,6 +17,8 @@ import (
 var (
 	//go:embed queries/create_service.graphql
 	CreateServiceMutation string
+	//go:embed queries/rename_service.graphql
+	RenameServiceMutation string
 	//go:embed queries/delete_service.graphql
 	DeleteServiceMutation string
 	//go:embed queries/get_service.graphql

@@ -315,6 +315,21 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	if plan.Hostname != state.Hostname {
+		resp.Diagnostics.AddError("Do not support hostname change", ErrUpdateService)
+		return
+	}
+
+	if plan.Username != state.Username {
+		resp.Diagnostics.AddError("Do not support username change", ErrUpdateService)
+		return
+	}
+
+	if plan.Port != state.Port {
+		resp.Diagnostics.AddError("Do not support port change", ErrUpdateService)
+		return
+	}
+
 	if !plan.Name.Equal(state.Name) {
 		if err := r.client.RenameService(ctx, state.ID.ValueString(), plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())

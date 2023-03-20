@@ -35,6 +35,8 @@ const (
 	DefaultMilliCPU  = 500
 	DefaultStorageGB = 10
 	DefaultMemoryGB  = 2
+
+	DefaultEnableStorageAutoscaling = true
 )
 
 var (
@@ -191,7 +193,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
 		Name:                     plan.Name.ValueString(),
-		EnableStorageAutoscaling: plan.EnableStorageAutoscaling.ValueBool(),
+		EnableStorageAutoscaling: useDefaultIfEmptyBool(plan.EnableStorageAutoscaling, DefaultEnableStorageAutoscaling),
 		MilliCPU:                 useDefaultIfEmpty(plan.MilliCPU, DefaultMilliCPU),
 		StorageGB:                useDefaultIfEmpty(plan.StorageGB, DefaultStorageGB),
 		MemoryGB:                 useDefaultIfEmpty(plan.MemoryGB, DefaultMemoryGB),
@@ -221,6 +223,13 @@ func useDefaultIfEmpty(value basetypes.Int64Value, defaultValue int64) string {
 		return strconv.FormatInt(value.ValueInt64(), 10)
 	}
 	return strconv.FormatInt(defaultValue, 10)
+}
+
+func useDefaultIfEmptyBool(value basetypes.BoolValue, defaultValue bool) bool {
+	if !value.IsUnknown() {
+		return value.ValueBool()
+	}
+	return defaultValue
 }
 
 func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (*tsClient.Service, error) {

@@ -36,14 +36,13 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 				),
 			},
-			// Update service name failing
+			// Update service name
 			{
 				Config: newServiceConfig(Config{
 					Name: "service resource test update",
 				}),
-				ExpectError: regexp.MustCompile(ErrUpdateService),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test init"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
 				),
 			},
 		},

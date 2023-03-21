@@ -227,6 +227,11 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	service, err := r.waitForServiceReadiness(ctx, response.Service.ID, plan.Timeouts)
 	if err != nil {
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service deployment, got error: %s", err))
+		// If we receive an error, attempt to delete the service to avoid having an orphaned instance.
+		_, err = r.client.DeleteService(context.Background(), response.Service.ID)
+		if err != nil {
+			resp.Diagnostics.AddWarning("Error Deleting Resource", "error occurred attempting to delete the resource that timed out, please check your Timescale account to verify there is no unexpected service running from Terraform")
+		}
 		return
 	}
 	resourceModel := serviceToResource(service, plan)

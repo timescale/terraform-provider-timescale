@@ -61,6 +61,24 @@ func TestServiceResource_Default_Success(t *testing.T) {
 	})
 }
 
+func TestServiceResource_Timeout(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: newServiceConfig(Config{
+					Name: "service resource test timeout",
+					Timeouts: Timeouts{
+						Create: "1s",
+					},
+				}),
+				ExpectError: regexp.MustCompile(ErrCreateTimeout),
+			},
+		},
+	})
+}
+
 func TestServiceResource_CustomConf(t *testing.T) {
 	// Test resource creation succeeds and update is not allowed
 	resource.Test(t, resource.TestCase{

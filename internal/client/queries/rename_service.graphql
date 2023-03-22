@@ -1,0 +1,7 @@
+mutation RenameService($projectId: ID!, $serviceId: ID!, $newName: String!) {
+    renameService (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        newName: $newName
+    })
+}

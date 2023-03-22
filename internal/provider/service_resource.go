@@ -12,7 +12,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -105,6 +107,9 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "Flag to enable storage autoscaling",
 				Optional:            true,
 				Computed:            true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"milli_cpu": schema.Int64Attribute{
 				MarkdownDescription: "Milli CPU",
@@ -151,16 +156,25 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "The hostname for this service",
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"port": schema.Int64Attribute{
 				Description:         "The port for this service",
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"username": schema.StringAttribute{
 				Description:         "The Postgres user for this service",
 				MarkdownDescription: "The Postgres user for this service",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -296,10 +310,32 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if !plan.Name.Equal(state.ID) {
-		resp.Diagnostics.AddError("Unsupported operation", ErrUpdateService)
+	if plan.EnableStorageAutoscaling != state.EnableStorageAutoscaling {
+		resp.Diagnostics.AddError("Do not support autoscaling option change (not yet implemented)", ErrUpdateService)
 		return
 	}
+
+	if plan.Hostname != state.Hostname {
+		resp.Diagnostics.AddError("Do not support hostname change", ErrUpdateService)
+		return
+	}
+
+	if plan.Username != state.Username {
+		resp.Diagnostics.AddError("Do not support username change", ErrUpdateService)
+		return
+	}
+
+	if plan.Port != state.Port {
+		resp.Diagnostics.AddError("Do not support port change", ErrUpdateService)
+		return
+	}
+
+	if !plan.Name.Equal(state.Name) {
+		if err := r.client.RenameService(ctx, state.ID.ValueString(), plan.Name.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
+		}
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

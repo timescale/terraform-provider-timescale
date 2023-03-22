@@ -99,6 +99,31 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 	return &resp.Data.CreateServiceResponse, nil
 }
 
+func (c *Client) RenameService(ctx context.Context, serviceID string, newName string) error {
+	tflog.Trace(ctx, "Client.RenameService")
+
+	req := map[string]interface{}{
+		"operationName": "RenameService",
+		"query":         RenameServiceMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"newName":   newName,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
 func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.GetService")
 	req := map[string]interface{}{

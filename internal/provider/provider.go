@@ -50,13 +50,11 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 		MarkdownDescription: "The Terraform provider for [Timescale Cloud](https://console.cloud.timescale.com/).",
 		Attributes: map[string]schema.Attribute{
 			"access_token": schema.StringAttribute{
-				// TODO: Document once client credentials is available
 				MarkdownDescription: "Access Token",
 				Optional:            true,
 				Sensitive:           true,
 			},
 			"project_id": schema.StringAttribute{
-				// TODO: Document how a user should find their project id
 				MarkdownDescription: "Project ID",
 				Optional:            true,
 			},

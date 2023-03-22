@@ -1,7 +1,7 @@
-mutation ResizeInstance($projectId: ID!, $serviceId: ID!, $resourceConfig: ResourceConfig!) {
+mutation ResizeInstance($projectId: ID!, $serviceId: ID!, $config: ResourceConfig!) {
     resizeInstance (data:{
         serviceId: $serviceId,
         projectId: $projectId,
-        config: $resourceConfig
+        config: $config
     })
 }

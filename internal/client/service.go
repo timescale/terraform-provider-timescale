@@ -135,7 +135,7 @@ func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config Re
 
 	req := map[string]interface{}{
 		"operationName": "ResizeInstance",
-		"query":         RenameServiceMutation,
+		"query":         ResizeInstanceMutation,
 		"variables": map[string]any{
 			"projectId": c.projectID,
 			"serviceId": serviceID,

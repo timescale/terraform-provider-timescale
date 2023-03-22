@@ -333,8 +333,21 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plan.Name.Equal(state.Name) {
 		if err := r.client.RenameService(ctx, state.ID.ValueString(), plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
+			return
 		}
 	}
+
+	if !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB) || !plan.StorageGB.Equal(state.StorageGB) {
+		if err := r.client.ResizeInstance(ctx, state.ID.ValueString(), tsClient.ResourceConfig{
+			MilliCPU:  strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
+			MemoryGB:  strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
+			StorageGB: strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
+		}); err != nil {
+			resp.Diagnostics.AddError("Failed to resize an instance", err.Error())
+			return
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

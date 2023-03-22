@@ -11,11 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	helper "github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -99,6 +100,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Computed: true,
 			},
 			"enable_storage_autoscaling": schema.BoolAttribute{
+				Default:             booldefault.StaticBool(DefaultEnableStorageAutoscaling),
 				MarkdownDescription: "Enable Storage Autoscaling",
 				Description:         "Flag to enable storage autoscaling",
 				Optional:            true,
@@ -109,6 +111,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "Milli CPU",
 				Optional:            true,
 				Computed:            true,
+				Default:             int64default.StaticInt64(DefaultMilliCPU),
 				Validators: []validator.Int64{
 					int64validator.OneOf(milliCPUSizes...),
 					multiplyvalidator.EqualToMultipleOf(250, path.Expressions{
@@ -121,6 +124,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "Storage GB",
 				Optional:            true,
 				Computed:            true,
+				Default:             int64default.StaticInt64(DefaultStorageGB),
 				Validators:          []validator.Int64{int64validator.OneOf(storageSizes...)},
 			},
 			"memory_gb": schema.Int64Attribute{
@@ -128,6 +132,7 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "Memory GB",
 				Optional:            true,
 				Computed:            true,
+				Default:             int64default.StaticInt64(DefaultMemoryGB),
 				Validators:          []validator.Int64{int64validator.OneOf(memorySizes...)},
 			},
 			"timeouts": timeouts.Attributes(ctx, timeouts.Opts{
@@ -194,10 +199,10 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
 		Name:                     plan.Name.ValueString(),
-		EnableStorageAutoscaling: useDefaultIfEmptyBool(plan.EnableStorageAutoscaling, DefaultEnableStorageAutoscaling),
-		MilliCPU:                 useDefaultIfEmpty(plan.MilliCPU, DefaultMilliCPU),
-		StorageGB:                useDefaultIfEmpty(plan.StorageGB, DefaultStorageGB),
-		MemoryGB:                 useDefaultIfEmpty(plan.MemoryGB, DefaultMemoryGB),
+		EnableStorageAutoscaling: plan.EnableStorageAutoscaling.ValueBool(),
+		MilliCPU:                 strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
+		StorageGB:                strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
+		MemoryGB:                 strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
 	})
 
 	if err != nil {
@@ -217,20 +222,6 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
-}
-
-func useDefaultIfEmpty(value basetypes.Int64Value, defaultValue int64) string {
-	if !value.IsUnknown() {
-		return strconv.FormatInt(value.ValueInt64(), 10)
-	}
-	return strconv.FormatInt(defaultValue, 10)
-}
-
-func useDefaultIfEmptyBool(value basetypes.BoolValue, defaultValue bool) bool {
-	if !value.IsUnknown() {
-		return value.ValueBool()
-	}
-	return defaultValue
 }
 
 func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (*tsClient.Service, error) {

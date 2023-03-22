@@ -30,6 +30,10 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "hostname"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "username"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "port"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "enable_storage_autoscaling", "true"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "storage_gb", "10"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 				),
 			},
 			// Update service name failing
@@ -129,7 +133,6 @@ func newServiceConfig(config Config) string {
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "resource" {
 					name = %q
-					enable_storage_autoscaling = false
 					timeouts = {
 						create = %q
 					}

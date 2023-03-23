@@ -66,16 +66,10 @@ func NewClient(token, projectID, env, terraformVersion string) *Client {
 }
 
 func getURL(env string) string {
-	url := "https://console.cloud.timescale.com/api/query"
-	if env != "test" {
-		return url
+	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
+		return value
 	}
-	// This environment variable is used to configure the client for testing.
-	value, ok := os.LookupEnv("TIMESCALE_DEV_URL")
-	if !ok {
-		return url
-	}
-	return value
+	return "https://console.cloud.timescale.com/api/query"
 }
 
 type JWTFromCCResponse struct {

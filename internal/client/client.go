@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -94,6 +95,12 @@ func JWTFromCC(c *Client, accessKey, secretKey string) error {
 
 	if err := c.do(context.Background(), req, &resp); err != nil {
 		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
 	}
 	c.token = resp.Data.Token
 	return nil

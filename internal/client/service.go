@@ -124,6 +124,41 @@ func (c *Client) RenameService(ctx context.Context, serviceID string, newName st
 	return nil
 }
 
+type ResourceConfig struct {
+	MilliCPU  string
+	StorageGB string
+	MemoryGB  string
+}
+
+func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config ResourceConfig) error {
+	tflog.Trace(ctx, "Client.ResizeInstance")
+
+	req := map[string]interface{}{
+		"operationName": "ResizeInstance",
+		"query":         ResizeInstanceMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"config": map[string]string{
+				"milliCPU":  config.MilliCPU,
+				"storageGB": config.StorageGB,
+				"memoryGB":  config.MemoryGB,
+			},
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
 func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.GetService")
 	req := map[string]interface{}{

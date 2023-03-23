@@ -45,6 +45,18 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
 				),
 			},
+			// Do a compute resize
+			{
+				Config: newServiceComputeResizeConfig(Config{
+					Name:     "service resource test update",
+					MilliCPU: 1000,
+					MemoryGB: 4,
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "1000"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "4"),
+				),
+			},
 		},
 	})
 }
@@ -136,6 +148,21 @@ func newServiceConfig(config Config) string {
 						create = %q
 					}
 				}`, config.Name, config.Timeouts.Create)
+}
+
+func newServiceComputeResizeConfig(config Config) string {
+	if config.Timeouts.Create == "" {
+		config.Timeouts.Create = "10m"
+	}
+	return providerConfig + fmt.Sprintf(`
+				resource "timescale_service" "resource" {
+					name = %q
+					milli_cpu  = %d
+					memory_gb  = %d
+					timeouts = {
+						create = %q
+					}
+				}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
 }
 
 func newServiceCustomConfig(config Config) string {

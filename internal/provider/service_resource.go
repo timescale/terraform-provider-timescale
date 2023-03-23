@@ -332,8 +332,38 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plan.Name.Equal(state.Name) {
 		if err := r.client.RenameService(ctx, state.ID.ValueString(), plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
+			return
 		}
 	}
+
+	{
+		isResizeRequested := false
+		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
+		resizeConfig := tsClient.ResourceConfig{
+			MilliCPU:  noop,
+			MemoryGB:  noop,
+			StorageGB: noop,
+		}
+
+		if !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB) {
+			isResizeRequested = true
+			resizeConfig.MilliCPU = strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10)
+			resizeConfig.MemoryGB = strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10)
+		}
+
+		if !plan.StorageGB.Equal(state.StorageGB) {
+			isResizeRequested = true
+			resizeConfig.StorageGB = strconv.FormatInt(plan.StorageGB.ValueInt64(), 10)
+		}
+
+		if isResizeRequested {
+			if err := r.client.ResizeInstance(ctx, state.ID.ValueString(), resizeConfig); err != nil {
+				resp.Diagnostics.AddError("Failed to resize an instance", err.Error())
+				return
+			}
+		}
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

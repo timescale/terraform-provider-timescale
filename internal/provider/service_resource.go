@@ -309,6 +309,8 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	serviceID := state.ID.ValueString()
+
 	if plan.EnableStorageAutoscaling != state.EnableStorageAutoscaling {
 		resp.Diagnostics.AddError("Do not support autoscaling option change (not yet implemented)", ErrUpdateService)
 		return
@@ -330,7 +332,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	if !plan.Name.Equal(state.Name) {
-		if err := r.client.RenameService(ctx, state.ID.ValueString(), plan.Name.ValueString()); err != nil {
+		if err := r.client.RenameService(ctx, serviceID, plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
 			return
 		}
@@ -357,14 +359,26 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 
 		if isResizeRequested {
-			if err := r.client.ResizeInstance(ctx, state.ID.ValueString(), resizeConfig); err != nil {
+			if err := r.client.ResizeInstance(ctx, serviceID, resizeConfig); err != nil {
 				resp.Diagnostics.AddError("Failed to resize an instance", err.Error())
 				return
 			}
 		}
 	}
 
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	service, err := r.waitForServiceReadiness(ctx, serviceID, plan.Timeouts)
+	if err != nil {
+		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service reconfiguration, got error: %s", err))
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, serviceToResource(service, plan))...)
+
+	if resp.Diagnostics.HasError() {
+		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
+		return
+	}
+
 }
 
 func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

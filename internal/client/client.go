@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,16 +68,10 @@ func NewClient(token, projectID, env, terraformVersion string) *Client {
 }
 
 func getURL(env string) string {
-	url := "https://console.cloud.timescale.com/api/query"
-	if env != "test" {
-		return url
+	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
+		return value
 	}
-	// This environment variable is used to configure the client for testing.
-	value, ok := os.LookupEnv("TIMESCALE_DEV_URL")
-	if !ok {
-		return url
-	}
-	return value
+	return "https://console.cloud.timescale.com/api/query"
 }
 
 type JWTFromCCResponse struct {
@@ -96,6 +91,12 @@ func JWTFromCC(c *Client, accessKey, secretKey string) error {
 
 	if err := c.do(context.Background(), req, &resp); err != nil {
 		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
 	}
 	c.token = resp.Data.Token
 	return nil

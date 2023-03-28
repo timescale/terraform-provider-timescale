@@ -53,7 +53,7 @@ resource "timescale_service" "test" {
 
 ## Local Provider Usage and Development
 #### Requirements
-- [Go](https://go.dev) >= v1.18
+- [Go](https://go.dev) >= v1.20
 
 #### Building The Provider
 1. Clone the repository

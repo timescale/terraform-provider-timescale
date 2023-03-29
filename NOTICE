@@ -19,7 +19,8 @@ NOTICES
 ========================================================================
 
 Certain files in this code base have been modified and/or copied,
-either partially or wholely, from source code from <to be added>, which is 
-licensed under the <license name>.
+either partially or wholely, from source code from the Terraform Provider 
+Scaffolding project, which is licensed under the Mozilla Public License 
+Version 2.0.
 
-<link to an example provider that we may have started with>
+https://github.com/hashicorp/terraform-provider-scaffolding-framework

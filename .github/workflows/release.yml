@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: non-prod
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # v3.3.0
         with:
@@ -30,11 +30,11 @@ jobs:
         id: import_gpg
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.PASSPHRASE }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@f82d6c1c344bcacabba2c841718984797f664a6b # v4.2.0
         with:
-          args: release --rm-dist
+          args: release --clean
         env:
           # GitHub sets the GITHUB_TOKEN secret automatically.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

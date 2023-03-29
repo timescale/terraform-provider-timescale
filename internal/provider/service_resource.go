@@ -20,8 +20,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-
-	helper "github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 	multiplyvalidator "github.com/timescale/terraform-provider-timescale/internal/utils"
@@ -252,7 +251,7 @@ func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string
 		return nil, fmt.Errorf("unable to get timeout from config %v", diags.Errors())
 	}
 
-	conf := helper.StateChangeConf{
+	conf := retry.StateChangeConf{
 		Pending:                   []string{"QUEUED", "CONFIGURING", "UNSTABLE"},
 		Target:                    []string{"READY"},
 		Delay:                     10 * time.Second,

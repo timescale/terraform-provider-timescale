@@ -50,6 +50,10 @@ resource "timescale_service" "test" {
 }
 ```
 
+## Billing
+Services are currently billed for hourly usage. If a service is running for less than an hour, 
+it will still be charged for the full hour of usage.
+
 
 ## Local Provider Usage and Development
 #### Requirements

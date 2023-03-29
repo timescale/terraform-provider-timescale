@@ -18,7 +18,7 @@ Create a `main.tf` configuration file with the following content.
 terraform {
   required_providers {
     timescale = {
-      source  = "registry.terraform.io/providers/timescale"
+      source  = "timescale/timescale"
       version = "x.y.z"
     }
   }

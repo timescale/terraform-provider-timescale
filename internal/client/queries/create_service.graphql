@@ -1,11 +1,12 @@
 mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceConfig:
-    ResourceConfig, $enableStorageAutoscaling: Boolean) {
+    ResourceConfig, $enableStorageAutoscaling: Boolean, $regionCode: String!) {
     createService(data:{
         projectId:$projectId,
         name:$name,
         type:$type,
         resourceConfig:$resourceConfig,
         enableStorageAutoscaling:$enableStorageAutoscaling,
+        regionCode:$regionCode
     }){
         initialPassword
         service {

@@ -36,11 +36,12 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 type Config struct {
-	Name      string
-	Timeouts  Timeouts
-	MilliCPU  int64
-	MemoryGB  int64
-	StorageGB int64
+	Name       string
+	Timeouts   Timeouts
+	MilliCPU   int64
+	MemoryGB   int64
+	StorageGB  int64
+	RegionCode string
 }
 
 type Timeouts struct {

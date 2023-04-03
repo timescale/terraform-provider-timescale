@@ -34,6 +34,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "storage_gb", "10"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
 				),
 			},
 			// Update service name
@@ -105,16 +106,25 @@ func TestServiceResource_CustomConf(t *testing.T) {
 				}),
 				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
 			},
-			// Create with custom conf
+			// Invalid conf storage invalid region
 			{
 				Config: newServiceCustomConfig(Config{
-					Name:      "service resource test conf",
-					MilliCPU:  1000,
-					MemoryGB:  4,
-					StorageGB: 25,
+					RegionCode: "test-invalid-region",
+				}),
+				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
+			},
+			// Create with custom conf and region
+			{
+				Config: newServiceCustomConfig(Config{
+					Name:       "service resource test conf",
+					RegionCode: "eu-central-1",
+					MilliCPU:   1000,
+					MemoryGB:   4,
+					StorageGB:  25,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test conf"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "eu-central-1"),
 				),
 			},
 		},
@@ -197,5 +207,6 @@ func newServiceCustomConfig(config Config) string {
 					milli_cpu  = %d
 					memory_gb  = %d
 					storage_gb = %d
-				}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB)
+					region_code = %q
+				}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode)
 }

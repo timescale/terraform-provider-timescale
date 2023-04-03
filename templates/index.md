@@ -50,6 +50,7 @@ resource "timescale_service" "test" {
   # milli_cpu  = 500
   # memory_gb  = 2
   # storage_gb = 10
+  # region_code = "us-east-1"
 }
 ```
 

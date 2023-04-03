@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -16,6 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -46,6 +48,7 @@ var (
 	storageSizes  = []int64{10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 800, 9000, 10000, 12000, 14000, 16000}
 	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
 	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
+	regionCodes   = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
 )
 
 func NewServiceResource() resource.Resource {
@@ -70,6 +73,7 @@ type serviceResourceModel struct {
 	Hostname                 types.String   `tfsdk:"hostname"`
 	Port                     types.Int64    `tfsdk:"port"`
 	Username                 types.String   `tfsdk:"username"`
+	RegionCode               types.String   `tfsdk:"region_code"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -174,6 +178,14 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"region_code": schema.StringAttribute{
+				Description:         `The region for this service`,
+				MarkdownDescription: "The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2",
+				Optional:            true,
+				Computed:            true,
+				Default:             stringdefault.StaticString("us-east-1"),
+				Validators:          []validator.String{stringvalidator.OneOf(regionCodes...)},
+			},
 		},
 	}
 }
@@ -215,6 +227,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		MilliCPU:                 strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
 		StorageGB:                strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
 		MemoryGB:                 strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
+		RegionCode:               plan.RegionCode.ValueString(),
 	})
 
 	if err != nil {
@@ -335,6 +348,11 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	if plan.RegionCode != state.RegionCode {
+		resp.Diagnostics.AddError("Do not support region code change", ErrUpdateService)
+		return
+	}
+
 	if !plan.Name.Equal(state.Name) {
 		if err := r.client.RenameService(ctx, serviceID, plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
@@ -424,6 +442,7 @@ func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceR
 		Hostname:                 types.StringValue(s.ServiceSpec.Hostname),
 		Username:                 types.StringValue(s.ServiceSpec.Username),
 		Port:                     types.Int64Value(s.ServiceSpec.Port),
+		RegionCode:               types.StringValue(s.RegionCode),
 		Timeouts:                 state.Timeouts,
 	}
 }

@@ -44,6 +44,7 @@ type CreateServiceRequest struct {
 	MilliCPU                 string
 	StorageGB                string
 	MemoryGB                 string
+	RegionCode               string
 }
 
 type CreateServiceResponseData struct {
@@ -78,6 +79,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 			"name":                     request.Name,
 			"enableStorageAutoscaling": request.EnableStorageAutoscaling,
 			"type":                     "TIMESCALEDB",
+			"regionCode":               request.RegionCode,
 			"resourceConfig": map[string]string{
 				"milliCPU":     request.MilliCPU,
 				"storageGB":    request.StorageGB,

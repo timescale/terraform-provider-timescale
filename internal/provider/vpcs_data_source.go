@@ -82,7 +82,6 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		)
 		return
 	}
-	fmt.Printf("len %v\n", len(vpcs))
 	// Map response body to model
 	for _, vpc := range vpcs {
 		vpcId, err := strconv.ParseInt(vpc.ID, 10, 64)

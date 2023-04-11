@@ -10,6 +10,8 @@ The Terraform provider for [Timescale Cloud](https://www.timescale.com/cloud).
 When you log in to your [Timescale Cloud Account](https://console.cloud.timescale.com/), navigate to the `Project settings` page. 
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
+Find more information on creating Client Credentials in the [Timescale Cloud docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
+
 ### Project ID
 The project ID can be found from the `Services` dashboard. In the upper right-hand side of the page, click on the three vertical dots to view the project ID. 
 

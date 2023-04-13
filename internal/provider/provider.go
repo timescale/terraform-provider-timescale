@@ -122,6 +122,7 @@ func (p *TimescaleProvider) DataSources(ctx context.Context) []func() datasource
 	return []func() datasource.DataSource{
 		NewProductsDataSource,
 		NewServiceDataSource,
+		NewVpcsDataSource,
 	}
 }
 

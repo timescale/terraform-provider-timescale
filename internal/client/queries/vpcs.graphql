@@ -1,0 +1,25 @@
+ query GetAllVpcs($projectId: ID!) {
+    getAllVpcs(projectId: $projectId) {
+      id
+      projectId
+      cidr
+      name
+      created
+      updated
+      peeringConnections {
+        id
+        vpcId
+        peerVpc {
+          id
+          accountId
+          regionCode
+          cidr
+        }
+        errorMessage
+        status
+      }
+      errorMessage
+      status
+      regionCode
+    }
+  }

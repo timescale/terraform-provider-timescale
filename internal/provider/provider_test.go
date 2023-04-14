@@ -48,6 +48,7 @@ type Config struct {
 	StorageGB       int64
 	RegionCode      string
 	EnableHAReplica bool
+	VpcID           int64
 }
 
 type Timeouts struct {

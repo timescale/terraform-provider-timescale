@@ -189,10 +189,6 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         `The VpcID this service is tied to`,
 				MarkdownDescription: "The VpcID this service is tied to",
 				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 	}
@@ -235,14 +231,18 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		replicaCount = 1
 	}
 
-	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
+	request := tsClient.CreateServiceRequest{
 		Name:         plan.Name.ValueString(),
 		MilliCPU:     strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
 		StorageGB:    strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
 		MemoryGB:     strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
 		RegionCode:   plan.RegionCode.ValueString(),
 		ReplicaCount: strconv.FormatInt(replicaCount, 10),
-	})
+	}
+	if !plan.VpcId.IsNull() {
+		request.VpcID = plan.VpcId.ValueInt64()
+	}
+	response, err := r.client.CreateService(ctx, request)
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
@@ -361,8 +361,14 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support region code change")
 		return
 	}
+
 	if plan.EnableHAReplica != state.EnableHAReplica {
-		resp.Diagnostics.AddError("Do not support HA Replica change (not yet implemented)", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support HA Replica change (not yet implemented)")
+		return
+	}
+
+	if !plan.VpcId.Equal(state.VpcId) {
+		resp.Diagnostics.AddError(ErrUpdateService, fmt.Sprintf("Do not support VPC change (not yet implemented) plan %v state %v", plan.VpcId, state.VpcId))
 		return
 	}
 

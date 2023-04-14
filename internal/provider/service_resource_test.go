@@ -34,6 +34,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "storage_gb", "10"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
+					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
 			},
 			// Update service name
@@ -124,21 +125,24 @@ func TestServiceResource_CustomConf(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.custom", "name", "service resource test conf"),
 					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
+					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
 				),
 			},
-			// Create with HA
+			// Create with HA and VPC attached
 			{
-				Config: newServiceCustomConfig("hareplica", Config{
+				Config: newServiceCustomVpcConfig("hareplica", Config{
 					Name:            "service resource test HA",
 					RegionCode:      "us-east-1",
 					MilliCPU:        500,
 					MemoryGB:        2,
 					StorageGB:       10,
 					EnableHAReplica: true,
+					VpcID:           2074, // Default vpc id for test acc
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
 					resource.TestCheckResourceAttr("timescale_service.hareplica", "enable_ha_replica", "true"),
+					resource.TestCheckResourceAttr("timescale_service.hareplica", "vpc_id", "2074"),
 				),
 			},
 		},
@@ -223,4 +227,23 @@ func newServiceCustomConfig(resourceName string, config Config) string {
 			region_code = %q
 			enable_ha_replica = %t
 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.EnableHAReplica)
+}
+
+func newServiceCustomVpcConfig(resourceName string, config Config) string {
+	if config.Timeouts.Create == "" {
+		config.Timeouts.Create = "30m"
+	}
+	return providerConfig + fmt.Sprintf(`
+		resource "timescale_service" "%s" {
+			name = %q
+			timeouts = {
+				create = %q
+			}
+			milli_cpu  = %d
+			memory_gb  = %d
+			storage_gb = %d
+			region_code = %q
+			vpc_id = %d
+			enable_ha_replica = %t
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
 }

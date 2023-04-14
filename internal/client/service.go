@@ -53,6 +53,7 @@ type CreateServiceRequest struct {
 	MemoryGB     string
 	RegionCode   string
 	ReplicaCount string
+	VpcID        int64
 }
 
 type CreateServiceResponseData struct {
@@ -79,21 +80,26 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		request.Name = fmt.Sprintf("db-%d", 10000+r.Intn(90000))
 	}
 
+	variables := map[string]any{
+		"projectId":  c.projectID,
+		"name":       request.Name,
+		"type":       "TIMESCALEDB",
+		"regionCode": request.RegionCode,
+		"resourceConfig": map[string]string{
+			"milliCPU":     request.MilliCPU,
+			"storageGB":    request.StorageGB,
+			"memoryGB":     request.MemoryGB,
+			"replicaCount": request.ReplicaCount,
+		},
+	}
+	if request.VpcID > 0 {
+		variables["vpcId"] = request.VpcID
+	}
+
 	req := map[string]interface{}{
 		"operationName": "CreateService",
 		"query":         CreateServiceMutation,
-		"variables": map[string]any{
-			"projectId":  c.projectID,
-			"name":       request.Name,
-			"type":       "TIMESCALEDB",
-			"regionCode": request.RegionCode,
-			"resourceConfig": map[string]string{
-				"milliCPU":     request.MilliCPU,
-				"storageGB":    request.StorageGB,
-				"memoryGB":     request.MemoryGB,
-				"replicaCount": request.ReplicaCount,
-			},
-		},
+		"variables":     variables,
 	}
 	var resp Response[CreateServiceResponseData]
 	if err := c.do(ctx, req, &resp); err != nil {

@@ -26,6 +26,8 @@ var (
 	DeleteServiceMutation string
 	//go:embed queries/get_service.graphql
 	GetServiceQuery string
+	//go:embed queries/vpcs.graphql
+	GetVPCsQuery string
 	//go:embed queries/products.graphql
 	ProductsQuery string
 	//go:embed queries/jwt_cc.graphql

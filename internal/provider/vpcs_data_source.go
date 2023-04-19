@@ -37,25 +37,24 @@ type vpcsDataSourceModel struct {
 
 // vpcsModel maps vpcs schema data.
 type vpcsModel struct {
-	ID                 types.Int64               `tfsdk:"id"`
-	ProvisionedID      types.String              `tfsdk:"provisioned_id"`
-	ProjectID          types.String              `tfsdk:"project_id"`
-	CIDR               types.String              `tfsdk:"cidr"`
-	Name               types.String              `tfsdk:"name"`
-	RegionCode         types.String              `tfsdk:"region_code"`
-	Status             types.String              `tfsdk:"status"`
-	ErrorMessage       types.String              `tfsdk:"error_message"`
-	Created            types.String              `tfsdk:"created"`
-	Updated            types.String              `tfsdk:"updated"`
-	PeeringConnections []*peeringConnectionModel `tfsdk:"peering_connections"`
+	ID            types.Int64  `tfsdk:"id"`
+	ProvisionedID types.String `tfsdk:"provisioned_id"`
+	CIDR          types.String `tfsdk:"cidr"`
+	Name          types.String `tfsdk:"name"`
+	RegionCode    types.String `tfsdk:"region_code"`
+	Status        types.String `tfsdk:"status"`
+	ErrorMessage  types.String `tfsdk:"error_message"`
+	Created       types.String `tfsdk:"created"`
+	Updated       types.String `tfsdk:"updated"`
+	// PeeringConnections []peeringConnectionModel `tfsdk:"peering_connections"`
 }
 
 type peeringConnectionModel struct {
-	ID           types.Int64     `tfsdk:"id"`
-	VpcID        types.Int64     `tfsdk:"vpc_id"`
-	Status       types.String    `tfsdk:"status"`
-	ErrorMessage types.String    `tfsdk:"error_message"`
-	PeerVpcs     []*peerVpcModel `tfsdk:"peer_vpc"`
+	ID           types.Int64    `tfsdk:"id"`
+	VpcID        types.Int64    `tfsdk:"vpc_id"`
+	Status       types.String   `tfsdk:"status"`
+	ErrorMessage types.String   `tfsdk:"error_message"`
+	PeerVpcs     []peerVpcModel `tfsdk:"peer_vpc"`
 }
 
 type peerVpcModel struct {
@@ -67,7 +66,7 @@ type peerVpcModel struct {
 
 // Metadata returns the data source type name.
 func (d *vpcsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_vpcs"
+	resp.TypeName = req.ProviderTypeName + "_vpc"
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -93,7 +92,6 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			ID:            types.Int64Value(vpcId),
 			Name:          types.StringValue(vpc.Name),
 			ProvisionedID: types.StringValue(vpc.ProvisionedID),
-			ProjectID:     types.StringValue(vpc.ProjectID),
 			CIDR:          types.StringValue(vpc.CIDR),
 			RegionCode:    types.StringValue(vpc.RegionCode),
 			Status:        types.StringValue(vpc.Status),
@@ -113,7 +111,7 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 				resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 				return
 			}
-			peerConn := &peeringConnectionModel{
+			peerConn := peeringConnectionModel{
 				ID:           types.Int64Value(peeringConnID),
 				VpcID:        types.Int64Value(peeringConnVpcID),
 				Status:       types.StringValue(peeringConn.Status),
@@ -125,14 +123,14 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 					resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 					return
 				}
-				peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
+				peerConn.PeerVpcs = append(peerConn.PeerVpcs, peerVpcModel{
 					ID:         types.Int64Value(peerVpcId),
 					AccountID:  types.StringValue(peerVpc.AccountID),
 					CIDR:       types.StringValue(peerVpc.CIDR),
 					RegionCode: types.StringValue(peerVpc.RegionCode),
 				})
 			}
-			vpcState.PeeringConnections = append(vpcState.PeeringConnections, peerConn)
+			// vpcState.PeeringConnections = append(vpcState.PeeringConnections, peerConn)
 		}
 		state.Vpcs = append(state.Vpcs, vpcState)
 	}
@@ -170,9 +168,6 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 						},
 						"provisioned_id": schema.StringAttribute{
-							Computed: true,
-						},
-						"project_id": schema.StringAttribute{
 							Computed: true,
 						},
 						"cidr": schema.StringAttribute{

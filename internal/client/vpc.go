@@ -3,6 +3,9 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -38,6 +41,10 @@ type PeerVpc struct {
 
 type VpcsResponse struct {
 	Vpcs []*VPC `json:"getAllVpcs"`
+}
+
+type CreateVpcResponse struct {
+	Vpc *VPC `json:"createVpc"`
 }
 
 func (c *Client) GetVPCs(ctx context.Context) ([]*VPC, error) {
@@ -110,4 +117,83 @@ func (c *Client) DetachServiceFromVpc(ctx context.Context, serviceID string, vpc
 		return errors.New("no response found")
 	}
 	return nil
+}
+
+func (c *Client) CreateVPC(ctx context.Context, name, cidr, regionCode string) (*VPC, error) {
+	tflog.Trace(ctx, "Client.CreateVPC")
+
+	if name == "" {
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+		name = fmt.Sprintf("db-%d", 10000+r.Intn(90000))
+	}
+
+	req := map[string]interface{}{
+		"operationName": "CreateVpc",
+		"query":         CreateVPCMutation,
+		"variables": map[string]string{
+			"projectId":  c.projectID,
+			"name":       name,
+			"cidr":       cidr,
+			"regionCode": regionCode,
+		},
+	}
+	var resp Response[CreateVpcResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Vpc, nil
+}
+
+func (c *Client) RenameVpc(ctx context.Context, vpcId int64, newName string) ([]*VPC, error) {
+	tflog.Trace(ctx, "Client.GetVPCs")
+	req := map[string]interface{}{
+		"operationName": "RenameVpc",
+		"query":         RenameVpcMutation,
+		"variables": map[string]any{
+			"projectId":  c.projectID,
+			"forgeVpcId": vpcId,
+			"newName":    newName,
+		},
+	}
+	var resp Response[VpcsResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Vpcs, nil
+}
+
+func (c *Client) DeleteVPC(ctx context.Context, id string) (*VPC, error) {
+	tflog.Trace(ctx, "Client.DeleteVPC")
+
+	req := map[string]interface{}{
+		"operationName": "DeleteVpc",
+		"query":         DeleteVPCMutation,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+			"vpcId":     id,
+		},
+	}
+	var resp Response[CreateVpcResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Vpc, nil
 }

@@ -1,7 +1,6 @@
  query GetAllVpcs($projectId: ID!) {
     getAllVpcs(projectId: $projectId) {
       id
-      projectId
       cidr
       name
       created

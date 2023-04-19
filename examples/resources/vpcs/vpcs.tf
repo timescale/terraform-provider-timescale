@@ -20,9 +20,8 @@ provider "timescale" {
   project_id   = var.ts_project_id
 }
 
-data "timescale_vpc" "vpcs" {
-}
-
-output "vpcs_list" {
-  value = data.timescale_vpc.vpcs
+resource "timescale_vpc" "new_vpc" {
+  name        = "test-vpc"
+  cidr        = "10.0.0.0/19"
+  region_code = "us-east-1"
 }

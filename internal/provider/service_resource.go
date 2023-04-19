@@ -427,7 +427,6 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
-
 }
 
 func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

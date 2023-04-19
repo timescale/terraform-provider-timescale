@@ -28,6 +28,10 @@ var (
 	GetServiceQuery string
 	//go:embed queries/vpcs.graphql
 	GetVPCsQuery string
+	//go:embed queries/create_vpc.graphql
+	CreateVPCMutation string
+	//go:embed queries/delete_vpc.graphql
+	DeleteVPCMutation string
 	//go:embed queries/products.graphql
 	ProductsQuery string
 	//go:embed queries/jwt_cc.graphql
@@ -38,6 +42,8 @@ var (
 	DetachServiceFromVPCMutation string
 	//go:embed queries/set_replica_count.graphql
 	SetReplicaCountMutation string
+	//go:embed queries/rename_vpc.graphql
+	RenameVpcMutation string
 )
 
 type Client struct {
@@ -79,7 +85,7 @@ func getURL(env string) string {
 	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
 		return value
 	}
-	return "https://console.cloud.timescale.com/api/query"
+	return "https://api.dev.metronome-cloud.com/api/query"
 }
 
 type JWTFromCCResponse struct {

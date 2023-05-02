@@ -27,6 +27,7 @@ A Service is a TimescaleDB instance.
 
 ### Read-Only
 
+- `ha_replica` (Boolean) Enable an HA Replica for this service
 - `hostname` (String) The hostname for this service
 - `id` (String) Service ID is the unique identifier for this service.
 - `password` (String, Sensitive) The Postgres password for this service. The password is provided once during service creation

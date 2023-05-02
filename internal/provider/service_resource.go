@@ -42,6 +42,7 @@ const (
 	DefaultMemoryGB  = 2
 
 	DefaultEnableStorageAutoscaling = true
+	DefaultHAReplica = false 
 )
 
 var (
@@ -74,6 +75,7 @@ type serviceResourceModel struct {
 	Port                     types.Int64    `tfsdk:"port"`
 	Username                 types.String   `tfsdk:"username"`
 	RegionCode               types.String   `tfsdk:"region_code"`
+	HAReplica                types.Bool     `tfsdk:"ha_replica"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -125,6 +127,13 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 						path.MatchRoot("memory_gb"),
 					}...),
 				},
+			},
+			"ha_replica": schema.BoolAttribute{
+				MarkdownDescription: "HA Replica",
+				Description:         "HA Replica",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(DefaultHAReplica),
 			},
 			"storage_gb": schema.Int64Attribute{
 				MarkdownDescription: "Storage GB",
@@ -221,6 +230,12 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+        // Go has no bool -> int so this is the best I could do
+        var replicaCount int64
+        if plan.HAReplica.ValueBool() {
+          replicaCount = 1
+        }
+
 	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
 		Name:                     plan.Name.ValueString(),
 		EnableStorageAutoscaling: plan.EnableStorageAutoscaling.ValueBool(),
@@ -228,6 +243,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		StorageGB:                strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
 		MemoryGB:                 strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
 		RegionCode:               plan.RegionCode.ValueString(),
+		ReplicaCount:             strconv.FormatInt(replicaCount, 10),
 	})
 
 	if err != nil {
@@ -353,6 +369,11 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	if plan.HAReplica != state.HAReplica {
+		resp.Diagnostics.AddError("Do not support HA Replica change", ErrUpdateService)
+		return
+	}
+
 	if !plan.Name.Equal(state.Name) {
 		if err := r.client.RenameService(ctx, serviceID, plan.Name.ValueString()); err != nil {
 			resp.Diagnostics.AddError("Failed to rename a service", err.Error())
@@ -444,5 +465,6 @@ func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceR
 		Port:                     types.Int64Value(s.ServiceSpec.Port),
 		RegionCode:               types.StringValue(s.RegionCode),
 		Timeouts:                 state.Timeouts,
+	        HAReplica: types.BoolValue(s.ReplicaStatus !=""),
 	}
 }

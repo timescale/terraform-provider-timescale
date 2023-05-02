@@ -22,6 +22,7 @@ type Plan struct {
 	MilliCPU   int64   `json:"milliCPU"`
 	MemoryGB   int64   `json:"memoryGB"`
 	StorageGB  int64   `json:"storageGB"`
+	HAReplica  bool    `json:"haReplica"`
 }
 
 type ProductsResponse struct {

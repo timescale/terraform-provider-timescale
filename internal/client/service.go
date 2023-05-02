@@ -21,6 +21,7 @@ type Service struct {
 	ServiceSpec ServiceSpec    `json:"spec"`
 	Resources   []ResourceSpec `json:"resources"`
 	Created     string         `json:"created"`
+	ReplicaStatus string	   `json:"replicaStatus"`
 }
 
 type ServiceSpec struct {
@@ -45,6 +46,7 @@ type CreateServiceRequest struct {
 	StorageGB                string
 	MemoryGB                 string
 	RegionCode               string
+	ReplicaCount             string
 }
 
 type CreateServiceResponseData struct {
@@ -84,7 +86,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 				"milliCPU":     request.MilliCPU,
 				"storageGB":    request.StorageGB,
 				"memoryGB":     request.MemoryGB,
-				"replicaCount": "0",
+				"replicaCount": request.ReplicaCount,
 			},
 		},
 	}
@@ -130,6 +132,7 @@ type ResourceConfig struct {
 	MilliCPU  string
 	StorageGB string
 	MemoryGB  string
+	ReplicaCount  string
 }
 
 func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config ResourceConfig) error {

@@ -163,6 +163,9 @@ func (d *productsDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 									"storage_gb": schema.Int64Attribute{
 										Computed: true,
 									},
+									"ha_replica": schema.BoolAttribute{
+										Computed: true,
+									},
 								},
 							},
 						},

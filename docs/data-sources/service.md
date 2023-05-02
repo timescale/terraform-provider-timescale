@@ -43,6 +43,7 @@ Read-Only:
 - `memory_gb` (Number) MemoryGB is the memory allocated for this service.
 - `milli_cpu` (Number) MilliCPU is the cpu allocated for this service.
 - `storage_gb` (Number) StorageGB is the storage allocated for this service.
+- `ha_replica` (Bool) Is a HA Replica defined for this service.
 
 
 

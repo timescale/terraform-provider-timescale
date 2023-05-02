@@ -51,6 +51,7 @@ type ResourceSpecModel struct {
 	MilliCPU  types.Int64 `tfsdk:"milli_cpu"`
 	MemoryGB  types.Int64 `tfsdk:"memory_gb"`
 	StorageGB types.Int64 `tfsdk:"storage_gb"`
+	HAReplica types.Bool  `tfsdk:"ha_replica"`
 }
 
 func (d *ServiceDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -199,6 +200,7 @@ func serviceToDataModel(s *tsClient.Service) ServiceDataSourceModel {
 				MilliCPU:  types.Int64Value(resource.Spec.MilliCPU),
 				MemoryGB:  types.Int64Value(resource.Spec.MemoryGB),
 				StorageGB: types.Int64Value(resource.Spec.StorageGB),
+				HAReplica: types.BoolValue(s.ReplicaStatus != ""),
 			},
 		})
 	}

@@ -42,7 +42,7 @@ const (
 	DefaultMemoryGB  = 2
 
 	DefaultEnableStorageAutoscaling = true
-	DefaultHAReplica = false 
+	DefaultHAReplica                = false
 )
 
 var (
@@ -230,11 +230,11 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-        // Go has no bool -> int so this is the best I could do
-        var replicaCount int64
-        if plan.HAReplica.ValueBool() {
-          replicaCount = 1
-        }
+	// Enabling HA replica means one replica
+	var replicaCount int64
+	if plan.HAReplica.ValueBool() {
+		replicaCount = 1
+	}
 
 	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
 		Name:                     plan.Name.ValueString(),
@@ -465,6 +465,6 @@ func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceR
 		Port:                     types.Int64Value(s.ServiceSpec.Port),
 		RegionCode:               types.StringValue(s.RegionCode),
 		Timeouts:                 state.Timeouts,
-	        HAReplica: types.BoolValue(s.ReplicaStatus !=""),
+		HAReplica:                types.BoolValue(s.ReplicaStatus != ""),
 	}
 }

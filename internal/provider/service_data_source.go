@@ -123,6 +123,11 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 									Description:         "StorageGB is the storage allocated for this service.",
 									Computed:            true,
 								},
+								"ha_replica": schema.BoolAttribute{
+									MarkdownDescription: "Is a HA Replica defined for this service.",
+									Description:         "Is a HA Replica defined for this service.",
+									Computed:            true,
+								},
 							},
 						},
 					},

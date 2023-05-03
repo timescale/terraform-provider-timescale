@@ -1,5 +1,5 @@
-# Timescale Cloud Terraform Provider
-The Terraform provider for [Timescale Cloud](https://www.timescale.com/cloud).
+# Timescale Terraform Provider
+The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 
 ## Requirements
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
@@ -7,7 +7,7 @@ The Terraform provider for [Timescale Cloud](https://www.timescale.com/cloud).
 ## Quick Start
 
 ### Authorization
-When you log in to your [Timescale Cloud Account](https://console.cloud.timescale.com/), navigate to the `Project settings` page.
+When you log in to your [Timescale Account](https://console.cloud.timescale.com/), navigate to the `Project settings` page.
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
 ### Project ID
@@ -25,7 +25,7 @@ terraform {
 }
 
 # Authenticate using client credentials.
-# They are issued through the Timescale Cloud UI.
+# They are issued through the Timescale UI.
 # When required, they will exchange for a short-lived JWT to do the calls.
 provider "timescale" {
   project_id = var.ts_project_id

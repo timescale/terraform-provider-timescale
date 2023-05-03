@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/providervalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
@@ -17,7 +17,7 @@ import (
 )
 
 // Ensure TimescaleProvider satisfies various provider interfaces.
-var _ provider.Provider = &TimescaleProvider{}
+var _ provider.ProviderWithConfigValidators = &TimescaleProvider{}
 
 // TimescaleProvider defines the provider implementation.
 type TimescaleProvider struct {
@@ -56,7 +56,7 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
-				Optional:            true,
+				Required:            true,
 			},
 			"access_key": schema.StringAttribute{
 				MarkdownDescription: "Access Key",
@@ -71,14 +71,22 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 	}
 }
 
-func (p *TimescaleProvider) ConfigValidators(ctx context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.Conflicting(
+func (p *TimescaleProvider) ConfigValidators(ctx context.Context) []provider.ConfigValidator {
+	return []provider.ConfigValidator{
+		providervalidator.Conflicting(
 			path.MatchRoot("access_token"),
 			path.MatchRoot("access_key"),
 		),
-		resourcevalidator.Conflicting(
+		providervalidator.Conflicting(
 			path.MatchRoot("access_token"),
+			path.MatchRoot("secret_key"),
+		),
+		providervalidator.AtLeastOneOf(
+			path.MatchRoot("access_token"),
+			path.MatchRoot("access_key"),
+		),
+		providervalidator.RequiredTogether(
+			path.MatchRoot("access_key"),
 			path.MatchRoot("secret_key"),
 		),
 	}

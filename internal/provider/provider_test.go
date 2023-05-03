@@ -42,6 +42,7 @@ type Config struct {
 	MemoryGB   int64
 	StorageGB  int64
 	RegionCode string
+	HAEnabled  bool
 }
 
 type Timeouts struct {

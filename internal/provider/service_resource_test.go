@@ -127,6 +127,17 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "eu-central-1"),
 				),
 			},
+			// Create with HA
+			{
+				Config: newServiceCustomConfig(Config{
+					Name:      "service resource test HA",
+					HAEnabled: true,
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test HA"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replica", "true"),
+				),
+			},
 		},
 	})
 }
@@ -183,14 +194,14 @@ func newServiceComputeResizeConfig(config Config) string {
 		config.Timeouts.Create = "10m"
 	}
 	return providerConfig + fmt.Sprintf(`
-				resource "timescale_service" "resource" {
-					name = %q
-					milli_cpu  = %d
-					memory_gb  = %d
-					timeouts = {
-						create = %q
-					}
-				}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
+		resource "timescale_service" "resource" {
+			name = %q
+			milli_cpu  = %d
+			memory_gb  = %d
+			timeouts = {
+				create = %q
+			}
+		}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
 }
 
 func newServiceCustomConfig(config Config) string {
@@ -198,15 +209,16 @@ func newServiceCustomConfig(config Config) string {
 		config.Timeouts.Create = "30m"
 	}
 	return providerConfig + fmt.Sprintf(`
-				resource "timescale_service" "resource" {
-					name = %q
-					enable_storage_autoscaling = false
-					timeouts = {
-						create = %q
-					}
-					milli_cpu  = %d
-					memory_gb  = %d
-					storage_gb = %d
-					region_code = %q
-				}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode)
+		resource "timescale_service" "resource" {
+			name = %q
+			enable_storage_autoscaling = false
+			timeouts = {
+				create = %q
+			}
+			milli_cpu  = %d
+			memory_gb  = %d
+			storage_gb = %d
+			region_code = %q
+			ha_enabled = %t
+		}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.HAEnabled)
 }

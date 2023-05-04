@@ -17,6 +17,7 @@ A Service is a TimescaleDB instance.
 
 ### Optional
 
+- `enable_ha_replica` (Boolean) Enable HA Replica
 - `enable_storage_autoscaling` (Boolean) Enable Storage Autoscaling. Please refer to the [docs](https://docs.timescale.com/cloud/latest/service-operations/autoscaling/).
 - `memory_gb` (Number) Memory GB
 - `milli_cpu` (Number) Milli CPU

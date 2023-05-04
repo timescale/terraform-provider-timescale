@@ -9,6 +9,7 @@ query GetService($projectId: ID!, $serviceId: ID!) {
         type
         created
         status
+        replicaStatus 
         autoscaleSettings {
             enabled
         }

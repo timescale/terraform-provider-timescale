@@ -88,7 +88,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Invalid conf millicpu & memory invalid ratio
 			{
-				Config: newServiceCustomConfig(Config{
+				Config: newServiceCustomConfig("invalid", Config{
 					Name:      "service resource test conf",
 					MilliCPU:  2000,
 					MemoryGB:  2,
@@ -98,7 +98,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			},
 			// Invalid conf storage invalid value
 			{
-				Config: newServiceCustomConfig(Config{
+				Config: newServiceCustomConfig("invalid", Config{
 					Name:      "service resource test conf",
 					MilliCPU:  500,
 					MemoryGB:  2,
@@ -108,14 +108,14 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			},
 			// Invalid conf storage invalid region
 			{
-				Config: newServiceCustomConfig(Config{
+				Config: newServiceCustomConfig("invalid", Config{
 					RegionCode: "test-invalid-region",
 				}),
 				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
 			},
 			// Create with custom conf and region
 			{
-				Config: newServiceCustomConfig(Config{
+				Config: newServiceCustomConfig("custom", Config{
 					Name:       "service resource test conf",
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
@@ -123,8 +123,23 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					StorageGB:  25,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test conf"),
-					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "eu-central-1"),
+					resource.TestCheckResourceAttr("timescale_service.custom", "name", "service resource test conf"),
+					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
+				),
+			},
+			// Create with HA
+			{
+				Config: newServiceCustomConfig("hareplica", Config{
+					Name:            "service resource test HA",
+					RegionCode:      "us-east-1",
+					MilliCPU:        500,
+					MemoryGB:        2,
+					StorageGB:       10,
+					EnableHAReplica: true,
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
+					resource.TestCheckResourceAttr("timescale_service.hareplica", "enable_ha_replica", "true"),
 				),
 			},
 		},
@@ -183,30 +198,31 @@ func newServiceComputeResizeConfig(config Config) string {
 		config.Timeouts.Create = "10m"
 	}
 	return providerConfig + fmt.Sprintf(`
-				resource "timescale_service" "resource" {
-					name = %q
-					milli_cpu  = %d
-					memory_gb  = %d
-					timeouts = {
-						create = %q
-					}
-				}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
+		resource "timescale_service" "resource" {
+			name = %q
+			milli_cpu  = %d
+			memory_gb  = %d
+			timeouts = {
+				create = %q
+			}
+		}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
 }
 
-func newServiceCustomConfig(config Config) string {
+func newServiceCustomConfig(resourceName string, config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "30m"
 	}
 	return providerConfig + fmt.Sprintf(`
-				resource "timescale_service" "resource" {
-					name = %q
-					enable_storage_autoscaling = false
-					timeouts = {
-						create = %q
-					}
-					milli_cpu  = %d
-					memory_gb  = %d
-					storage_gb = %d
-					region_code = %q
-				}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode)
+		resource "timescale_service" "%s" {
+			name = %q
+			enable_storage_autoscaling = false
+			timeouts = {
+				create = %q
+			}
+			milli_cpu  = %d
+			memory_gb  = %d
+			storage_gb = %d
+			region_code = %q
+			enable_ha_replica = %t
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.EnableHAReplica)
 }

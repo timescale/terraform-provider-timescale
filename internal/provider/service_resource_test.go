@@ -130,12 +130,12 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Create with HA
 			{
 				Config: newServiceCustomConfig(Config{
-					Name:      "service resource test HA",
-					HAEnabled: true,
+					Name:             "service resource test HA",
+					EnableHAReplica:  true,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test HA"),
-					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replica", "true"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
 				),
 			},
 		},
@@ -219,6 +219,6 @@ func newServiceCustomConfig(config Config) string {
 			memory_gb  = %d
 			storage_gb = %d
 			region_code = %q
-			ha_enabled = %t
-		}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.HAEnabled)
+			enable_ha_replica = %t
+		}`, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.EnableHAReplica)
 }

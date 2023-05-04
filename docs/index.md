@@ -51,7 +51,7 @@ resource "timescale_service" "test" {
   # memory_gb  = 2
   # storage_gb = 10
   # region_code = "us-east-1"
-  # ha_replica = false
+  # enable_ha_replica = false
 }
 ```
 

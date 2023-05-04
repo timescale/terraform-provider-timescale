@@ -48,10 +48,10 @@ type ResourceModel struct {
 }
 
 type ResourceSpecModel struct {
-	MilliCPU  types.Int64 `tfsdk:"milli_cpu"`
-	MemoryGB  types.Int64 `tfsdk:"memory_gb"`
-	StorageGB types.Int64 `tfsdk:"storage_gb"`
-	HAReplica types.Bool  `tfsdk:"ha_replica"`
+	MilliCPU  	types.Int64 `tfsdk:"milli_cpu"`
+	MemoryGB  	types.Int64 `tfsdk:"memory_gb"`
+	StorageGB 	types.Int64 `tfsdk:"storage_gb"`
+	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
 }
 
 func (d *ServiceDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -123,9 +123,9 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 									Description:         "StorageGB is the storage allocated for this service.",
 									Computed:            true,
 								},
-								"ha_replica": schema.BoolAttribute{
-									MarkdownDescription: "Is a HA Replica defined for this service.",
-									Description:         "Is a HA Replica defined for this service.",
+								"enable_ha_replica": schema.BoolAttribute{
+									MarkdownDescription: "EnableHAReplica defines if a replica will be provisioned for this service.",
+									Description:         "EnableHAReplica defines if a replica will be provisioned for this service.",
 									Computed:            true,
 								},
 							},
@@ -205,7 +205,7 @@ func serviceToDataModel(s *tsClient.Service) ServiceDataSourceModel {
 				MilliCPU:  types.Int64Value(resource.Spec.MilliCPU),
 				MemoryGB:  types.Int64Value(resource.Spec.MemoryGB),
 				StorageGB: types.Int64Value(resource.Spec.StorageGB),
-				HAReplica: types.BoolValue(s.ReplicaStatus != ""),
+				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 			},
 		})
 	}

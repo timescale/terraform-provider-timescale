@@ -42,7 +42,7 @@ const (
 	DefaultMemoryGB  = 2
 
 	DefaultEnableStorageAutoscaling = true
-	DefaultHAReplica                = false
+	DefaultEnableHAReplica          = false
 )
 
 var (
@@ -75,7 +75,7 @@ type serviceResourceModel struct {
 	Port                     types.Int64    `tfsdk:"port"`
 	Username                 types.String   `tfsdk:"username"`
 	RegionCode               types.String   `tfsdk:"region_code"`
-	HAReplica                types.Bool     `tfsdk:"ha_replica"`
+	EnableHAReplica          types.Bool     `tfsdk:"enable_ha_replica"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -128,12 +128,12 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 					}...),
 				},
 			},
-			"ha_replica": schema.BoolAttribute{
-				MarkdownDescription: "HA Replica",
-				Description:         "HA Replica",
+			"enable_ha_replica": schema.BoolAttribute{
+				MarkdownDescription: "Enable HA Replica",
+				Description:         "Enable HA Replica",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(DefaultHAReplica),
+				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
 			},
 			"storage_gb": schema.Int64Attribute{
 				MarkdownDescription: "Storage GB",
@@ -232,7 +232,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 	// Enabling HA replica means one replica
 	var replicaCount int64
-	if plan.HAReplica.ValueBool() {
+	if plan.EnableHAReplica.ValueBool() {
 		replicaCount = 1
 	}
 
@@ -368,9 +368,8 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError("Do not support region code change", ErrUpdateService)
 		return
 	}
-
-	if plan.HAReplica != state.HAReplica {
-		resp.Diagnostics.AddError("Do not support HA Replica change", ErrUpdateService)
+	if plan.EnableHAReplica != state.EnableHAReplica {
+		resp.Diagnostics.AddError("Do not support HA Replica change (not yet implemented)", ErrUpdateService)
 		return
 	}
 
@@ -465,6 +464,6 @@ func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceR
 		Port:                     types.Int64Value(s.ServiceSpec.Port),
 		RegionCode:               types.StringValue(s.RegionCode),
 		Timeouts:                 state.Timeouts,
-		HAReplica:                types.BoolValue(s.ReplicaStatus != ""),
+		EnableHAReplica:          types.BoolValue(s.ReplicaStatus != ""),
 	}
 }

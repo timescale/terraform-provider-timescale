@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -34,7 +33,7 @@ var _ resource.ResourceWithImportState = &ServiceResource{}
 
 const (
 	ErrCreateTimeout    = "Error waiting for service creation"
-	ErrUpdateService    = "Updating service name is currently unsupported"
+	ErrUpdateService    = "Error updating service"
 	ErrInvalidAttribute = "Invalid Attribute Value"
 
 	DefaultMilliCPU  = 500
@@ -192,8 +191,10 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				MarkdownDescription: "The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2",
 				Optional:            true,
 				Computed:            true,
-				Default:             stringdefault.StaticString("us-east-1"),
-				Validators:          []validator.String{stringvalidator.OneOf(regionCodes...)},
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{stringvalidator.OneOf(regionCodes...)},
 			},
 		},
 	}
@@ -345,27 +346,27 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	serviceID := state.ID.ValueString()
 
 	if plan.EnableStorageAutoscaling != state.EnableStorageAutoscaling {
-		resp.Diagnostics.AddError("Do not support autoscaling option change (not yet implemented)", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support autoscaling option change (not yet implemented)")
 		return
 	}
 
 	if plan.Hostname != state.Hostname {
-		resp.Diagnostics.AddError("Do not support hostname change", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support hostname change")
 		return
 	}
 
 	if plan.Username != state.Username {
-		resp.Diagnostics.AddError("Do not support username change", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support username change")
 		return
 	}
 
 	if plan.Port != state.Port {
-		resp.Diagnostics.AddError("Do not support port change", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support port change")
 		return
 	}
 
 	if plan.RegionCode != state.RegionCode {
-		resp.Diagnostics.AddError("Do not support region code change", ErrUpdateService)
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support region code change")
 		return
 	}
 	if plan.EnableHAReplica != state.EnableHAReplica {

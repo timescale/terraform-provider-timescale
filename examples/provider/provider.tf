@@ -1,5 +1,5 @@
 # Authenticate using client credentials.
-# They are issued through the Timescale Cloud UI.
+# They are issued through the Timescale UI.
 # When required, they will exchange for a short-lived JWT to do the calls.
 provider "timescale" {
   project_id = var.ts_project_id

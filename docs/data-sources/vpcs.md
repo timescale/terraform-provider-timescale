@@ -57,5 +57,3 @@ Read-Only:
 - `cidr` (String)
 - `id` (Number)
 - `region_code` (String)
-
-

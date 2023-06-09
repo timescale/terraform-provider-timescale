@@ -42,5 +42,3 @@ Read-Only:
 - `product_id` (String)
 - `region_code` (String)
 - `storage_gb` (Number)
-
-

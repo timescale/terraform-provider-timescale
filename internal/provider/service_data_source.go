@@ -48,9 +48,9 @@ type ResourceModel struct {
 }
 
 type ResourceSpecModel struct {
-	MilliCPU  	types.Int64 `tfsdk:"milli_cpu"`
-	MemoryGB  	types.Int64 `tfsdk:"memory_gb"`
-	StorageGB 	types.Int64 `tfsdk:"storage_gb"`
+	MilliCPU        types.Int64 `tfsdk:"milli_cpu"`
+	MemoryGB        types.Int64 `tfsdk:"memory_gb"`
+	StorageGB       types.Int64 `tfsdk:"storage_gb"`
 	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
 }
 
@@ -175,7 +175,7 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	tflog.Info(ctx, "Getting Service: "+id)
 	service, err := d.client.GetService(ctx, id)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
 	state := serviceToDataModel(service)
@@ -202,9 +202,9 @@ func serviceToDataModel(s *tsClient.Service) ServiceDataSourceModel {
 		serviceModel.Resources = append(serviceModel.Resources, ResourceModel{
 			ID: types.StringValue(resource.ID),
 			Spec: ResourceSpecModel{
-				MilliCPU:  types.Int64Value(resource.Spec.MilliCPU),
-				MemoryGB:  types.Int64Value(resource.Spec.MemoryGB),
-				StorageGB: types.Int64Value(resource.Spec.StorageGB),
+				MilliCPU:        types.Int64Value(resource.Spec.MilliCPU),
+				MemoryGB:        types.Int64Value(resource.Spec.MemoryGB),
+				StorageGB:       types.Int64Value(resource.Spec.StorageGB),
 				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 			},
 		})

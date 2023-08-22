@@ -16,12 +16,12 @@ type Service struct {
 	AutoscaleSettings struct {
 		Enabled bool `json:"enabled"`
 	} `json:"autoscaleSettings"`
-	Status      string         `json:"status"`
-	RegionCode  string         `json:"regionCode"`
-	ServiceSpec ServiceSpec    `json:"spec"`
-	Resources   []ResourceSpec `json:"resources"`
-	Created     string         `json:"created"`
-	ReplicaStatus string	   `json:"replicaStatus"`
+	Status        string         `json:"status"`
+	RegionCode    string         `json:"regionCode"`
+	ServiceSpec   ServiceSpec    `json:"spec"`
+	Resources     []ResourceSpec `json:"resources"`
+	Created       string         `json:"created"`
+	ReplicaStatus string         `json:"replicaStatus"`
 }
 
 type ServiceSpec struct {
@@ -40,13 +40,12 @@ type ResourceSpec struct {
 }
 
 type CreateServiceRequest struct {
-	Name                     string
-	EnableStorageAutoscaling bool
-	MilliCPU                 string
-	StorageGB                string
-	MemoryGB                 string
-	RegionCode               string
-	ReplicaCount             string
+	Name         string
+	MilliCPU     string
+	StorageGB    string
+	MemoryGB     string
+	RegionCode   string
+	ReplicaCount string
 }
 
 type CreateServiceResponseData struct {
@@ -77,11 +76,10 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		"operationName": "CreateService",
 		"query":         CreateServiceMutation,
 		"variables": map[string]any{
-			"projectId":                c.projectID,
-			"name":                     request.Name,
-			"enableStorageAutoscaling": request.EnableStorageAutoscaling,
-			"type":                     "TIMESCALEDB",
-			"regionCode":               request.RegionCode,
+			"projectId":  c.projectID,
+			"name":       request.Name,
+			"type":       "TIMESCALEDB",
+			"regionCode": request.RegionCode,
 			"resourceConfig": map[string]string{
 				"milliCPU":     request.MilliCPU,
 				"storageGB":    request.StorageGB,
@@ -129,10 +127,10 @@ func (c *Client) RenameService(ctx context.Context, serviceID string, newName st
 }
 
 type ResourceConfig struct {
-	MilliCPU  string
-	StorageGB string
-	MemoryGB  string
-	ReplicaCount  string
+	MilliCPU     string
+	StorageGB    string
+	MemoryGB     string
+	ReplicaCount string
 }
 
 func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config ResourceConfig) error {

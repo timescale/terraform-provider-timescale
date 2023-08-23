@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -40,8 +39,7 @@ const (
 	DefaultStorageGB = 10
 	DefaultMemoryGB  = 2
 
-	DefaultEnableStorageAutoscaling = true
-	DefaultEnableHAReplica          = false
+	DefaultEnableHAReplica = false
 )
 
 var (
@@ -62,19 +60,18 @@ type ServiceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                       types.String   `tfsdk:"id"`
-	Name                     types.String   `tfsdk:"name"`
-	EnableStorageAutoscaling types.Bool     `tfsdk:"enable_storage_autoscaling"`
-	Timeouts                 timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU                 types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB                types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB                 types.Int64    `tfsdk:"memory_gb"`
-	Password                 types.String   `tfsdk:"password"`
-	Hostname                 types.String   `tfsdk:"hostname"`
-	Port                     types.Int64    `tfsdk:"port"`
-	Username                 types.String   `tfsdk:"username"`
-	RegionCode               types.String   `tfsdk:"region_code"`
-	EnableHAReplica          types.Bool     `tfsdk:"enable_ha_replica"`
+	ID              types.String   `tfsdk:"id"`
+	Name            types.String   `tfsdk:"name"`
+	Timeouts        timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU        types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB       types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB        types.Int64    `tfsdk:"memory_gb"`
+	Password        types.String   `tfsdk:"password"`
+	Hostname        types.String   `tfsdk:"hostname"`
+	Port            types.Int64    `tfsdk:"port"`
+	Username        types.String   `tfsdk:"username"`
+	RegionCode      types.String   `tfsdk:"region_code"`
+	EnableHAReplica types.Bool     `tfsdk:"enable_ha_replica"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -103,16 +100,6 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Optional:            true,
 				// If the name attribute is absent, the provider will generate a default.
 				Computed: true,
-			},
-			"enable_storage_autoscaling": schema.BoolAttribute{
-				Default:             booldefault.StaticBool(DefaultEnableStorageAutoscaling),
-				MarkdownDescription: "Enable Storage Autoscaling. Please refer to the [docs](https://docs.timescale.com/cloud/latest/service-operations/autoscaling/).",
-				Description:         "Flag to enable storage autoscaling",
-				Optional:            true,
-				Computed:            true,
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"milli_cpu": schema.Int64Attribute{
 				MarkdownDescription: "Milli CPU",
@@ -238,13 +225,12 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	response, err := r.client.CreateService(ctx, tsClient.CreateServiceRequest{
-		Name:                     plan.Name.ValueString(),
-		EnableStorageAutoscaling: plan.EnableStorageAutoscaling.ValueBool(),
-		MilliCPU:                 strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
-		StorageGB:                strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
-		MemoryGB:                 strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
-		RegionCode:               plan.RegionCode.ValueString(),
-		ReplicaCount:             strconv.FormatInt(replicaCount, 10),
+		Name:         plan.Name.ValueString(),
+		MilliCPU:     strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
+		StorageGB:    strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
+		MemoryGB:     strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
+		RegionCode:   plan.RegionCode.ValueString(),
+		ReplicaCount: strconv.FormatInt(replicaCount, 10),
 	})
 
 	if err != nil {
@@ -344,11 +330,6 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	serviceID := state.ID.ValueString()
-
-	if plan.EnableStorageAutoscaling != state.EnableStorageAutoscaling {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support autoscaling option change (not yet implemented)")
-		return
-	}
 
 	if plan.Hostname != state.Hostname {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support hostname change")
@@ -453,18 +434,17 @@ func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportSt
 
 func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	return serviceResourceModel{
-		ID:                       types.StringValue(s.ID),
-		Password:                 state.Password,
-		Name:                     types.StringValue(s.Name),
-		EnableStorageAutoscaling: types.BoolValue(s.AutoscaleSettings.Enabled),
-		MilliCPU:                 types.Int64Value(s.Resources[0].Spec.MilliCPU),
-		StorageGB:                types.Int64Value(s.Resources[0].Spec.StorageGB),
-		MemoryGB:                 types.Int64Value(s.Resources[0].Spec.MemoryGB),
-		Hostname:                 types.StringValue(s.ServiceSpec.Hostname),
-		Username:                 types.StringValue(s.ServiceSpec.Username),
-		Port:                     types.Int64Value(s.ServiceSpec.Port),
-		RegionCode:               types.StringValue(s.RegionCode),
-		Timeouts:                 state.Timeouts,
-		EnableHAReplica:          types.BoolValue(s.ReplicaStatus != ""),
+		ID:              types.StringValue(s.ID),
+		Password:        state.Password,
+		Name:            types.StringValue(s.Name),
+		MilliCPU:        types.Int64Value(s.Resources[0].Spec.MilliCPU),
+		StorageGB:       types.Int64Value(s.Resources[0].Spec.StorageGB),
+		MemoryGB:        types.Int64Value(s.Resources[0].Spec.MemoryGB),
+		Hostname:        types.StringValue(s.ServiceSpec.Hostname),
+		Username:        types.StringValue(s.ServiceSpec.Username),
+		Port:            types.Int64Value(s.ServiceSpec.Port),
+		RegionCode:      types.StringValue(s.RegionCode),
+		Timeouts:        state.Timeouts,
+		EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 	}
 }

@@ -55,5 +55,3 @@ Read-Only:
 - `hostname` (String) Hostname is the hostname of this service.
 - `port` (Number) Port is the port assigned to this service.
 - `username` (String) Username is the Postgres username.
-
-

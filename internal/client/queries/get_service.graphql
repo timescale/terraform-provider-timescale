@@ -33,5 +33,10 @@ query GetService($projectId: ID!, $serviceId: ID!) {
             }
         }
         created
+        vpcEndpoint {
+            host
+            port
+            vpcId
+        }
     }
 }

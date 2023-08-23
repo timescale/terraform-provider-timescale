@@ -19,6 +19,10 @@ Service data source
 
 - `id` (String) Service ID is the unique identifier for this service
 
+### Optional
+
+- `vpc_id` (Number) VPC ID this service is linked to.
+
 ### Read-Only
 
 - `created` (String) Created is the time this service was created.

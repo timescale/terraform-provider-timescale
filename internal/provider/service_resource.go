@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -72,6 +73,7 @@ type serviceResourceModel struct {
 	Username        types.String   `tfsdk:"username"`
 	RegionCode      types.String   `tfsdk:"region_code"`
 	EnableHAReplica types.Bool     `tfsdk:"enable_ha_replica"`
+	VpcId           types.Int64    `tfsdk:"vpc_id"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -183,6 +185,15 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				},
 				Validators: []validator.String{stringvalidator.OneOf(regionCodes...)},
 			},
+			"vpc_id": schema.Int64Attribute{
+				Description:         `The VpcID this service is tied to`,
+				MarkdownDescription: "The VpcID this service is tied to",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -249,7 +260,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 		return
 	}
-	resourceModel := serviceToResource(service, plan)
+	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -310,7 +321,7 @@ func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
-	resourceModel := serviceToResource(service, state)
+	resourceModel := serviceToResource(resp.Diagnostics, service, state)
 	// Save updated plan into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -395,8 +406,8 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service reconfiguration, got error: %s", err))
 		return
 	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, serviceToResource(service, plan))...)
+	resources := serviceToResource(resp.Diagnostics, service, plan)
+	resp.Diagnostics.Append(resp.State.Set(ctx, resources)...)
 
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -432,8 +443,8 @@ func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportSt
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
-func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
-	return serviceResourceModel{
+func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
+	model := serviceResourceModel{
 		ID:              types.StringValue(s.ID),
 		Password:        state.Password,
 		Name:            types.StringValue(s.Name),
@@ -447,4 +458,15 @@ func serviceToResource(s *tsClient.Service, state serviceResourceModel) serviceR
 		Timeouts:        state.Timeouts,
 		EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 	}
+	if s.VpcEndpoint != nil {
+		if vpcId, err := strconv.ParseInt(s.VpcEndpoint.VpcId, 10, 64); err != nil {
+			diag.AddError("Parse Error", "could not parse vpcID")
+		} else {
+			model.VpcId = types.Int64Value(vpcId)
+		}
+		model.Hostname = types.StringValue(s.VpcEndpoint.Host)
+		model.Port = types.Int64Value(s.VpcEndpoint.Port)
+	}
+
+	return model
 }

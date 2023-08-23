@@ -22,12 +22,19 @@ type Service struct {
 	Resources     []ResourceSpec `json:"resources"`
 	Created       string         `json:"created"`
 	ReplicaStatus string         `json:"replicaStatus"`
+	VpcEndpoint   *VpcEndpoint   `json:"vpcEndpoint"`
 }
 
 type ServiceSpec struct {
 	Hostname string `json:"hostname"`
 	Username string `json:"username"`
 	Port     int64  `json:"port"`
+}
+
+type VpcEndpoint struct {
+	Host  string `json:"host"`
+	Port  int64  `json:"port"`
+	VpcId string `json:"vpcId"`
 }
 
 type ResourceSpec struct {

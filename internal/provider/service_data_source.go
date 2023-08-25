@@ -3,9 +3,11 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -34,6 +36,7 @@ type ServiceDataSourceModel struct {
 	Spec       SpecModel       `tfsdk:"spec"`
 	Resources  []ResourceModel `tfsdk:"resources"`
 	Created    types.String    `tfsdk:"created"`
+	VpcId      types.Int64     `tfsdk:"vpc_id"`
 }
 
 type SpecModel struct {
@@ -138,6 +141,12 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 				Description:         "Created is the time this service was created.",
 				Computed:            true,
 			},
+			"vpc_id": schema.Int64Attribute{
+				MarkdownDescription: "VPC ID this service is linked to.",
+				Description:         "VPC ID this service is linked to.",
+				Optional:            true,
+				Computed:            true,
+			},
 		},
 	}
 }
@@ -178,7 +187,7 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
-	state := serviceToDataModel(service)
+	state := serviceToDataModel(resp.Diagnostics, service)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -186,7 +195,7 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 }
 
-func serviceToDataModel(s *tsClient.Service) ServiceDataSourceModel {
+func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataSourceModel {
 	serviceModel := ServiceDataSourceModel{
 		ID:         types.StringValue(s.ID),
 		Name:       types.StringValue(s.Name),
@@ -197,6 +206,15 @@ func serviceToDataModel(s *tsClient.Service) ServiceDataSourceModel {
 			Port:     types.Int64Value(s.ServiceSpec.Port),
 		},
 		Created: types.StringValue(s.Created),
+	}
+	if s.VpcEndpoint != nil {
+		if vpcId, err := strconv.ParseInt(s.VpcEndpoint.VpcId, 10, 64); err != nil {
+			diag.AddError("Parse Error", "could not parse vpcID")
+		} else {
+			serviceModel.VpcId = types.Int64Value(vpcId)
+		}
+		serviceModel.Spec.Hostname = types.StringValue(s.VpcEndpoint.Host)
+		serviceModel.Spec.Port = types.Int64Value(s.VpcEndpoint.Port)
 	}
 	for _, resource := range s.Resources {
 		serviceModel.Resources = append(serviceModel.Resources, ResourceModel{

@@ -24,6 +24,7 @@ A Service is a TimescaleDB instance.
 - `region_code` (String) The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2
 - `storage_gb` (Number) Storage GB
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
+- `vpc_id` (Number) The VpcID this service is tied to
 
 ### Read-Only
 

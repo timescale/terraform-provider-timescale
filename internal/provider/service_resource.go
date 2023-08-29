@@ -86,7 +86,10 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 	tflog.Trace(ctx, "ServiceResource.Schema")
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "A Service is a TimescaleDB instance.",
+		MarkdownDescription: `A Service is a TimescaleDB instance.
+
+Please note that when updating the vpc_id attribute, it is possible to encounter a "no Endpoint for that service id exists" error. 
+The change has been taken into account but must still be propagated. You can run "terraform refresh" shortly to get the updated data.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Service ID is the unique identifier for this service.",
@@ -155,17 +158,11 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Description:         "The hostname for this service",
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"port": schema.Int64Attribute{
 				Description:         "The port for this service",
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 			"username": schema.StringAttribute{
 				Description:         "The Postgres user for this service",
@@ -186,9 +183,12 @@ func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest
 				Validators: []validator.String{stringvalidator.OneOf(regionCodes...)},
 			},
 			"vpc_id": schema.Int64Attribute{
-				Description:         `The VpcID this service is tied to`,
-				MarkdownDescription: "The VpcID this service is tied to",
+				Description:         `The VpcID this service is tied to.`,
+				MarkdownDescription: `The VpcID this service is tied to.`,
 				Optional:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -342,7 +342,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	serviceID := state.ID.ValueString()
 
-	if plan.Hostname != state.Hostname {
+	if !plan.Hostname.IsUnknown() {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support hostname change")
 		return
 	}
@@ -352,7 +352,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if plan.Port != state.Port {
+	if !plan.Port.IsUnknown() {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support port change")
 		return
 	}
@@ -363,13 +363,35 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	if plan.EnableHAReplica != state.EnableHAReplica {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support HA Replica change (not yet implemented)")
-		return
+		if plan.EnableHAReplica.ValueBool() {
+			if err := r.client.SetReplicaCount(ctx, serviceID, 1); err != nil {
+				resp.Diagnostics.AddError("Failed to add a HA replica", err.Error())
+				return
+			}
+		} else {
+			if err := r.client.SetReplicaCount(ctx, serviceID, 0); err != nil {
+				resp.Diagnostics.AddError("Failed to remove a HA replica", err.Error())
+				return
+			}
+		}
+
 	}
 
 	if !plan.VpcId.Equal(state.VpcId) {
-		resp.Diagnostics.AddError(ErrUpdateService, fmt.Sprintf("Do not support VPC change (not yet implemented) plan %v state %v", plan.VpcId, state.VpcId))
-		return
+		// if state.VpcId is known and different from plan.VpcId, we must detach first
+		if !state.VpcId.IsNull() && !state.VpcId.IsUnknown() {
+			if err := r.client.DetachServiceFromVpc(ctx, serviceID, state.VpcId.ValueInt64()); err != nil {
+				resp.Diagnostics.AddError("Failed to detach service from VPC", err.Error())
+				return
+			}
+		}
+		// if plan.VpcId is known, it must be attached
+		if !plan.VpcId.IsNull() && !plan.VpcId.IsUnknown() {
+			if err := r.client.AttachServiceToVpc(ctx, serviceID, plan.VpcId.ValueInt64()); err != nil {
+				resp.Diagnostics.AddError("Failed to attach service to VPC", err.Error())
+				return
+			}
+		}
 	}
 
 	if !plan.Name.Equal(state.Name) {

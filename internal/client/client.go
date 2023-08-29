@@ -32,6 +32,12 @@ var (
 	ProductsQuery string
 	//go:embed queries/jwt_cc.graphql
 	JWTFromCCQuery string
+	//go:embed queries/attach_service_to_vpc.graphql
+	AttachServiceToVPCMutation string
+	//go:embed queries/detach_service_from_vpc.graphql
+	DetachServiceFromVPCMutation string
+	//go:embed queries/set_replica_count.graphql
+	SetReplicaCountMutation string
 )
 
 type Client struct {

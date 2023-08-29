@@ -139,6 +139,31 @@ func (c *Client) RenameService(ctx context.Context, serviceID string, newName st
 	return nil
 }
 
+func (c *Client) SetReplicaCount(ctx context.Context, serviceID string, replicaCount int) error {
+	tflog.Trace(ctx, "Client.SetReplicaCount")
+
+	req := map[string]interface{}{
+		"operationName": "SetReplicaCount",
+		"query":         SetReplicaCountMutation,
+		"variables": map[string]any{
+			"projectId":    c.projectID,
+			"serviceId":    serviceID,
+			"replicaCount": replicaCount,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
 type ResourceConfig struct {
 	MilliCPU     string
 	StorageGB    string

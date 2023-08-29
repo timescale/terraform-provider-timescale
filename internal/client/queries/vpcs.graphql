@@ -6,18 +6,18 @@
       name
       created
       updated
-      peeringConnections {
-        id
-        vpcId
-        peerVpc {
-          id
-          accountId
-          regionCode
-          cidr
-        }
-        errorMessage
-        status
-      }
+      # peeringConnections {
+      #   id
+      #   vpcId
+      #   peerVpc {
+      #     id
+      #     accountId
+      #     regionCode
+      #     cidr
+      #   }
+      #   errorMessage
+      #   status
+      # }
       errorMessage
       status
       regionCode

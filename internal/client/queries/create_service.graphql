@@ -1,11 +1,12 @@
 mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceConfig:
-    ResourceConfig, $regionCode: String!) {
+    ResourceConfig, $regionCode: String!, $vpcId: ID) {
     createService(data:{
         projectId:$projectId,
         name:$name,
         type:$type,
         resourceConfig:$resourceConfig,
-        regionCode:$regionCode
+        regionCode:$regionCode,
+        vpcId: $vpcId
     }){
         initialPassword
         service {
@@ -15,6 +16,7 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
             type
             created
             status
+            vpcId
             autoscaleSettings {
                 enabled
             }

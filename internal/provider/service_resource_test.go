@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+const DEFAULT_VPC_ID = 2074 // Default vpc id for test acc
+
 func TestServiceResource_Default_Success(t *testing.T) {
 	// Test resource creation succeeds and update is not allowed
 	resource.ParallelTest(t, resource.TestCase{
@@ -34,6 +36,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "storage_gb", "10"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
 			},
@@ -56,6 +59,31 @@ func TestServiceResource_Default_Success(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "1000"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "4"),
+				),
+			},
+			// Add VPC
+			{
+				Config: newServiceAddVpc(Config{
+					Name:     "service resource test update",
+					VpcID:    DEFAULT_VPC_ID,
+					MilliCPU: 1000,
+					MemoryGB: 4,
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "vpc_id", "2074"),
+				),
+			},
+			// Add HA replica and remove VPC
+			{
+				Config: newServiceAddHAReplica(Config{
+					Name:            "service resource test update",
+					EnableHAReplica: true,
+					MilliCPU:        1000,
+					MemoryGB:        4,
+				}),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
 				),
 			},
 		},
@@ -137,7 +165,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					MemoryGB:        2,
 					StorageGB:       10,
 					EnableHAReplica: true,
-					VpcID:           2074, // Default vpc id for test acc
+					VpcID:           DEFAULT_VPC_ID,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
@@ -209,6 +237,38 @@ func newServiceComputeResizeConfig(config Config) string {
 				create = %q
 			}
 		}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
+}
+
+func newServiceAddVpc(config Config) string {
+	if config.Timeouts.Create == "" {
+		config.Timeouts.Create = "10m"
+	}
+	return providerConfig + fmt.Sprintf(`
+		resource "timescale_service" "resource" {
+			name = %q
+			milli_cpu  = %d
+			memory_gb  = %d
+			vpc_id = %d
+			timeouts = {
+				create = %q
+			}
+		}`, config.Name, config.MilliCPU, config.MemoryGB, config.VpcID, config.Timeouts.Create)
+}
+
+func newServiceAddHAReplica(config Config) string {
+	if config.Timeouts.Create == "" {
+		config.Timeouts.Create = "10m"
+	}
+	return providerConfig + fmt.Sprintf(`
+		resource "timescale_service" "resource" {
+			name = %q
+			milli_cpu  = %d
+			memory_gb  = %d
+			enable_ha_replica = %t
+			timeouts = {
+				create = %q
+			}
+		}`, config.Name, config.MilliCPU, config.MemoryGB, config.EnableHAReplica, config.Timeouts.Create)
 }
 
 func newServiceCustomConfig(resourceName string, config Config) string {

@@ -61,3 +61,53 @@ func (c *Client) GetVPCs(ctx context.Context) ([]*VPC, error) {
 	}
 	return resp.Data.Vpcs, nil
 }
+
+func (c *Client) AttachServiceToVpc(ctx context.Context, serviceID string, vpcID int64) error {
+	tflog.Trace(ctx, "Client.AttachServiceToVpc")
+
+	req := map[string]interface{}{
+		"operationName": "AttachServiceToVpc",
+		"query":         AttachServiceToVPCMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"vpcId":     vpcID,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
+func (c *Client) DetachServiceFromVpc(ctx context.Context, serviceID string, vpcID int64) error {
+	tflog.Trace(ctx, "Client.DetachServiceFromVpc")
+
+	req := map[string]interface{}{
+		"operationName": "DetachServiceFromVpc",
+		"query":         DetachServiceFromVPCMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"vpcId":     vpcID,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}

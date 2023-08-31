@@ -1,0 +1,7 @@
+mutation SetReplicaCount($projectId: ID!, $serviceId: ID!, $replicaCount: Int!) {
+    setReplicaCount (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        replicaCount: $replicaCount
+    })
+}

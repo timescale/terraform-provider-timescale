@@ -4,11 +4,16 @@ page_title: "timescale_service Resource - terraform-provider-timescale"
 subcategory: ""
 description: |-
   A Service is a TimescaleDB instance.
+  Please note that when updating the vpc_id attribute, it is possible to encounter a "no Endpoint for that service id exists" error.
+  The change has been taken into account but must still be propagated. You can run "terraform refresh" shortly to get the updated data.
 ---
 
 # timescale_service (Resource)
 
 A Service is a TimescaleDB instance.
+
+Please note that when updating the vpc_id attribute, it is possible to encounter a "no Endpoint for that service id exists" error. 
+The change has been taken into account but must still be propagated. You can run "terraform refresh" shortly to get the updated data.
 
 
 
@@ -24,7 +29,7 @@ A Service is a TimescaleDB instance.
 - `region_code` (String) The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2
 - `storage_gb` (Number) Storage GB
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
-- `vpc_id` (Number) The VpcID this service is tied to
+- `vpc_id` (Number) The VpcID this service is tied to.
 
 ### Read-Only
 

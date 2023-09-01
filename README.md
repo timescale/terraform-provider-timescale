@@ -48,7 +48,6 @@ resource "timescale_service" "test" {
   # name       = ""
   # milli_cpu  = 500
   # memory_gb  = 2
-  # storage_gb = 10
   # region_code = "us-east-1"
 }
 ```
@@ -64,11 +63,8 @@ resource "timescale_service" "test" {
 - 32000m CPU / 128 GB Memory
 
 ### Storage
-- 10 GB
-- 25 GB - 500 GB in 25 GB increments
-- 500 GB - 1TB in 100 GB increments
-- 1TB - 3TB in 500 GB increments
-- 3TB - 16TB in 1 TB increments
+Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
+See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
 
 ## Supported Operations
 ✅ Create service <br />

@@ -40,16 +40,14 @@ type VpcEndpoint struct {
 type ResourceSpec struct {
 	ID   string `json:"id"`
 	Spec struct {
-		MilliCPU  int64 `json:"milliCPU"`
-		MemoryGB  int64 `json:"memoryGB"`
-		StorageGB int64 `json:"storageGB"`
+		MilliCPU int64 `json:"milliCPU"`
+		MemoryGB int64 `json:"memoryGB"`
 	} `json:"spec"`
 }
 
 type CreateServiceRequest struct {
 	Name         string
 	MilliCPU     string
-	StorageGB    string
 	MemoryGB     string
 	RegionCode   string
 	ReplicaCount string
@@ -87,7 +85,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		"regionCode": request.RegionCode,
 		"resourceConfig": map[string]string{
 			"milliCPU":     request.MilliCPU,
-			"storageGB":    request.StorageGB,
+			"storageGB":    "50",
 			"memoryGB":     request.MemoryGB,
 			"replicaCount": request.ReplicaCount,
 		},
@@ -166,7 +164,6 @@ func (c *Client) SetReplicaCount(ctx context.Context, serviceID string, replicaC
 
 type ResourceConfig struct {
 	MilliCPU     string
-	StorageGB    string
 	MemoryGB     string
 	ReplicaCount string
 }
@@ -182,7 +179,7 @@ func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config Re
 			"serviceId": serviceID,
 			"config": map[string]string{
 				"milliCPU":  config.MilliCPU,
-				"storageGB": config.StorageGB,
+				"storageGB": "0",
 				"memoryGB":  config.MemoryGB,
 			},
 		},

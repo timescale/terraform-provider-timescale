@@ -36,15 +36,13 @@ const (
 	ErrUpdateService    = "Error updating service"
 	ErrInvalidAttribute = "Invalid Attribute Value"
 
-	DefaultMilliCPU  = 500
-	DefaultStorageGB = 10
-	DefaultMemoryGB  = 2
+	DefaultMilliCPU = 500
+	DefaultMemoryGB = 2
 
 	DefaultEnableHAReplica = false
 )
 
 var (
-	storageSizes  = []int64{10, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000, 4000, 5000, 6000, 7000, 800, 9000, 10000, 12000, 14000, 16000}
 	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
 	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
 	regionCodes   = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
@@ -65,7 +63,6 @@ type serviceResourceModel struct {
 	Name            types.String   `tfsdk:"name"`
 	Timeouts        timeouts.Value `tfsdk:"timeouts"`
 	MilliCPU        types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB       types.Int64    `tfsdk:"storage_gb"`
 	MemoryGB        types.Int64    `tfsdk:"memory_gb"`
 	Password        types.String   `tfsdk:"password"`
 	Hostname        types.String   `tfsdk:"hostname"`
@@ -125,14 +122,6 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
-			},
-			"storage_gb": schema.Int64Attribute{
-				MarkdownDescription: "Storage GB",
-				Description:         "Storage GB",
-				Optional:            true,
-				Computed:            true,
-				Default:             int64default.StaticInt64(DefaultStorageGB),
-				Validators:          []validator.Int64{int64validator.OneOf(storageSizes...)},
 			},
 			"memory_gb": schema.Int64Attribute{
 				MarkdownDescription: "Memory GB",
@@ -234,7 +223,6 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	request := tsClient.CreateServiceRequest{
 		Name:         plan.Name.ValueString(),
 		MilliCPU:     strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
-		StorageGB:    strconv.FormatInt(plan.StorageGB.ValueInt64(), 10),
 		MemoryGB:     strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
 		RegionCode:   plan.RegionCode.ValueString(),
 		ReplicaCount: strconv.FormatInt(replicaCount, 10),
@@ -405,20 +393,14 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
 		resizeConfig := tsClient.ResourceConfig{
-			MilliCPU:  noop,
-			MemoryGB:  noop,
-			StorageGB: noop,
+			MilliCPU: noop,
+			MemoryGB: noop,
 		}
 
 		if !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB) {
 			isResizeRequested = true
 			resizeConfig.MilliCPU = strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10)
 			resizeConfig.MemoryGB = strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10)
-		}
-
-		if !plan.StorageGB.Equal(state.StorageGB) {
-			isResizeRequested = true
-			resizeConfig.StorageGB = strconv.FormatInt(plan.StorageGB.ValueInt64(), 10)
 		}
 
 		if isResizeRequested {
@@ -477,7 +459,6 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		Password:        state.Password,
 		Name:            types.StringValue(s.Name),
 		MilliCPU:        types.Int64Value(s.Resources[0].Spec.MilliCPU),
-		StorageGB:       types.Int64Value(s.Resources[0].Spec.StorageGB),
 		MemoryGB:        types.Int64Value(s.Resources[0].Spec.MemoryGB),
 		Hostname:        types.StringValue(s.ServiceSpec.Hostname),
 		Username:        types.StringValue(s.ServiceSpec.Username),

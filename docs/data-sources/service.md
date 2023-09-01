@@ -47,7 +47,6 @@ Read-Only:
 - `enable_ha_replica` (Boolean) EnableHAReplica defines if a replica will be provisioned for this service.
 - `memory_gb` (Number) MemoryGB is the memory allocated for this service.
 - `milli_cpu` (Number) MilliCPU is the cpu allocated for this service.
-- `storage_gb` (Number) StorageGB is the storage allocated for this service.
 
 
 

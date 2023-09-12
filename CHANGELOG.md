@@ -1,7 +1,7 @@
 ## 1.0.0 (September 11, 2023)
 
-BREAKING CHANGES:
-- resource/service: Does not support `storageGB` anymore
+DEPRECATED:
+- resource/service: `storageGB`` is deprecated and ignored. With the new usage-based storage Timescale automatically allocates the disk space needed by your service and you only pay for the disk space you use.
 
 FEATURES:
 - resource/service: Create a service. `name`,`milliCPU`,`memoryGB`,`regionCode`,`replicaCount` and `vpcID` can be specified.

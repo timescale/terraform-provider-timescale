@@ -9,7 +9,6 @@ query GetProducts {
             price
             milliCPU
             memoryGB
-            storageGB
             regionCode
         }
     }

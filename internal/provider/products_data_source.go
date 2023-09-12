@@ -48,7 +48,6 @@ type planModel struct {
 	Price      types.Float64 `tfsdk:"price"`
 	MilliCPU   types.Int64   `tfsdk:"milli_cpu"`
 	MemoryGB   types.Int64   `tfsdk:"memory_gb"`
-	StorageGB  types.Int64   `tfsdk:"storage_gb"`
 	RegionCode types.String  `tfsdk:"region_code"`
 }
 
@@ -94,7 +93,6 @@ func (d *productsDataSource) Read(ctx context.Context, req datasource.ReadReques
 				Price:      types.Float64Value(plan.Price),
 				MilliCPU:   types.Int64Value(plan.MilliCPU),
 				MemoryGB:   types.Int64Value(plan.MemoryGB),
-				StorageGB:  types.Int64Value(plan.StorageGB),
 			})
 		}
 		state.Products = append(state.Products, productState)
@@ -158,9 +156,6 @@ func (d *productsDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 										Computed: true,
 									},
 									"memory_gb": schema.Int64Attribute{
-										Computed: true,
-									},
-									"storage_gb": schema.Int64Attribute{
 										Computed: true,
 									},
 								},

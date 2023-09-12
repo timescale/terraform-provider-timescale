@@ -53,7 +53,6 @@ type ResourceModel struct {
 type ResourceSpecModel struct {
 	MilliCPU        types.Int64 `tfsdk:"milli_cpu"`
 	MemoryGB        types.Int64 `tfsdk:"memory_gb"`
-	StorageGB       types.Int64 `tfsdk:"storage_gb"`
 	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
 }
 
@@ -119,11 +118,6 @@ func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaReq
 								"memory_gb": schema.Int64Attribute{
 									MarkdownDescription: "MemoryGB is the memory allocated for this service.",
 									Description:         "MemoryGB is the memory allocated for this service.",
-									Computed:            true,
-								},
-								"storage_gb": schema.Int64Attribute{
-									MarkdownDescription: "StorageGB is the storage allocated for this service.",
-									Description:         "StorageGB is the storage allocated for this service.",
 									Computed:            true,
 								},
 								"enable_ha_replica": schema.BoolAttribute{
@@ -222,7 +216,6 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 			Spec: ResourceSpecModel{
 				MilliCPU:        types.Int64Value(resource.Spec.MilliCPU),
 				MemoryGB:        types.Int64Value(resource.Spec.MemoryGB),
-				StorageGB:       types.Int64Value(resource.Spec.StorageGB),
 				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 			},
 		})

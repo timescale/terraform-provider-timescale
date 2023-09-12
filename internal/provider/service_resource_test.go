@@ -33,7 +33,6 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "username"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "port"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
-					resource.TestCheckResourceAttr("timescale_service.resource", "storage_gb", "10"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
@@ -117,20 +116,18 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Invalid conf millicpu & memory invalid ratio
 			{
 				Config: newServiceCustomConfig("invalid", Config{
-					Name:      "service resource test conf",
-					MilliCPU:  2000,
-					MemoryGB:  2,
-					StorageGB: 10,
+					Name:     "service resource test conf",
+					MilliCPU: 2000,
+					MemoryGB: 2,
 				}),
 				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
 			},
 			// Invalid conf storage invalid value
 			{
 				Config: newServiceCustomConfig("invalid", Config{
-					Name:      "service resource test conf",
-					MilliCPU:  500,
-					MemoryGB:  2,
-					StorageGB: 11,
+					Name:     "service resource test conf",
+					MilliCPU: 500,
+					MemoryGB: 3,
 				}),
 				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
 			},
@@ -148,7 +145,6 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
 					MemoryGB:   4,
-					StorageGB:  25,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.custom", "name", "service resource test conf"),
@@ -163,7 +159,6 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					RegionCode:      "us-east-1",
 					MilliCPU:        500,
 					MemoryGB:        2,
-					StorageGB:       10,
 					EnableHAReplica: true,
 					VpcID:           DEFAULT_VPC_ID,
 				}),
@@ -283,10 +278,9 @@ func newServiceCustomConfig(resourceName string, config Config) string {
 			}
 			milli_cpu  = %d
 			memory_gb  = %d
-			storage_gb = %d
 			region_code = %q
 			enable_ha_replica = %t
-		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.EnableHAReplica)
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica)
 }
 
 func newServiceCustomVpcConfig(resourceName string, config Config) string {
@@ -301,9 +295,8 @@ func newServiceCustomVpcConfig(resourceName string, config Config) string {
 			}
 			milli_cpu  = %d
 			memory_gb  = %d
-			storage_gb = %d
 			region_code = %q
 			vpc_id = %d
 			enable_ha_replica = %t
-		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.StorageGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
 }

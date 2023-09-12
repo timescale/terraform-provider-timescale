@@ -24,7 +24,6 @@ func TestServiceDataSource(t *testing.T) {
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "resources.0.id"),
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "resources.0.spec.milli_cpu"),
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "resources.0.spec.memory_gb"),
-					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "resources.0.spec.storage_gb"),
 				),
 			},
 		},

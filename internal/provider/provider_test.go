@@ -45,7 +45,6 @@ type Config struct {
 	Timeouts        Timeouts
 	MilliCPU        int64
 	MemoryGB        int64
-	StorageGB       int64
 	RegionCode      string
 	EnableHAReplica bool
 	VpcID           int64

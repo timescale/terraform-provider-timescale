@@ -63,6 +63,7 @@ type serviceResourceModel struct {
 	Name            types.String   `tfsdk:"name"`
 	Timeouts        timeouts.Value `tfsdk:"timeouts"`
 	MilliCPU        types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB       types.Int64    `tfsdk:"storage_gb"`
 	MemoryGB        types.Int64    `tfsdk:"memory_gb"`
 	Password        types.String   `tfsdk:"password"`
 	Hostname        types.String   `tfsdk:"hostname"`
@@ -122,6 +123,12 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
+			},
+			"storage_gb": schema.Int64Attribute{
+				MarkdownDescription: "Deprecated: Storage GB",
+				Description:         "Deprecated: Storage GB",
+				Optional:            true,
+				DeprecationMessage:  "This field is ignored. With the new usage-based storage Timescale automatically allocates the disk space needed by your service and you only pay for the disk space you use.",
 			},
 			"memory_gb": schema.Int64Attribute{
 				MarkdownDescription: "Memory GB",

@@ -66,6 +66,9 @@ resource "timescale_service" "test" {
 Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
 See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
 
+### Regions
+Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regions/) for a list of currently supported regions.
+
 ## Supported Operations
 ✅ Create service <br />
 ✅ Rename service <br />

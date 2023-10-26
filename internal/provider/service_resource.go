@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -45,7 +44,6 @@ const (
 var (
 	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
 	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
-	regionCodes   = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
 )
 
 func NewServiceResource() resource.Resource {
@@ -170,13 +168,12 @@ The change has been taken into account but must still be propagated. You can run
 			},
 			"region_code": schema.StringAttribute{
 				Description:         `The region for this service`,
-				MarkdownDescription: "The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2",
+				MarkdownDescription: "The region for this service.",
 				Optional:            true,
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
-				Validators: []validator.String{stringvalidator.OneOf(regionCodes...)},
 			},
 			"vpc_id": schema.Int64Attribute{
 				Description:         `The VpcID this service is tied to.`,

@@ -60,7 +60,7 @@ type Error struct {
 
 func NewClient(token, projectID, env, terraformVersion string) *Client {
 	c := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 30 * time.Second,
 	}
 
 	url := getURL(env)

@@ -13,19 +13,20 @@ import (
 const DEFAULT_VPC_ID = 2074 // Default vpc id for test acc
 
 func TestServiceResource_Default_Success(t *testing.T) {
-	// Test resource creation succeeds and update is not allowed
+	// Test resource creation succeeds
+	config := &Config{
+		ResourceName: "resource",
+	}
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Create default and Read testing
 			{
-				Config: newServiceConfig(Config{
-					Name: "service resource test init",
-				}),
+				Config: getConfig(t, config),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify the name is set.
-					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test init"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "name"),
 					// Verify ID value is set in state.
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "id"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "password"),
@@ -39,47 +40,31 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
 			},
-			// Update service name
-			{
-				Config: newServiceConfig(Config{
-					Name: "service resource test update",
-				}),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
-				),
-			},
 			// Do a compute resize
 			{
-				Config: newServiceComputeResizeConfig(Config{
-					Name:     "service resource test update",
-					MilliCPU: 1000,
-					MemoryGB: 4,
-				}),
+				Config: getConfig(t, config.WithSpec(1000, 4)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "1000"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "4"),
 				),
 			},
+			// Update service name
+			{
+				Config: getConfig(t, config.WithName("service resource test update")),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
+				),
+			},
 			// Add VPC
 			{
-				Config: newServiceAddVpc(Config{
-					Name:     "service resource test update",
-					VpcID:    DEFAULT_VPC_ID,
-					MilliCPU: 1000,
-					MemoryGB: 4,
-				}),
+				Config: getConfig(t, config.WithVPC(DEFAULT_VPC_ID)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "vpc_id", "2074"),
 				),
 			},
 			// Add HA replica and remove VPC
 			{
-				Config: newServiceAddHAReplica(Config{
-					Name:            "service resource test update",
-					EnableHAReplica: true,
-					MilliCPU:        1000,
-					MemoryGB:        4,
-				}),
+				Config: getConfig(t, config.WithVPC(0).WithHAReplica(true)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
@@ -217,53 +202,6 @@ func newServiceConfig(config Config) string {
 						create = %q
 					}
 				}`, config.Name, config.Timeouts.Create)
-}
-
-func newServiceComputeResizeConfig(config Config) string {
-	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "10m"
-	}
-	return providerConfig + fmt.Sprintf(`
-		resource "timescale_service" "resource" {
-			name = %q
-			milli_cpu  = %d
-			memory_gb  = %d
-			timeouts = {
-				create = %q
-			}
-		}`, config.Name, config.MilliCPU, config.MemoryGB, config.Timeouts.Create)
-}
-
-func newServiceAddVpc(config Config) string {
-	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "10m"
-	}
-	return providerConfig + fmt.Sprintf(`
-		resource "timescale_service" "resource" {
-			name = %q
-			milli_cpu  = %d
-			memory_gb  = %d
-			vpc_id = %d
-			timeouts = {
-				create = %q
-			}
-		}`, config.Name, config.MilliCPU, config.MemoryGB, config.VpcID, config.Timeouts.Create)
-}
-
-func newServiceAddHAReplica(config Config) string {
-	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "10m"
-	}
-	return providerConfig + fmt.Sprintf(`
-		resource "timescale_service" "resource" {
-			name = %q
-			milli_cpu  = %d
-			memory_gb  = %d
-			enable_ha_replica = %t
-			timeouts = {
-				create = %q
-			}
-		}`, config.Name, config.MilliCPU, config.MemoryGB, config.EnableHAReplica, config.Timeouts.Create)
 }
 
 func newServiceCustomConfig(resourceName string, config Config) string {

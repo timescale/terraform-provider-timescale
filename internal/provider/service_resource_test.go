@@ -154,7 +154,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			},
 			// Create with HA and VPC attached
 			{
-				Config: newServiceCustomVpcConfig("hareplica", Config{
+				Config: newServiceCustomVpcConfig("hareplica_vpc", Config{
 					Name:            "service resource test HA",
 					RegionCode:      "us-east-1",
 					MilliCPU:        500,
@@ -163,9 +163,9 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					VpcID:           DEFAULT_VPC_ID,
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "enable_ha_replica", "true"),
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "vpc_id", "2074"),
+					resource.TestCheckResourceAttr("timescale_service.hareplica_vpc", "name", "service resource test HA"),
+					resource.TestCheckResourceAttr("timescale_service.hareplica_vpc", "enable_ha_replica", "true"),
+					resource.TestCheckResourceAttr("timescale_service.hareplica_vpc", "vpc_id", "2074"),
 				),
 			},
 		},

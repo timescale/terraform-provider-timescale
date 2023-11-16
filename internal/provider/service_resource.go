@@ -101,6 +101,9 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				// If the name attribute is absent, the provider will generate a default.
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"milli_cpu": schema.Int64Attribute{
 				MarkdownDescription: "Milli CPU",

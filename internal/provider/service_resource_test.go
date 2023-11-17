@@ -84,10 +84,6 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
 				),
-				// always skip until HA replica fast enable fix
-				SkipFunc: func() (bool, error) {
-					return true, nil
-				},
 			},
 		},
 	})

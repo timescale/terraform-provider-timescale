@@ -51,6 +51,9 @@ resource "timescale_service" "test" {
   # memory_gb  = 2
   # region_code = "us-east-1"
   # enable_ha_replica = false
+  # timeouts = {
+  #   create = '30m'
+  # }
 }
 ```
 

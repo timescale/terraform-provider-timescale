@@ -20,9 +20,9 @@ provider "timescale" {
   project_id   = var.ts_project_id
 }
 
-data "timescale_vpc" "vpcs" {
+data "timescale_vpcs" "vpcs" {
 }
 
 output "vpc_list" {
-  value = data.timescale_vpc.vpcs
+  value = data.timescale_vpcs.vpcs
 }

@@ -67,7 +67,7 @@ type peerVpcModel struct {
 
 // Metadata returns the data source type name.
 func (d *vpcsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_vpc"
+	resp.TypeName = req.ProviderTypeName + "_vpcs"
 }
 
 // Read refreshes the Terraform state with the latest data.

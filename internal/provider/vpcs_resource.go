@@ -42,7 +42,7 @@ type vpcsResourceModel struct {
 
 // Metadata returns the data source type name.
 func (d *vpcsResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_vpc"
+	resp.TypeName = req.ProviderTypeName + "_vpcs"
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -69,6 +69,7 @@ func (d *vpcsResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 			ID:            types.Int64Value(vpcId),
 			Name:          types.StringValue(vpc.Name),
 			ProvisionedID: types.StringValue(vpc.ProvisionedID),
+			ProjectID:     types.StringValue(vpc.ProjectID),
 			CIDR:          types.StringValue(vpc.CIDR),
 			RegionCode:    types.StringValue(vpc.RegionCode),
 			Status:        types.StringValue(vpc.Status),

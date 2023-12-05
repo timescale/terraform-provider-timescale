@@ -23,6 +23,6 @@ provider "timescale" {
 data "timescale_vpc" "vpcs" {
 }
 
-output "vpcs_list" {
+output "vpc_list" {
   value = data.timescale_vpc.vpcs
 }

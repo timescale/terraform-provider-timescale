@@ -31,6 +31,7 @@ Read-Only:
 - `id` (Number)
 - `name` (String)
 - `peering_connections` (Attributes List) (see [below for nested schema](#nestedatt--vpcs--peering_connections))
+- `project_id` (String)
 - `provisioned_id` (String)
 - `region_code` (String)
 - `status` (String)

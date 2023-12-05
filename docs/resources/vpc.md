@@ -32,5 +32,3 @@ description: |-
 - `provisioned_id` (String)
 - `status` (String)
 - `updated` (String)
-
-

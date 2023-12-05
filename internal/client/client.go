@@ -85,7 +85,7 @@ func getURL(env string) string {
 	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
 		return value
 	}
-	return "https://api.dev.metronome-cloud.com/api/query"
+	return "https://console.cloud.timescale.com/api/query"
 }
 
 type JWTFromCCResponse struct {

@@ -19,6 +19,8 @@ import (
 var (
 	_ resource.Resource              = &vpcsResource{}
 	_ resource.ResourceWithConfigure = &vpcsResource{}
+
+	regionCodes = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
 )
 
 // NewVpcsResource is a helper function to simplify the provider implementation.
@@ -98,7 +100,7 @@ func (d *vpcsResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 					resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 					return
 				}
-				peerConn.PeerVpcs = append(peerConn.PeerVpcs, peerVpcModel{
+				peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
 					ID:         types.Int64Value(peerVpcId),
 					AccountID:  types.StringValue(peerVpc.AccountID),
 					CIDR:       types.StringValue(peerVpc.CIDR),
@@ -176,7 +178,7 @@ func (d *vpcsResource) Create(ctx context.Context, req resource.CreateRequest, r
 				resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 				return
 			}
-			peerConn.PeerVpcs = append(peerConn.PeerVpcs, peerVpcModel{
+			peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
 				ID:         types.Int64Value(peerVpcId),
 				AccountID:  types.StringValue(peerVpc.AccountID),
 				CIDR:       types.StringValue(peerVpc.CIDR),

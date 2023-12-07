@@ -1,4 +1,4 @@
-package provider
+package vpc
 
 import (
 	"context"
@@ -30,13 +30,13 @@ type vpcsDataSource struct {
 
 // vpcsDataSourceModel maps the data source schema data.
 type vpcsDataSourceModel struct {
-	Vpcs []vpcsModel `tfsdk:"vpcs"`
+	Vpcs []vpcDataSourceModel `tfsdk:"vpcs"`
 	// following is a placeholder, required by terraform to run test suite
 	ID types.String `tfsdk:"id"`
 }
 
-// vpcsModel maps vpcs schema data.
-type vpcsModel struct {
+// vpcDataSourceModel maps vpcs schema data.
+type vpcDataSourceModel struct {
 	ID                 types.Int64               `tfsdk:"id"`
 	ProvisionedID      types.String              `tfsdk:"provisioned_id"`
 	ProjectID          types.String              `tfsdk:"project_id"`
@@ -89,7 +89,7 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 			resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 			return
 		}
-		vpcState := vpcsModel{
+		vpcState := vpcDataSourceModel{
 			ID:            types.Int64Value(vpcId),
 			Name:          types.StringValue(vpc.Name),
 			ProvisionedID: types.StringValue(vpc.ProvisionedID),

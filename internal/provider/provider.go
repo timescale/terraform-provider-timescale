@@ -14,6 +14,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
+	products_d "github.com/timescale/terraform-provider-timescale/internal/provider/datasource/products"
+	service_d "github.com/timescale/terraform-provider-timescale/internal/provider/datasource/service"
+	vpc_d "github.com/timescale/terraform-provider-timescale/internal/provider/datasource/vpc"
+	service_r "github.com/timescale/terraform-provider-timescale/internal/provider/resource/service"
+	vpc_r "github.com/timescale/terraform-provider-timescale/internal/provider/resource/vpc"
 )
 
 // Ensure TimescaleProvider satisfies various provider interfaces.
@@ -120,8 +125,8 @@ func (p *TimescaleProvider) Configure(ctx context.Context, req provider.Configur
 func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Resource {
 	tflog.Trace(ctx, "TimescaleProvider.Resources")
 	return []func() resource.Resource{
-		NewServiceResource,
-		NewVpcsResource,
+		service_r.NewServiceResource,
+		vpc_r.NewVpcsResource,
 	}
 }
 
@@ -129,9 +134,9 @@ func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Res
 func (p *TimescaleProvider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	tflog.Trace(ctx, "TimescaleProvider.DataSources")
 	return []func() datasource.DataSource{
-		NewProductsDataSource,
-		NewServiceDataSource,
-		NewVpcsDataSource,
+		products_d.NewProductsDataSource,
+		service_d.NewServiceDataSource,
+		vpc_d.NewVpcsDataSource,
 	}
 }
 

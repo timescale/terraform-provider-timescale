@@ -150,7 +150,7 @@ func (c *Client) CreateVPC(ctx context.Context, name, cidr, regionCode string) (
 	return resp.Data.Vpc, nil
 }
 
-func (c *Client) RenameVpc(ctx context.Context, vpcId int64, newName string) ([]*VPC, error) {
+func (c *Client) RenameVpc(ctx context.Context, vpcId int64, newName string) error {
 	tflog.Trace(ctx, "Client.GetVPCs")
 	req := map[string]interface{}{
 		"operationName": "RenameVpc",
@@ -163,26 +163,26 @@ func (c *Client) RenameVpc(ctx context.Context, vpcId int64, newName string) ([]
 	}
 	var resp Response[VpcsResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
-		return nil, err
+		return err
 	}
 	if len(resp.Errors) > 0 {
-		return nil, resp.Errors[0]
+		return resp.Errors[0]
 	}
 	if resp.Data == nil {
-		return nil, errors.New("no response found")
+		return errors.New("no response found")
 	}
-	return resp.Data.Vpcs, nil
+	return nil
 }
 
-func (c *Client) DeleteVPC(ctx context.Context, id string) (*VPC, error) {
+func (c *Client) DeleteVPC(ctx context.Context, vpcId int64) (*VPC, error) {
 	tflog.Trace(ctx, "Client.DeleteVPC")
 
 	req := map[string]interface{}{
 		"operationName": "DeleteVpc",
 		"query":         DeleteVPCMutation,
-		"variables": map[string]string{
+		"variables": map[string]any{
 			"projectId": c.projectID,
-			"vpcId":     id,
+			"vpcId":     vpcId,
 		},
 	}
 	var resp Response[CreateVpcResponse]

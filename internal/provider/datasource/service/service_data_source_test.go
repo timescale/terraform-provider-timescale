@@ -1,14 +1,26 @@
-package provider
+package service_test
 
 import (
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/timescale/terraform-provider-timescale/internal/provider"
+	"github.com/timescale/terraform-provider-timescale/internal/test"
 )
+
+// TestAccProtoV6ProviderFactories are used to instantiate a provider during
+// acceptance testing. The factory function will be invoked for every Terraform
+// CLI command executed to create a provider server to which the CLI can
+// reattach.
+var TestAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"timescale": providerserver.NewProtocol6WithError(provider.New("test")()),
+}
 
 func TestServiceDataSource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: TestAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Read testing
 			{
@@ -31,7 +43,7 @@ func TestServiceDataSource(t *testing.T) {
 }
 
 func newServiceDataSource() string {
-	return providerConfig + `
+	return test.ProviderConfig + `
 				resource "timescale_service" "resource" {
 					name = "newServiceDataSource test"
 				}

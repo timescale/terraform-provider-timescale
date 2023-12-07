@@ -1,4 +1,4 @@
-package provider
+package service
 
 import (
 	"context"
@@ -431,22 +431,22 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "ServiceResource.Delete")
-	var data serviceResourceModel
+	var state serviceResourceModel
 
 	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	tflog.Info(ctx, "Deleting Service: "+data.ID.ValueString())
+	tflog.Info(ctx, "Deleting Service: "+state.ID.ValueString())
 
-	_, err := r.client.DeleteService(ctx, data.ID.ValueString())
+	_, err := r.client.DeleteService(ctx, state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting Timescale Service",
-			"Could not delete order, unexpected error: "+err.Error(),
+			"Could not delete service, unexpected error: "+err.Error(),
 		)
 		return
 	}

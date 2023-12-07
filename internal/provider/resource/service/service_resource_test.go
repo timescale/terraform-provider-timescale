@@ -1,4 +1,4 @@
-package provider
+package service_test
 
 import (
 	"errors"
@@ -6,17 +6,44 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/timescale/terraform-provider-timescale/internal/provider"
+	"github.com/timescale/terraform-provider-timescale/internal/provider/resource/service"
+	"github.com/timescale/terraform-provider-timescale/internal/test"
 )
+
+// TestAccProtoV6ProviderFactories are used to instantiate a provider during
+// acceptance testing. The factory function will be invoked for every Terraform
+// CLI command executed to create a provider server to which the CLI can
+// reattach.
+var TestAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
+	"timescale": providerserver.NewProtocol6WithError(provider.New("test")()),
+}
+
+type Config struct {
+	Name            string
+	Timeouts        Timeouts
+	MilliCPU        int64
+	MemoryGB        int64
+	RegionCode      string
+	EnableHAReplica bool
+	VpcID           int64
+}
+
+type Timeouts struct {
+	Create string
+}
 
 const DEFAULT_VPC_ID = 2074 // Default vpc id for test acc
 
 func TestServiceResource_Default_Success(t *testing.T) {
 	// Test resource creation succeeds and update is not allowed
 	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: TestAccProtoV6ProviderFactories,
+		PreCheck:                 func() { test.TestAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Create default and Read testing
 			{
@@ -91,8 +118,8 @@ func TestServiceResource_Default_Success(t *testing.T) {
 
 func TestServiceResource_Timeout(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: TestAccProtoV6ProviderFactories,
+		PreCheck:                 func() { test.TestAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
 				Config: newServiceConfig(Config{
@@ -101,7 +128,7 @@ func TestServiceResource_Timeout(t *testing.T) {
 						Create: "1s",
 					},
 				}),
-				ExpectError: regexp.MustCompile(ErrCreateTimeout),
+				ExpectError: regexp.MustCompile(service.ErrCreateTimeout),
 			},
 		},
 	})
@@ -110,8 +137,8 @@ func TestServiceResource_Timeout(t *testing.T) {
 func TestServiceResource_CustomConf(t *testing.T) {
 	// Test resource creation succeeds and update is not allowed
 	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: TestAccProtoV6ProviderFactories,
+		PreCheck:                 func() { test.TestAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Invalid conf millicpu & memory invalid ratio
 			{
@@ -120,7 +147,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					MilliCPU: 2000,
 					MemoryGB: 2,
 				}),
-				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
+				ExpectError: regexp.MustCompile(service.ErrInvalidAttribute),
 			},
 			// Invalid conf storage invalid value
 			{
@@ -129,14 +156,14 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					MilliCPU: 500,
 					MemoryGB: 3,
 				}),
-				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
+				ExpectError: regexp.MustCompile(service.ErrInvalidAttribute),
 			},
 			// Invalid conf storage invalid region
 			{
 				Config: newServiceCustomConfig("invalid", Config{
 					RegionCode: "test-invalid-region",
 				}),
-				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
+				ExpectError: regexp.MustCompile(service.ErrInvalidAttribute),
 			},
 			// Create with custom conf and region
 			{
@@ -175,8 +202,8 @@ func TestServiceResource_CustomConf(t *testing.T) {
 func TestServiceResource_Import(t *testing.T) {
 	config := newServiceConfig(Config{Name: "import test"})
 	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: TestAccProtoV6ProviderFactories,
+		PreCheck:                 func() { test.TestAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Create the service to import
 			{
@@ -210,7 +237,7 @@ func newServiceConfig(config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 				resource "timescale_service" "resource" {
 					name = %q
 					timeouts = {
@@ -223,7 +250,7 @@ func newServiceComputeResizeConfig(config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 		resource "timescale_service" "resource" {
 			name = %q
 			milli_cpu  = %d
@@ -238,7 +265,7 @@ func newServiceAddVpc(config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 		resource "timescale_service" "resource" {
 			name = %q
 			milli_cpu  = %d
@@ -254,7 +281,7 @@ func newServiceAddHAReplica(config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 		resource "timescale_service" "resource" {
 			name = %q
 			milli_cpu  = %d
@@ -270,7 +297,7 @@ func newServiceCustomConfig(resourceName string, config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "30m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 		resource "timescale_service" "%s" {
 			name = %q
 			timeouts = {
@@ -287,7 +314,7 @@ func newServiceCustomVpcConfig(resourceName string, config Config) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "30m"
 	}
-	return providerConfig + fmt.Sprintf(`
+	return test.ProviderConfig + fmt.Sprintf(`
 		resource "timescale_service" "%s" {
 			name = %q
 			timeouts = {

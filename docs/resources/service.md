@@ -33,6 +33,7 @@ The change has been taken into account but must still be propagated. You can run
 
 ### Read-Only
 
+- `created` (String) Created is the time this service was created.
 - `hostname` (String) The hostname for this service
 - `id` (String) Service ID is the unique identifier for this service.
 - `password` (String, Sensitive) The Postgres password for this service. The password is provided once during service creation

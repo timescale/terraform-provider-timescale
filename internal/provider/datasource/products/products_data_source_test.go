@@ -1,15 +1,16 @@
-package provider
+package products_test
 
 import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/timescale/terraform-provider-timescale/internal/test"
 )
 
 func TestProductDataSource(t *testing.T) {
 	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: test.TestAccProtoV6ProviderFactories,
+		PreCheck:                 func() { test.TestAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			// Read datasource
 			{
@@ -24,7 +25,7 @@ func TestProductDataSource(t *testing.T) {
 }
 
 func newProductsConfig() string {
-	return providerConfig + `
+	return test.ProviderConfig + `
 		data "timescale_products" "products" {
 		}`
 }

@@ -1,14 +1,15 @@
-package provider
+package service_test
 
 import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/timescale/terraform-provider-timescale/internal/test"
 )
 
 func TestServiceDataSource(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		ProtoV6ProviderFactories: test.TestAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Read testing
 			{
@@ -31,7 +32,7 @@ func TestServiceDataSource(t *testing.T) {
 }
 
 func newServiceDataSource() string {
-	return providerConfig + `
+	return test.ProviderConfig + `
 				resource "timescale_service" "resource" {
 					name = "newServiceDataSource test"
 				}

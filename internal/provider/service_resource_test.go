@@ -74,6 +74,144 @@ func TestServiceResource_Default_Success(t *testing.T) {
 	})
 }
 
+func TestServiceResource_Read_Replica(t *testing.T) {
+	const (
+		primaryName = "primary"
+		extraName   = "extra"
+		replicaName = "read_replica"
+		primaryFQID = "timescale_service." + primaryName
+		extraFQID   = "timescale_service." + extraName
+		replicaFQID = "timescale_service." + replicaName
+	)
+	var (
+		primaryConfig = &Config{
+			ResourceName: primaryName,
+			Name:         "service resource test init",
+		}
+		extraConfig = &Config{
+			ResourceName: extraName,
+		}
+		replicaConfig = &Config{
+			ResourceName:      replicaName,
+			ReadReplicaSource: primaryFQID + ".id",
+			MilliCPU:          500,
+			MemoryGB:          2,
+		}
+		extraReplicaConfig = &Config{
+			ResourceName:      replicaName + "_2",
+			ReadReplicaSource: primaryFQID + ".id",
+		}
+	)
+	// Test creating a service with a read replica
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: getConfig(t, primaryConfig, replicaConfig),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Verify service attributes
+					resource.TestCheckResourceAttr(primaryFQID, "name", "service resource test init"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "id"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "password"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "hostname"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "username"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "port"),
+					resource.TestCheckResourceAttr(primaryFQID, "milli_cpu", "500"),
+					resource.TestCheckResourceAttr(primaryFQID, "memory_gb", "2"),
+					resource.TestCheckResourceAttr(primaryFQID, "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr(primaryFQID, "enable_ha_replica", "false"),
+					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
+
+					// Verify read replica attributes
+					resource.TestCheckResourceAttr(replicaFQID, "name", "replica-service resource test init"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "id"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "password"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "hostname"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "username"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "port"),
+					resource.TestCheckResourceAttr(replicaFQID, "milli_cpu", "500"),
+					resource.TestCheckResourceAttr(replicaFQID, "memory_gb", "2"),
+					resource.TestCheckResourceAttr(replicaFQID, "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr(replicaFQID, "enable_ha_replica", "false"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "read_replica_source"),
+					resource.TestCheckNoResourceAttr(replicaFQID, "vpc_id"),
+				),
+			},
+			// Update replica name
+			{
+				Config: getConfig(t, primaryConfig, replicaConfig.WithName("replica")),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
+				),
+			},
+			// Do a compute resize
+			{
+				Config: getConfig(t, primaryConfig, replicaConfig.WithSpec(1000, 4)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "milli_cpu", "1000"),
+					resource.TestCheckResourceAttr(replicaFQID, "memory_gb", "4"),
+				),
+			},
+			// Add VPC to the read replica
+			{
+				Config: getConfig(t, primaryConfig, replicaConfig.WithVPC(DEFAULT_VPC_ID)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "vpc_id", "2074"),
+				),
+			},
+			// Remove VPC
+			{
+				Config: getConfig(t, primaryConfig, replicaConfig.WithVPC(0)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
+				),
+			},
+			// Check adding HA returns an error
+			{
+				Config:      getConfig(t, primaryConfig, replicaConfig.WithHAReplica(true)),
+				ExpectError: regexp.MustCompile(errReplicaWithHA),
+			},
+			// Check removing read_replica_source returns an error
+			{
+				Config:      getConfig(t, primaryConfig, replicaConfig.WithHAReplica(false).WithReadReplica("")),
+				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
+			},
+			// Check changing read_replica_source returns an error
+			{
+				Config:      getConfig(t, primaryConfig, extraConfig, replicaConfig.WithReadReplica(extraFQID+".id")),
+				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
+			},
+			// Check enabling read_replica_source returns an error
+			{
+				Config:      getConfig(t, primaryConfig.WithReadReplica(extraFQID+".id"), extraConfig, replicaConfig.WithReadReplica(primaryFQID+".id")),
+				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
+			},
+			// Check creating multiple read replicas returns an error
+			{
+				Config:      getConfig(t, primaryConfig.WithReadReplica(""), replicaConfig, extraReplicaConfig),
+				ExpectError: regexp.MustCompile(errMultipleReadReplicas),
+			},
+			// Test creating a read replica from a read replica returns an error
+			{
+				Config:      getConfig(t, primaryConfig, replicaConfig, extraReplicaConfig.WithReadReplica(replicaFQID+".id")),
+				ExpectError: regexp.MustCompile(errReplicaFromFork),
+			},
+			// Remove Replica
+			{
+				Config: getConfig(t, primaryConfig),
+				Check: func(state *terraform.State) error {
+					resources := state.RootModule().Resources
+					if _, ok := resources[replicaFQID]; ok {
+						return errors.New("expected replica to be deleted")
+					}
+					return nil
+				},
+			},
+		},
+	})
+}
+
 func TestServiceResource_Timeout(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

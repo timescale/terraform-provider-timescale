@@ -44,14 +44,15 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 }
 
 type Config struct {
-	ResourceName    string
-	Name            string
-	Timeouts        Timeouts
-	MilliCPU        int64
-	MemoryGB        int64
-	RegionCode      string
-	EnableHAReplica bool
-	VpcID           int64
+	ResourceName      string
+	Name              string
+	Timeouts          Timeouts
+	MilliCPU          int64
+	MemoryGB          int64
+	RegionCode        string
+	EnableHAReplica   bool
+	VpcID             int64
+	ReadReplicaSource string
 }
 
 func (c *Config) WithName(name string) *Config {
@@ -75,6 +76,11 @@ func (c *Config) WithHAReplica(enableHAReplica bool) *Config {
 	return c
 }
 
+func (c *Config) WithReadReplica(source string) *Config {
+	c.ReadReplicaSource = source
+	return c
+}
+
 func (c *Config) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -86,6 +92,9 @@ func (c *Config) String(t *testing.T) string {
 	require.NoError(t, err)
 	if c.Name != "" {
 		write("name = %q \n", c.Name)
+	}
+	if c.ReadReplicaSource != "" {
+		write("read_replica_source = %s \n", c.ReadReplicaSource)
 	}
 	if c.EnableHAReplica {
 		write("enable_ha_replica = %t \n", c.EnableHAReplica)

@@ -1,15 +1,12 @@
-query GetService($projectId: ID!, $serviceId: ID!) {
-    getService (data:{
-        serviceId: $serviceId,
-        projectId: $projectId
-    }) {
+query GetAllServices($projectId: ID!) {
+    getAllServices(projectId: $projectId) {
         id
         projectId
         name
         type
         created
         status
-        replicaStatus 
+        replicaStatus
         autoscaleSettings {
             enabled
         }

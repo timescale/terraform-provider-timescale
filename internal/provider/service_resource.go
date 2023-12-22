@@ -2,8 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -31,12 +33,15 @@ var _ resource.Resource = &ServiceResource{}
 var _ resource.ResourceWithImportState = &ServiceResource{}
 
 const (
-	ErrCreateTimeout    = "Error waiting for service creation"
-	ErrUpdateService    = "Error updating service"
-	ErrInvalidAttribute = "Invalid Attribute Value"
-
-	DefaultMilliCPU = 500
-	DefaultMemoryGB = 2
+	ErrCreateTimeout        = "Error waiting for service creation"
+	ErrUpdateService        = "Error updating service"
+	ErrInvalidAttribute     = "Invalid Attribute Value"
+	errMultipleReadReplicas = "cannot create multiple read replicas for a service"
+	errReplicaFromFork      = "cannot create a read replica from a read replica or fork"
+	errReplicaWithHA        = "cannot create a read replica with HA enabled"
+	errUpdateReplicaSource  = "cannot update read replica source"
+	DefaultMilliCPU         = 500
+	DefaultMemoryGB         = 2
 
 	DefaultEnableHAReplica = false
 )
@@ -50,6 +55,9 @@ func NewServiceResource() resource.Resource {
 	return &ServiceResource{}
 }
 
+// readReplicaMu synchronizes operations on read replicas for a project.
+var readReplicaMu sync.Mutex
+
 // ServiceResource defines the resource implementation.
 type ServiceResource struct {
 	client *tsClient.Client
@@ -57,19 +65,20 @@ type ServiceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID              types.String   `tfsdk:"id"`
-	Name            types.String   `tfsdk:"name"`
-	Timeouts        timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU        types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB       types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB        types.Int64    `tfsdk:"memory_gb"`
-	Password        types.String   `tfsdk:"password"`
-	Hostname        types.String   `tfsdk:"hostname"`
-	Port            types.Int64    `tfsdk:"port"`
-	Username        types.String   `tfsdk:"username"`
-	RegionCode      types.String   `tfsdk:"region_code"`
-	EnableHAReplica types.Bool     `tfsdk:"enable_ha_replica"`
-	VpcId           types.Int64    `tfsdk:"vpc_id"`
+	ID                types.String   `tfsdk:"id"`
+	Name              types.String   `tfsdk:"name"`
+	Timeouts          timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU          types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB         types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB          types.Int64    `tfsdk:"memory_gb"`
+	Password          types.String   `tfsdk:"password"`
+	Hostname          types.String   `tfsdk:"hostname"`
+	Port              types.Int64    `tfsdk:"port"`
+	Username          types.String   `tfsdk:"username"`
+	RegionCode        types.String   `tfsdk:"region_code"`
+	EnableHAReplica   types.Bool     `tfsdk:"enable_ha_replica"`
+	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
+	VpcId             types.Int64    `tfsdk:"vpc_id"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -124,6 +133,11 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
+			},
+			"read_replica_source": schema.StringAttribute{
+				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if ommitted will be handled by the provider",
+				Description:         "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if ommitted will be handled by the provider",
+				Optional:            true,
 			},
 			"storage_gb": schema.Int64Attribute{
 				MarkdownDescription: "Deprecated: Storage GB",
@@ -237,6 +251,36 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	if !plan.VpcId.IsNull() {
 		request.VpcID = plan.VpcId.ValueInt64()
 	}
+
+	readReplicaSource := plan.ReadReplicaSource.ValueString()
+	if readReplicaSource != "" {
+		// Locking is done to prevent multiple read replicas being created for a service at once
+		readReplicaMu.Lock()
+		defer readReplicaMu.Unlock()
+
+		primary, err := r.client.GetService(ctx, readReplicaSource)
+		if err != nil {
+			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("unable to get primary service %s, got error: %s", readReplicaSource, err))
+			return
+		}
+		err = r.validateCreateReadReplicaRequest(ctx, primary, plan)
+		if err != nil {
+			resp.Diagnostics.AddError("read replica validation error", err.Error())
+			return
+		}
+		if request.Name == "" {
+			request.Name = "replica-" + primary.Name
+		}
+		if request.RegionCode == "" {
+			request.RegionCode = primary.RegionCode
+		}
+		request.ForkConfig = &tsClient.ForkConfig{
+			ProjectID: primary.ProjectID,
+			ServiceID: primary.ID,
+			IsStandby: true,
+		}
+	}
+
 	response, err := r.client.CreateService(ctx, request)
 
 	if err != nil {
@@ -261,6 +305,27 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
+}
+
+func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, primary *tsClient.Service, plan serviceResourceModel) error {
+	tflog.Trace(ctx, "validateCreateReadReplicaRequest")
+
+	if primary.ForkSpec != nil {
+		return errors.New(errReplicaFromFork)
+	}
+	if plan.EnableHAReplica.ValueBool() {
+		return errors.New(errReplicaWithHA)
+	}
+	services, err := r.client.GetAllServices(ctx)
+	if err != nil {
+		return err
+	}
+	for _, service := range services {
+		if service.ForkSpec != nil && service.ForkSpec.ServiceID == primary.ID {
+			return errors.New(errMultipleReadReplicas)
+		}
+	}
+	return nil
 }
 
 func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (*tsClient.Service, error) {
@@ -334,8 +399,17 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
 	serviceID := state.ID.ValueString()
+
+	readReplicaSource := plan.ReadReplicaSource.ValueString()
+	if readReplicaSource != state.ReadReplicaSource.ValueString() {
+		resp.Diagnostics.AddError(ErrUpdateService, errUpdateReplicaSource)
+		return
+	}
+	if readReplicaSource != "" && plan.EnableHAReplica.ValueBool() {
+		resp.Diagnostics.AddError(ErrUpdateService, errReplicaWithHA)
+		return
+	}
 
 	if !plan.Hostname.IsUnknown() {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support hostname change")
@@ -462,17 +536,18 @@ func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportSt
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	model := serviceResourceModel{
-		ID:              types.StringValue(s.ID),
-		Password:        state.Password,
-		Name:            types.StringValue(s.Name),
-		MilliCPU:        types.Int64Value(s.Resources[0].Spec.MilliCPU),
-		MemoryGB:        types.Int64Value(s.Resources[0].Spec.MemoryGB),
-		Hostname:        types.StringValue(s.ServiceSpec.Hostname),
-		Username:        types.StringValue(s.ServiceSpec.Username),
-		Port:            types.Int64Value(s.ServiceSpec.Port),
-		RegionCode:      types.StringValue(s.RegionCode),
-		Timeouts:        state.Timeouts,
-		EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
+		ID:                types.StringValue(s.ID),
+		Password:          state.Password,
+		Name:              types.StringValue(s.Name),
+		MilliCPU:          types.Int64Value(s.Resources[0].Spec.MilliCPU),
+		MemoryGB:          types.Int64Value(s.Resources[0].Spec.MemoryGB),
+		Hostname:          types.StringValue(s.ServiceSpec.Hostname),
+		Username:          types.StringValue(s.ServiceSpec.Username),
+		Port:              types.Int64Value(s.ServiceSpec.Port),
+		RegionCode:        types.StringValue(s.RegionCode),
+		Timeouts:          state.Timeouts,
+		EnableHAReplica:   types.BoolValue(s.ReplicaStatus != ""),
+		ReadReplicaSource: state.ReadReplicaSource,
 	}
 	if s.VpcEndpoint != nil {
 		if vpcId, err := strconv.ParseInt(s.VpcEndpoint.VpcId, 10, 64); err != nil {

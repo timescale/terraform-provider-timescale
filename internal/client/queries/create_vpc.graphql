@@ -1,0 +1,31 @@
+mutation CreateVPC($projectId: ID!, $name: String!, $cidr: String!, $regionCode: String!) {
+    createVpc(data:{
+        projectId:$projectId,
+        name:$name,
+        cidr:$cidr,
+        cloudProvider: AWS,
+        regionCode:$regionCode
+    }){
+        id
+        projectId
+        cidr
+        name
+        created
+        updated
+        # peeringConnections {
+        #     id
+        #     vpcId
+        #     peerVpc {
+        #         id
+        #         accountId
+        #         regionCode
+        #         cidr
+        #     }
+        #     errorMessage
+        #     status
+        # }
+        errorMessage
+        status
+        regionCode
+    }
+}

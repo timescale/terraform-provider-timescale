@@ -1,0 +1,25 @@
+ query GetVPC($vpcId: ID!) {
+    getVpc(vpcId: $vpcId) {
+        id
+        projectId
+        cidr
+        name
+        created
+        updated
+        # peeringConnections {
+        #   id
+        #   vpcId
+        #   peerVpc {
+        #     id
+        #     accountId
+        #     regionCode
+        #     cidr
+        #   }
+        #   errorMessage
+        #   status
+        # }
+        errorMessage
+        status
+        regionCode
+    }
+}

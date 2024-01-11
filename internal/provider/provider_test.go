@@ -43,7 +43,58 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"timescale": providerserver.NewProtocol6WithError(New("test")()),
 }
 
-type Config struct {
+type VPCConfig struct {
+	ResourceName string
+	Name         string
+	CIDR         string
+	RegionCode   string
+}
+
+func (vc *VPCConfig) WithName(s string) *VPCConfig {
+	vc.Name = s
+	return vc
+}
+func (vc *VPCConfig) WithCIDR(s string) *VPCConfig {
+	vc.CIDR = s
+	return vc
+}
+func (vc *VPCConfig) WithRegionCode(s string) *VPCConfig {
+	vc.RegionCode = s
+	return vc
+}
+
+func (vc *VPCConfig) String(t *testing.T) string {
+	b := &strings.Builder{}
+	write := func(format string, a ...any) {
+		_, err := fmt.Fprintf(b, format, a...)
+		require.NoError(t, err)
+	}
+	_, err := fmt.Fprintf(b, "\n\n resource timescale_vpcs %q { \n", vc.ResourceName)
+	require.NoError(t, err)
+	if vc.Name != "" {
+		write("name = %q \n", vc.Name)
+	}
+	if vc.CIDR != "" {
+		write("cidr = %q \n", vc.CIDR)
+	}
+	if vc.RegionCode != "" {
+		write("region_code = %q \n", vc.RegionCode)
+	}
+	write("}")
+	return b.String()
+}
+
+// getServiceConfig returns a configuration for a test step
+func getVPCConfig(t *testing.T, cfgs ...*VPCConfig) string {
+	res := strings.Builder{}
+	res.WriteString(providerConfig)
+	for _, cfg := range cfgs {
+		res.WriteString(cfg.String(t))
+	}
+	return res.String()
+}
+
+type ServiceConfig struct {
 	ResourceName      string
 	Name              string
 	Timeouts          Timeouts
@@ -55,33 +106,33 @@ type Config struct {
 	ReadReplicaSource string
 }
 
-func (c *Config) WithName(name string) *Config {
+func (c *ServiceConfig) WithName(name string) *ServiceConfig {
 	c.Name = name
 	return c
 }
 
-func (c *Config) WithSpec(milliCPU, memoryGB int64) *Config {
+func (c *ServiceConfig) WithSpec(milliCPU, memoryGB int64) *ServiceConfig {
 	c.MilliCPU = milliCPU
 	c.MemoryGB = memoryGB
 	return c
 }
 
-func (c *Config) WithVPC(ID int64) *Config {
+func (c *ServiceConfig) WithVPC(ID int64) *ServiceConfig {
 	c.VpcID = ID
 	return c
 }
 
-func (c *Config) WithHAReplica(enableHAReplica bool) *Config {
+func (c *ServiceConfig) WithHAReplica(enableHAReplica bool) *ServiceConfig {
 	c.EnableHAReplica = enableHAReplica
 	return c
 }
 
-func (c *Config) WithReadReplica(source string) *Config {
+func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
 	c.ReadReplicaSource = source
 	return c
 }
 
-func (c *Config) String(t *testing.T) string {
+func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
 	write := func(format string, a ...any) {
@@ -116,7 +167,7 @@ func (c *Config) String(t *testing.T) string {
 	return b.String()
 }
 
-func (c *Config) setDefaults() {
+func (c *ServiceConfig) setDefaults() {
 	if c.MilliCPU == 0 {
 		c.MilliCPU = 500
 	}
@@ -128,8 +179,8 @@ func (c *Config) setDefaults() {
 	}
 }
 
-// getConfig returns a configuration for a test step
-func getConfig(t *testing.T, cfgs ...*Config) string {
+// getServiceConfig returns a configuration for a test step
+func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 	res := strings.Builder{}
 	res.WriteString(providerConfig)
 	for _, cfg := range cfgs {

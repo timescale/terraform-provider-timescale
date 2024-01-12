@@ -95,6 +95,12 @@ it will still be charged for the full hour of usage.
 go install .
 ```
 
+#### Generating the provider documentation
+
+```shell
+go generate
+```
+
 ### Local provider development override
 To use the locally built provider, create a `~/.terraformrc` file with the following content
 

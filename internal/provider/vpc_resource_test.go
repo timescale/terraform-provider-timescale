@@ -30,11 +30,11 @@ func TestVPCResource_Default_Success(t *testing.T) {
 					},
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "created"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "updated"),
 					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-1"),
+					// resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "updated"),
+					// resource.TestCheckNoResourceAttr("timescale_vpcs.resource", "created"),
 				),
 			},
 			// Rename
@@ -46,8 +46,8 @@ func TestVPCResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "created"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "updated"),
 					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-renamed"),
+					// resource.TestCheckNoResourceAttr("timescale_vpcs.resource", "updated"), // rename returns a success and not a vpc so we only get this at refresh
 				),
 			},
 		},

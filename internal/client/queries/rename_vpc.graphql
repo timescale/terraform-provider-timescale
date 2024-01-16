@@ -1,4 +1,4 @@
-mutation RenameVpc($projectId: ID!, $forgeVpcId: ID!, $newName: String!) {
+mutation RenameVPC($projectId: ID!, $forgeVpcId: ID!, $newName: String!) {
     renameVpc (data:{
         projectId: $projectId,
         forgeVpcId: $forgeVpcId,

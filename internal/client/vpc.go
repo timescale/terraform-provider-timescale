@@ -206,7 +206,7 @@ func (c *Client) RenameVPC(ctx context.Context, vpcId int64, newName string) err
 		"query":         RenameVPCMutation,
 		"variables": map[string]any{
 			"projectId":  c.projectID,
-			"forgeVPCId": vpcId,
+			"forgeVpcId": vpcId,
 			"newName":    newName,
 		},
 	}

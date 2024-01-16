@@ -189,6 +189,15 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 	return res.String()
 }
 
+// // getServiceConfig returns a configuration for a test step
+// func getServiceNoProviderConfig(t *testing.T, cfgs ...*ServiceConfig) string {
+// 	res := strings.Builder{}
+// 	for _, cfg := range cfgs {
+// 		res.WriteString(cfg.String(t))
+// 	}
+// 	return res.String()
+// }
+
 type Timeouts struct {
 	Create string
 }

@@ -9,17 +9,18 @@ query GetVPCByName($projectId: ID!, $name: String!) {
         name
         created
         updated
-        # peeringConnections {
-        #   vpcId
-        #   peerVpc {
-        #     id
-        #     accountId
-        #     regionCode
-        #     cidr
-        #   }
-        #   errorMessage
-        #   status
-        # }
+        peeringConnections {
+          id
+          vpcId
+          peerVpc {
+            id
+            accountId
+            regionCode
+            cidr
+          }
+          errorMessage
+          status
+        }
         errorMessage
         status
         regionCode

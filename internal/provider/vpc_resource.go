@@ -43,46 +43,59 @@ type vpcResource struct {
 	client *tsClient.Client
 }
 
-// vpcResourceModel maps vpcs schema data.
 type vpcResourceModel struct {
-	ID            types.Int64  `tfsdk:"id"`
-	ProvisionedID types.String `tfsdk:"provisioned_id"`
-	ProjectID     types.String `tfsdk:"project_id"`
-	CIDR          types.String `tfsdk:"cidr"`
-	Name          types.String `tfsdk:"name"`
-	RegionCode    types.String `tfsdk:"region_code"`
-	Status        types.String `tfsdk:"status"`
-	ErrorMessage  types.String `tfsdk:"error_message"`
-	Created       types.String `tfsdk:"created"`
-	Updated       types.String `tfsdk:"updated"`
-	// PeeringConnections types.List   `tfsdk:"peering_connections"`
+	ID                 types.Int64  `tfsdk:"id"`
+	ProvisionedID      types.String `tfsdk:"provisioned_id"`
+	ProjectID          types.String `tfsdk:"project_id"`
+	CIDR               types.String `tfsdk:"cidr"`
+	Name               types.String `tfsdk:"name"`
+	RegionCode         types.String `tfsdk:"region_code"`
+	Status             types.String `tfsdk:"status"`
+	ErrorMessage       types.String `tfsdk:"error_message"`
+	Created            types.String `tfsdk:"created"`
+	Updated            types.String `tfsdk:"updated"`
+	PeeringConnections types.List   `tfsdk:"peering_connections"`
 }
 
-// type peeringConnectionResourceModel struct {
-// 	ID           types.Int64  `tfsdk:"id"`
-// 	VpcID        types.Int64  `tfsdk:"vpc_id"`
-// 	Status       types.String `tfsdk:"status"`
-// 	ErrorMessage types.String `tfsdk:"error_message"`
-// 	PeerVpcs     types.List   `tfsdk:"peer_vpc"`
-// }
+type peeringConnectionResourceModel struct {
+	ID           types.Int64  `tfsdk:"id"`
+	VpcID        types.String `tfsdk:"vpc_id"`
+	Status       types.String `tfsdk:"status"`
+	ErrorMessage types.String `tfsdk:"error_message"`
+	PeerVpcs     types.Object `tfsdk:"peer_vpc"`
+}
+
+type peerVpcModel struct {
+	ID         types.String `tfsdk:"id"`
+	CIDR       types.String `tfsdk:"cidr"`
+	AccountID  types.String `tfsdk:"account_id"`
+	RegionCode types.String `tfsdk:"region_code"`
+}
 
 var (
-	PeerVpcType = types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"id":          types.Int64Type,
-			"cidr":        types.StringType,
-			"account_id":  types.StringType,
-			"region_code": types.StringType,
-		},
+	PeerVpcType = map[string]attr.Type{
+		"id":          types.StringType,
+		"cidr":        types.StringType,
+		"account_id":  types.StringType,
+		"region_code": types.StringType,
 	}
 
 	PeeringConnectionsType = types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"id":            types.Int64Type,
-			"vpc_id":        types.Int64Type,
-			"status":        types.StringType,
-			"error_message": types.StringType,
-			"peer_vpc":      types.ListType{ElemType: PeerVpcType},
+		AttrTypes: PeeringConnectionType,
+	}
+
+	PeeringConnectionType = map[string]attr.Type{
+		"id":            types.Int64Type,
+		"vpc_id":        types.StringType,
+		"status":        types.StringType,
+		"error_message": types.StringType,
+		"peer_vpc": types.ObjectType{
+			AttrTypes: map[string]attr.Type{
+				"id":          types.StringType,
+				"cidr":        types.StringType,
+				"account_id":  types.StringType,
+				"region_code": types.StringType,
+			},
 		},
 	}
 )
@@ -94,16 +107,15 @@ func (r *vpcResource) Metadata(_ context.Context, req resource.MetadataRequest, 
 
 // Read refreshes the Terraform state with the latest data.
 func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	tflog.Trace(ctx, "VpcResource.Read")
 	var state vpcResourceModel
-	var vpc *tsClient.VPC
-	var err error
-	// Read Terraform prior state plan into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	var vpc *tsClient.VPC
+	var err error
 
 	if !state.Name.IsNull() {
 		tflog.Info(ctx, "Getting VPC by name: "+state.Name.ValueString())
@@ -125,16 +137,17 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	state.ProjectID = types.StringValue(vpc.ProjectID)
 	state.CIDR = types.StringValue(vpc.CIDR)
 	state.RegionCode = types.StringValue(vpc.RegionCode)
-	resourceModel := vpcToResource(resp.Diagnostics, vpc, state)
+
+	model := vpcToResource(ctx, resp.Diagnostics, vpc, state)
 	// Save updated plan into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
 }
 
-func vpcToResource(_ diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
+func vpcToResource(ctx context.Context, diag diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
 	model := vpcResourceModel{
 		ID:            state.ID,
 		ProjectID:     state.ProjectID,
@@ -146,40 +159,42 @@ func vpcToResource(_ diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) 
 		Status:        types.StringValue(s.Status),
 		ErrorMessage:  types.StringValue(s.ErrorMessage),
 		Updated:       types.StringValue(s.Updated),
-		// PeeringConnections: types.ListUnknown(PeeringConnectionsType),
 	}
-	// for _, peeringConn := range vpc.PeeringConnections {
-	// 	peeringConnID, err := strconv.ParseInt(peeringConn.ID, 10, 64)
-	// 	if err != nil {
-	// 		resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-	// 		return
-	// 	}
-	// 	peeringConnVpcID, err := strconv.ParseInt(peeringConn.VpcID, 10, 64)
-	// 	if err != nil {
-	// 		resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-	// 		return
-	// 	}
-	// 	peerConn := peeringConnectionModel{
-	// 		ID:           types.Int64Value(peeringConnID),
-	// 		VpcID:        types.Int64Value(peeringConnVpcID),
-	// 		Status:       types.StringValue(peeringConn.Status),
-	// 		ErrorMessage: types.StringValue(peeringConn.ErrorMessage),
-	// 	}
-	// 	for _, peerVpc := range peeringConn.PeerVpcs {
-	// 		peerVpcId, err := strconv.ParseInt(peerVpc.ID, 10, 64)
-	// 		if err != nil {
-	// 			resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-	// 			return
-	// 		}
-	// 		peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
-	// 			ID:         types.Int64Value(peerVpcId),
-	// 			AccountID:  types.StringValue(peerVpc.AccountID),
-	// 			CIDR:       types.StringValue(peerVpc.CIDR),
-	// 			RegionCode: types.StringValue(peerVpc.RegionCode),
-	// 		})
-	// 	}
-	// 	vpcState.PeeringConnections = append(vpcState.PeeringConnections, peerConn)
-	// }
+
+	pcmObjs := make([]attr.Value, 0, len(s.PeeringConnections))
+	for _, pc := range s.PeeringConnections {
+		var pcm peeringConnectionResourceModel
+		pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
+		peeringConnID, err := strconv.ParseInt(pc.ID, 10, 64)
+		if err != nil {
+			diag.AddError("Parse Error", "could not parse peering connection ID")
+		}
+		pcm.ID = types.Int64Value(peeringConnID)
+		pcm.VpcID = types.StringValue(pc.VPCID)
+		pcm.Status = types.StringValue(pc.Status)
+		if pc.ErrorMessage != "" {
+			pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
+		}
+
+		peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcType, peerVpcModel{
+			ID:         types.StringValue(pc.PeerVPC.ID),
+			AccountID:  types.StringValue(pc.PeerVPC.AccountID),
+			CIDR:       types.StringValue(pc.PeerVPC.CIDR),
+			RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
+		})
+		diag.Append(errDiag...)
+		pcm.PeerVpcs = peerVpcs
+		pcmObj, d := types.ObjectValueFrom(ctx, PeeringConnectionType, pcm)
+		diag.Append(d...)
+		pcmObjs = append(pcmObjs, pcmObj)
+
+	}
+	pcms, err := types.ListValue(PeeringConnectionsType, pcmObjs)
+	if err != nil {
+		diag.AddError("Parse Error", "could not parse peering connection ID")
+	}
+	model.PeeringConnections = pcms
+
 	return model
 }
 
@@ -191,12 +206,12 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 
-	if plan.CIDR.IsNull() {
-		resp.Diagnostics.AddError(ErrVPCCreate, "CIDR is required")
-		return
-	}
 	if plan.RegionCode.IsNull() {
 		resp.Diagnostics.AddError(ErrVPCCreate, "Region code is required")
+		return
+	}
+	if plan.CIDR.IsNull() {
+		resp.Diagnostics.AddError(ErrVPCCreate, "CIDR is required")
 		return
 	}
 	vpc, err := r.client.CreateVPC(ctx, plan.Name.ValueString(), plan.CIDR.ValueString(), plan.RegionCode.ValueString())
@@ -216,10 +231,10 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	plan.ProjectID = types.StringValue(vpc.ProjectID)
 	plan.CIDR = types.StringValue(vpc.CIDR)
 	plan.RegionCode = types.StringValue(vpc.RegionCode)
-	resourceModel := vpcToResource(resp.Diagnostics, vpc, plan)
+	model := vpcToResource(ctx, resp.Diagnostics, vpc, plan)
 
 	// Set state
-	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -289,18 +304,14 @@ func (r *vpcResource) Configure(ctx context.Context, req resource.ConfigureReque
 	if req.ProviderData == nil {
 		return
 	}
-
 	client, ok := req.ProviderData.(*tsClient.Client)
-
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected *tsClient.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
-
 		return
 	}
-
 	r.client = client
 }
 
@@ -368,45 +379,34 @@ func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			// "peering_connections": schema.ListNestedAttribute{
-			// 	Optional: true,
-			// 	Computed: true,
-			// 	NestedObject: schema.NestedAttributeObject{
-			// 		Attributes: map[string]schema.Attribute{
-			// 			"id": schema.Int64Attribute{
-			// 				Computed: true,
-			// 			},
-			// 			"vpc_id": schema.Int64Attribute{
-			// 				Computed: true,
-			// 			},
-			// 			"status": schema.StringAttribute{
-			// 				Computed: true,
-			// 			},
-			// 			"error_message": schema.StringAttribute{
-			// 				Computed: true,
-			// 			},
-			// 			"peer_vpc": schema.ListNestedAttribute{
-			// 				Computed: true,
-			// 				NestedObject: schema.NestedAttributeObject{
-			// 					Attributes: map[string]schema.Attribute{
-			// 						"id": schema.Int64Attribute{
-			// 							Computed: true,
-			// 						},
-			// 						"cidr": schema.StringAttribute{
-			// 							Computed: true,
-			// 						},
-			// 						"region_code": schema.StringAttribute{
-			// 							Computed: true,
-			// 						},
-			// 						"account_id": schema.StringAttribute{
-			// 							Computed: true,
-			// 						},
-			// 					},
-			// 				},
-			// 			},
-			// 		},
-			// 	},
-			// },
+			"peering_connections": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"vpc_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"status": schema.StringAttribute{
+							Computed: true,
+						},
+						"error_message": schema.StringAttribute{
+							Computed: true,
+						},
+						"peer_vpc": schema.ObjectAttribute{
+							Computed: true,
+							AttributeTypes: map[string]attr.Type{
+								"id":          types.StringType,
+								"cidr":        types.StringType,
+								"account_id":  types.StringType,
+								"region_code": types.StringType,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 }

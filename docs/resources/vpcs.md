@@ -29,7 +29,29 @@ description: |-
 - `created` (String)
 - `error_message` (String)
 - `id` (Number) The ID of this resource.
+- `peering_connections` (Attributes List) (see [below for nested schema](#nestedatt--peering_connections))
 - `project_id` (String)
 - `provisioned_id` (String)
 - `status` (String)
 - `updated` (String)
+
+<a id="nestedatt--peering_connections"></a>
+### Nested Schema for `peering_connections`
+
+Read-Only:
+
+- `error_message` (String)
+- `id` (Number)
+- `peer_vpc` (Object) (see [below for nested schema](#nestedatt--peering_connections--peer_vpc))
+- `status` (String)
+- `vpc_id` (String)
+
+<a id="nestedatt--peering_connections--peer_vpc"></a>
+### Nested Schema for `peering_connections.peer_vpc`
+
+Read-Only:
+
+- `account_id` (String)
+- `cidr` (String)
+- `id` (String)
+- `region_code` (String)

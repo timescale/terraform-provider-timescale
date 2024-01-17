@@ -12,6 +12,18 @@ mutation CreateVPC($projectId: ID!, $name: String!, $cidr: String!, $regionCode:
         name
         created
         updated
+        peeringConnections {
+            id
+            vpcId
+            peerVpc {
+                id
+                accountId
+                regionCode
+                cidr
+            }
+            errorMessage
+            status
+        }
         errorMessage
         status
         regionCode

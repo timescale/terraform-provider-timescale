@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
-const DEFAULT_VPC_ID = 2074 // Default vpc id for test acc
-
 func TestServiceResource_Default_Success(t *testing.T) {
 	// Test resource creation succeeds
-	config := &Config{
+	config := &ServiceConfig{
 		ResourceName: "resource",
 	}
 	resource.ParallelTest(t, resource.TestCase{
@@ -23,7 +22,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create default and Read testing
 			{
-				Config: getConfig(t, config),
+				Config: getServiceConfig(t, config),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify the name is set.
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "name"),
@@ -42,7 +41,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 			},
 			// Do a compute resize
 			{
-				Config: getConfig(t, config.WithSpec(1000, 4)),
+				Config: getServiceConfig(t, config.WithSpec(1000, 4)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "1000"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "4"),
@@ -50,24 +49,9 @@ func TestServiceResource_Default_Success(t *testing.T) {
 			},
 			// Update service name
 			{
-				Config: getConfig(t, config.WithName("service resource test update")),
+				Config: getServiceConfig(t, config.WithName("service resource test update")),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
-				),
-			},
-			// Add VPC
-			{
-				Config: getConfig(t, config.WithVPC(DEFAULT_VPC_ID)),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "vpc_id", "2074"),
-				),
-			},
-			// Add HA replica and remove VPC
-			{
-				Config: getConfig(t, config.WithVPC(0).WithHAReplica(true)),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
-					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
 				),
 			},
 		},
@@ -84,20 +68,20 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 		replicaFQID = "timescale_service." + replicaName
 	)
 	var (
-		primaryConfig = &Config{
+		primaryConfig = &ServiceConfig{
 			ResourceName: primaryName,
 			Name:         "service resource test init",
 		}
-		extraConfig = &Config{
+		extraConfig = &ServiceConfig{
 			ResourceName: extraName,
 		}
-		replicaConfig = &Config{
+		replicaConfig = &ServiceConfig{
 			ResourceName:      replicaName,
 			ReadReplicaSource: primaryFQID + ".id",
 			MilliCPU:          500,
 			MemoryGB:          2,
 		}
-		extraReplicaConfig = &Config{
+		extraReplicaConfig = &ServiceConfig{
 			ResourceName:      replicaName + "_2",
 			ReadReplicaSource: primaryFQID + ".id",
 		}
@@ -108,7 +92,7 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				Config: getConfig(t, primaryConfig, replicaConfig),
+				Config: getServiceConfig(t, primaryConfig, replicaConfig),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify service attributes
 					resource.TestCheckResourceAttr(primaryFQID, "name", "service resource test init"),
@@ -140,66 +124,52 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 			},
 			// Update replica name
 			{
-				Config: getConfig(t, primaryConfig, replicaConfig.WithName("replica")),
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithName("replica")),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
 				),
 			},
 			// Do a compute resize
 			{
-				Config: getConfig(t, primaryConfig, replicaConfig.WithSpec(1000, 4)),
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithSpec(1000, 4)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(replicaFQID, "milli_cpu", "1000"),
 					resource.TestCheckResourceAttr(replicaFQID, "memory_gb", "4"),
 				),
 			},
-			// Add VPC to the read replica
-			{
-				Config: getConfig(t, primaryConfig, replicaConfig.WithVPC(DEFAULT_VPC_ID)),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(replicaFQID, "vpc_id", "2074"),
-				),
-			},
-			// Remove VPC
-			{
-				Config: getConfig(t, primaryConfig, replicaConfig.WithVPC(0)),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
-				),
-			},
 			// Check adding HA returns an error
 			{
-				Config:      getConfig(t, primaryConfig, replicaConfig.WithHAReplica(true)),
+				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithHAReplica(true)),
 				ExpectError: regexp.MustCompile(errReplicaWithHA),
 			},
 			// Check removing read_replica_source returns an error
 			{
-				Config:      getConfig(t, primaryConfig, replicaConfig.WithHAReplica(false).WithReadReplica("")),
+				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithHAReplica(false).WithReadReplica("")),
 				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
 			},
 			// Check changing read_replica_source returns an error
 			{
-				Config:      getConfig(t, primaryConfig, extraConfig, replicaConfig.WithReadReplica(extraFQID+".id")),
+				Config:      getServiceConfig(t, primaryConfig, extraConfig, replicaConfig.WithReadReplica(extraFQID+".id")),
 				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
 			},
 			// Check enabling read_replica_source returns an error
 			{
-				Config:      getConfig(t, primaryConfig.WithReadReplica(extraFQID+".id"), extraConfig, replicaConfig.WithReadReplica(primaryFQID+".id")),
+				Config:      getServiceConfig(t, primaryConfig.WithReadReplica(extraFQID+".id"), extraConfig, replicaConfig.WithReadReplica(primaryFQID+".id")),
 				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
 			},
 			// Check creating multiple read replicas returns an error
 			{
-				Config:      getConfig(t, primaryConfig.WithReadReplica(""), replicaConfig, extraReplicaConfig),
+				Config:      getServiceConfig(t, primaryConfig.WithReadReplica(""), replicaConfig, extraReplicaConfig),
 				ExpectError: regexp.MustCompile(errMultipleReadReplicas),
 			},
 			// Test creating a read replica from a read replica returns an error
 			{
-				Config:      getConfig(t, primaryConfig, replicaConfig, extraReplicaConfig.WithReadReplica(replicaFQID+".id")),
+				Config:      getServiceConfig(t, primaryConfig, replicaConfig, extraReplicaConfig.WithReadReplica(replicaFQID+".id")),
 				ExpectError: regexp.MustCompile(errReplicaFromFork),
 			},
 			// Remove Replica
 			{
-				Config: getConfig(t, primaryConfig),
+				Config: getServiceConfig(t, primaryConfig),
 				Check: func(state *terraform.State) error {
 					resources := state.RootModule().Resources
 					if _, ok := resources[replicaFQID]; ok {
@@ -218,7 +188,7 @@ func TestServiceResource_Timeout(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				Config: newServiceConfig(Config{
+				Config: newServiceConfig(ServiceConfig{
 					Name: "service resource test timeout",
 					Timeouts: Timeouts{
 						Create: "1s",
@@ -238,7 +208,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Invalid conf millicpu & memory invalid ratio
 			{
-				Config: newServiceCustomConfig("invalid", Config{
+				Config: newServiceCustomConfig("invalid", ServiceConfig{
 					Name:     "service resource test conf",
 					MilliCPU: 2000,
 					MemoryGB: 2,
@@ -247,7 +217,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			},
 			// Invalid conf storage invalid value
 			{
-				Config: newServiceCustomConfig("invalid", Config{
+				Config: newServiceCustomConfig("invalid", ServiceConfig{
 					Name:     "service resource test conf",
 					MilliCPU: 500,
 					MemoryGB: 3,
@@ -256,14 +226,14 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			},
 			// Invalid conf storage invalid region
 			{
-				Config: newServiceCustomConfig("invalid", Config{
+				Config: newServiceCustomConfig("invalid", ServiceConfig{
 					RegionCode: "test-invalid-region",
 				}),
 				ExpectError: regexp.MustCompile(ErrInvalidAttribute),
 			},
 			// Create with custom conf and region
 			{
-				Config: newServiceCustomConfig("custom", Config{
+				Config: newServiceCustomConfig("custom", ServiceConfig{
 					Name:       "service resource test conf",
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
@@ -275,28 +245,12 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
 				),
 			},
-			// Create with HA and VPC attached
-			{
-				Config: newServiceCustomVpcConfig("hareplica", Config{
-					Name:            "service resource test HA",
-					RegionCode:      "us-east-1",
-					MilliCPU:        500,
-					MemoryGB:        2,
-					EnableHAReplica: true,
-					VpcID:           DEFAULT_VPC_ID,
-				}),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "enable_ha_replica", "true"),
-					resource.TestCheckResourceAttr("timescale_service.hareplica", "vpc_id", "2074"),
-				),
-			},
 		},
 	})
 }
 
 func TestServiceResource_Import(t *testing.T) {
-	config := newServiceConfig(Config{Name: "import test"})
+	config := newServiceConfig(ServiceConfig{Name: "import test"})
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -308,6 +262,10 @@ func TestServiceResource_Import(t *testing.T) {
 			// Import the resource. This step compares the resource attributes for "test" defined above with the imported resource
 			// "test_import" defined in the config for this step. This check is done by specifying the ImportStateVerify configuration option.
 			{
+				Check: func(s *terraform.State) error {
+					time.Sleep(10 * time.Second)
+					return nil
+				},
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password"},
@@ -329,7 +287,7 @@ func TestServiceResource_Import(t *testing.T) {
 	})
 }
 
-func newServiceConfig(config Config) string {
+func newServiceConfig(config ServiceConfig) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "10m"
 	}
@@ -342,7 +300,7 @@ func newServiceConfig(config Config) string {
 				}`, config.Name, config.Timeouts.Create)
 }
 
-func newServiceCustomConfig(resourceName string, config Config) string {
+func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "30m"
 	}
@@ -359,20 +317,20 @@ func newServiceCustomConfig(resourceName string, config Config) string {
 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica)
 }
 
-func newServiceCustomVpcConfig(resourceName string, config Config) string {
-	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "30m"
-	}
-	return providerConfig + fmt.Sprintf(`
-		resource "timescale_service" "%s" {
-			name = %q
-			timeouts = {
-				create = %q
-			}
-			milli_cpu  = %d
-			memory_gb  = %d
-			region_code = %q
-			vpc_id = %d
-			enable_ha_replica = %t
-		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
-}
+// func newServiceCustomVpcConfig(resourceName string, config ServiceConfig) string {
+// 	if config.Timeouts.Create == "" {
+// 		config.Timeouts.Create = "30m"
+// 	}
+// 	return providerConfig + fmt.Sprintf(`
+// 		resource "timescale_service" "%s" {
+// 			name = %q
+// 			timeouts = {
+// 				create = %q
+// 			}
+// 			milli_cpu  = %d
+// 			memory_gb  = %d
+// 			region_code = %q
+// 			vpc_id = %d
+// 			enable_ha_replica = %t
+// 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
+// }

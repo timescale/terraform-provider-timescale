@@ -449,14 +449,14 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plan.VpcId.Equal(state.VpcId) {
 		// if state.VpcId is known and different from plan.VpcId, we must detach first
 		if !state.VpcId.IsNull() && !state.VpcId.IsUnknown() {
-			if err := r.client.DetachServiceFromVpc(ctx, serviceID, state.VpcId.ValueInt64()); err != nil {
+			if err := r.client.DetachServiceFromVPC(ctx, serviceID, state.VpcId.ValueInt64()); err != nil {
 				resp.Diagnostics.AddError("Failed to detach service from VPC", err.Error())
 				return
 			}
 		}
 		// if plan.VpcId is known, it must be attached
 		if !plan.VpcId.IsNull() && !plan.VpcId.IsUnknown() {
-			if err := r.client.AttachServiceToVpc(ctx, serviceID, plan.VpcId.ValueInt64()); err != nil {
+			if err := r.client.AttachServiceToVPC(ctx, serviceID, plan.VpcId.ValueInt64()); err != nil {
 				resp.Diagnostics.AddError("Failed to attach service to VPC", err.Error())
 				return
 			}
@@ -504,7 +504,6 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
-
 }
 
 func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -549,14 +548,14 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		EnableHAReplica:   types.BoolValue(s.ReplicaStatus != ""),
 		ReadReplicaSource: state.ReadReplicaSource,
 	}
-	if s.VpcEndpoint != nil {
-		if vpcId, err := strconv.ParseInt(s.VpcEndpoint.VpcId, 10, 64); err != nil {
+	if s.VPCEndpoint != nil {
+		if vpcId, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
 			diag.AddError("Parse Error", "could not parse vpcID")
 		} else {
 			model.VpcId = types.Int64Value(vpcId)
 		}
-		model.Hostname = types.StringValue(s.VpcEndpoint.Host)
-		model.Port = types.Int64Value(s.VpcEndpoint.Port)
+		model.Hostname = types.StringValue(s.VPCEndpoint.Host)
+		model.Port = types.Int64Value(s.VPCEndpoint.Port)
 	}
 
 	return model

@@ -23,7 +23,7 @@ type Service struct {
 	Resources     []ResourceSpec `json:"resources"`
 	Created       string         `json:"created"`
 	ReplicaStatus string         `json:"replicaStatus"`
-	VpcEndpoint   *VpcEndpoint   `json:"vpcEndpoint"`
+	VPCEndpoint   *VPCEndpoint   `json:"vpcEndpoint"`
 	ForkSpec      *ForkSpec      `json:"forkedFromId"`
 }
 
@@ -33,10 +33,10 @@ type ServiceSpec struct {
 	Port     int64  `json:"port"`
 }
 
-type VpcEndpoint struct {
+type VPCEndpoint struct {
 	Host  string `json:"host"`
 	Port  int64  `json:"port"`
-	VpcId string `json:"vpcId"`
+	VPCId string `json:"vpcId"`
 }
 
 type ResourceSpec struct {

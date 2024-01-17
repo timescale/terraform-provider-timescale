@@ -121,6 +121,7 @@ func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Res
 	tflog.Trace(ctx, "TimescaleProvider.Resources")
 	return []func() resource.Resource{
 		NewServiceResource,
+		NewVpcsResource,
 	}
 }
 

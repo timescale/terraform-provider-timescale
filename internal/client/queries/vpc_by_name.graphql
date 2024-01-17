@@ -1,0 +1,28 @@
+query GetVPCByName($projectId: ID!, $name: String!) {
+    getVpcByName (data:{
+        projectId: $projectId
+        vpcName: $name,
+    }) {
+        id
+        projectId
+        cidr
+        name
+        created
+        updated
+        # peeringConnections {
+        #   id
+        #   vpcId
+        #   peerVpc {
+        #     id
+        #     accountId
+        #     regionCode
+        #     cidr
+        #   }
+        #   errorMessage
+        #   status
+        # }
+        errorMessage
+        status
+        regionCode
+    }
+}

@@ -201,14 +201,14 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 		},
 		Created: types.StringValue(s.Created),
 	}
-	if s.VpcEndpoint != nil {
-		if vpcId, err := strconv.ParseInt(s.VpcEndpoint.VpcId, 10, 64); err != nil {
+	if s.VPCEndpoint != nil {
+		if vpcId, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
 			diag.AddError("Parse Error", "could not parse vpcID")
 		} else {
 			serviceModel.VpcId = types.Int64Value(vpcId)
 		}
-		serviceModel.Spec.Hostname = types.StringValue(s.VpcEndpoint.Host)
-		serviceModel.Spec.Port = types.Int64Value(s.VpcEndpoint.Port)
+		serviceModel.Spec.Hostname = types.StringValue(s.VPCEndpoint.Host)
+		serviceModel.Spec.Port = types.Int64Value(s.VPCEndpoint.Port)
 	}
 	for _, resource := range s.Resources {
 		serviceModel.Resources = append(serviceModel.Resources, ResourceModel{

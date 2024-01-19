@@ -25,7 +25,7 @@ type multipleValidator struct {
 
 // Description describes the validation in plain text formatting.
 func (mv multipleValidator) Description(_ context.Context) string {
-	var attributePaths []string
+	attributePaths := make([]string, 0)
 	for _, p := range mv.attributeToMultiplyExpressions {
 		attributePaths = append(attributePaths, p.String())
 	}
@@ -93,7 +93,7 @@ func (mv multipleValidator) ValidateInt64(ctx context.Context, request validator
 				continue
 			}
 
-			multiplication = multiplication * attribToSum.ValueInt64()
+			multiplication *= attribToSum.ValueInt64()
 		}
 	}
 

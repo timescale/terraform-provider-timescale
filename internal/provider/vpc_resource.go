@@ -116,11 +116,11 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		resp.Diagnostics.AddError(ErrVPCRead, "error must provide Name")
 		return
 	}
-	vpcId, err := strconv.ParseInt(vpc.ID, 10, 64)
+	vpcID, err := strconv.ParseInt(vpc.ID, 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Parse Error", "could not parse vpcID")
 	}
-	state.ID = types.Int64Value(vpcId)
+	state.ID = types.Int64Value(vpcID)
 	state.Created = types.StringValue(vpc.Created)
 	state.ProjectID = types.StringValue(vpc.ProjectID)
 	state.CIDR = types.StringValue(vpc.CIDR)
@@ -134,7 +134,7 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 }
 
-func vpcToResource(diag diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
+func vpcToResource(_ diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
 	model := vpcResourceModel{
 		ID:            state.ID,
 		ProjectID:     state.ProjectID,
@@ -207,11 +207,11 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 		)
 		return
 	}
-	vpcId, err := strconv.ParseInt(vpc.ID, 10, 64)
+	vpcID, err := strconv.ParseInt(vpc.ID, 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Parse Error", "could not parse vpcID")
 	}
-	plan.ID = types.Int64Value(vpcId)
+	plan.ID = types.Int64Value(vpcID)
 	plan.Created = types.StringValue(vpc.Created)
 	plan.ProjectID = types.StringValue(vpc.ProjectID)
 	plan.CIDR = types.StringValue(vpc.CIDR)

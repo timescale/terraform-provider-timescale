@@ -2,10 +2,10 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
+	"math/big"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -172,8 +172,12 @@ func (c *Client) CreateVPC(ctx context.Context, name, cidr, regionCode string) (
 	tflog.Trace(ctx, "Client.CreateVPC")
 
 	if name == "" {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		name = fmt.Sprintf("vpc-%d", 10000+r.Intn(90000))
+		r, err := rand.Int(rand.Reader, big.NewInt(90000))
+		if err != nil {
+			return nil, err
+		}
+		name = fmt.Sprintf("vpc-%d", 10000+r.Int64())
+
 	}
 
 	req := map[string]interface{}{
@@ -199,14 +203,14 @@ func (c *Client) CreateVPC(ctx context.Context, name, cidr, regionCode string) (
 	return resp.Data.VPC, nil
 }
 
-func (c *Client) RenameVPC(ctx context.Context, vpcId int64, newName string) error {
+func (c *Client) RenameVPC(ctx context.Context, vpcID int64, newName string) error {
 	tflog.Trace(ctx, "Client.GetVPCs")
 	req := map[string]interface{}{
 		"operationName": "RenameVPC",
 		"query":         RenameVPCMutation,
 		"variables": map[string]any{
 			"projectId":  c.projectID,
-			"forgeVpcId": vpcId,
+			"forgeVpcId": vpcID,
 			"newName":    newName,
 		},
 	}
@@ -220,7 +224,7 @@ func (c *Client) RenameVPC(ctx context.Context, vpcId int64, newName string) err
 	return nil
 }
 
-func (c *Client) DeleteVPC(ctx context.Context, vpcId int64) error {
+func (c *Client) DeleteVPC(ctx context.Context, vpcID int64) error {
 	tflog.Trace(ctx, "Client.DeleteVPC")
 
 	req := map[string]interface{}{
@@ -228,7 +232,7 @@ func (c *Client) DeleteVPC(ctx context.Context, vpcId int64) error {
 		"query":         DeleteVPCMutation,
 		"variables": map[string]any{
 			"projectId": c.projectID,
-			"vpcId":     vpcId,
+			"vpcId":     vpcID,
 		},
 	}
 	var resp Response[any]

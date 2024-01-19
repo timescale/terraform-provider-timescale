@@ -10,7 +10,6 @@ query GetVPCByName($projectId: ID!, $name: String!) {
         created
         updated
         # peeringConnections {
-        #   id
         #   vpcId
         #   peerVpc {
         #     id

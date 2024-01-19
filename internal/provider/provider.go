@@ -37,14 +37,14 @@ type TimescaleProviderModel struct {
 	SecretKey   types.String `tfsdk:"secret_key"`
 }
 
-func (p *TimescaleProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+func (p *TimescaleProvider) Metadata(ctx context.Context, _ provider.MetadataRequest, resp *provider.MetadataResponse) {
 	tflog.Trace(ctx, "TimescaleProvider.Metadata")
 	resp.Version = p.version
 	resp.TypeName = "timescale"
 }
 
 // Schema defines the provider-level schema for configuration data.
-func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+func (p *TimescaleProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	tflog.Trace(ctx, "TimescaleProvider.Schema")
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "The Terraform provider for [Timescale](https://console.cloud.timescale.com/).",
@@ -71,7 +71,7 @@ func (p *TimescaleProvider) Schema(ctx context.Context, req provider.SchemaReque
 	}
 }
 
-func (p *TimescaleProvider) ConfigValidators(ctx context.Context) []provider.ConfigValidator {
+func (p *TimescaleProvider) ConfigValidators(_ context.Context) []provider.ConfigValidator {
 	return []provider.ConfigValidator{
 		providervalidator.Conflicting(
 			path.MatchRoot("access_token"),

@@ -71,7 +71,7 @@ func (d *vpcsDataSource) Metadata(_ context.Context, req datasource.MetadataRequ
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var state vpcsDataSourceModel
 
 	vpcs, err := d.client.GetVPCs(ctx)
@@ -84,13 +84,13 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 	}
 	// Map response body to model
 	for _, vpc := range vpcs {
-		vpcId, err := strconv.ParseInt(vpc.ID, 10, 64)
+		vpcID, err := strconv.ParseInt(vpc.ID, 10, 64)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 			return
 		}
 		vpcState := vpcDataSourceModel{
-			ID:            types.Int64Value(vpcId),
+			ID:            types.Int64Value(vpcID),
 			Name:          types.StringValue(vpc.Name),
 			ProvisionedID: types.StringValue(vpc.ProvisionedID),
 			ProjectID:     types.StringValue(vpc.ProjectID),
@@ -120,13 +120,13 @@ func (d *vpcsDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 				ErrorMessage: types.StringValue(peeringConn.ErrorMessage),
 			}
 			for _, peerVpc := range peeringConn.PeerVPCs {
-				peerVpcId, err := strconv.ParseInt(peerVpc.ID, 10, 64)
+				peerVpcID, err := strconv.ParseInt(peerVpc.ID, 10, 64)
 				if err != nil {
 					resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 					return
 				}
 				peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
-					ID:         types.Int64Value(peerVpcId),
+					ID:         types.Int64Value(peerVpcID),
 					AccountID:  types.StringValue(peerVpc.AccountID),
 					CIDR:       types.StringValue(peerVpc.CIDR),
 					RegionCode: types.StringValue(peerVpc.RegionCode),

@@ -89,7 +89,7 @@ func NewClient(token, projectID, env, terraformVersion string) *Client {
 	}
 }
 
-func getURL(env string) string {
+func getURL(_ string) string {
 	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
 		return value
 	}
@@ -151,10 +151,7 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
 		return err
 	}
-	if err = json.Unmarshal(data, resp); err != nil {
-		return err
-	}
-	return nil
+	return json.Unmarshal(data, resp)
 }
 
 func (c *Client) setRequestHeaders(request *http.Request) {

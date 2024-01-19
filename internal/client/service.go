@@ -2,10 +2,10 @@ package client
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
+	"math/big"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -93,8 +93,11 @@ type DeleteServiceResponse struct {
 func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest) (*CreateServiceResponse, error) {
 	tflog.Trace(ctx, "Client.CreateService")
 	if request.Name == "" {
-		r := rand.New(rand.NewSource(time.Now().UnixNano()))
-		request.Name = fmt.Sprintf("db-%d", 10000+r.Intn(90000))
+		r, err := rand.Int(rand.Reader, big.NewInt(90000))
+		if err != nil {
+			return nil, err
+		}
+		request.Name = fmt.Sprintf("db-%d", 10000+r.Int64())
 	}
 
 	variables := map[string]any{

@@ -78,7 +78,7 @@ type serviceResourceModel struct {
 	RegionCode        types.String   `tfsdk:"region_code"`
 	EnableHAReplica   types.Bool     `tfsdk:"enable_ha_replica"`
 	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
-	VpcId             types.Int64    `tfsdk:"vpc_id"`
+	VpcID             types.Int64    `tfsdk:"vpc_id"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -87,7 +87,7 @@ func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataReq
 }
 
 // Schema defines the schema for the service resource.
-func (r *ServiceResource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *ServiceResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	tflog.Trace(ctx, "ServiceResource.Schema")
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -135,8 +135,8 @@ The change has been taken into account but must still be propagated. You can run
 				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
 			},
 			"read_replica_source": schema.StringAttribute{
-				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if ommitted will be handled by the provider",
-				Description:         "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if ommitted will be handled by the provider",
+				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
+				Description:         "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
 				Optional:            true,
 			},
 			"storage_gb": schema.Int64Attribute{
@@ -248,8 +248,8 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		RegionCode:   plan.RegionCode.ValueString(),
 		ReplicaCount: strconv.FormatInt(replicaCount, 10),
 	}
-	if !plan.VpcId.IsNull() {
-		request.VpcID = plan.VpcId.ValueInt64()
+	if !plan.VpcID.IsNull() {
+		request.VpcID = plan.VpcID.ValueInt64()
 	}
 
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
@@ -291,7 +291,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	plan.Password = types.StringValue(response.InitialPassword)
 	service, err := r.waitForServiceReadiness(ctx, response.Service.ID, plan.Timeouts)
 	if err != nil {
-		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service deployment, got error: %s", err))
+		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occurred while waiting for service deployment, got error: %s", err))
 		// If we receive an error, attempt to delete the service to avoid having an orphaned instance.
 		_, err = r.client.DeleteService(context.Background(), response.Service.ID)
 		if err != nil {
@@ -328,7 +328,7 @@ func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, 
 	return nil
 }
 
-func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string, timeouts timeouts.Value) (*tsClient.Service, error) {
+func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, id string, timeouts timeouts.Value) (*tsClient.Service, error) {
 	tflog.Trace(ctx, "ServiceResource.waitForServiceReadiness")
 
 	defaultTimeout := 45 * time.Minute
@@ -346,7 +346,7 @@ func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, ID string
 		PollInterval:              5 * time.Second,
 		ContinuousTargetOccurence: 1,
 		Refresh: func() (result interface{}, state string, err error) {
-			s, err := r.client.GetService(ctx, ID)
+			s, err := r.client.GetService(ctx, id)
 			if err != nil {
 				return nil, "", err
 			}
@@ -446,17 +446,17 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	}
 
-	if !plan.VpcId.Equal(state.VpcId) {
+	if !plan.VpcID.Equal(state.VpcID) {
 		// if state.VpcId is known and different from plan.VpcId, we must detach first
-		if !state.VpcId.IsNull() && !state.VpcId.IsUnknown() {
-			if err := r.client.DetachServiceFromVPC(ctx, serviceID, state.VpcId.ValueInt64()); err != nil {
+		if !state.VpcID.IsNull() && !state.VpcID.IsUnknown() {
+			if err := r.client.DetachServiceFromVPC(ctx, serviceID, state.VpcID.ValueInt64()); err != nil {
 				resp.Diagnostics.AddError("Failed to detach service from VPC", err.Error())
 				return
 			}
 		}
 		// if plan.VpcId is known, it must be attached
-		if !plan.VpcId.IsNull() && !plan.VpcId.IsUnknown() {
-			if err := r.client.AttachServiceToVPC(ctx, serviceID, plan.VpcId.ValueInt64()); err != nil {
+		if !plan.VpcID.IsNull() && !plan.VpcID.IsUnknown() {
+			if err := r.client.AttachServiceToVPC(ctx, serviceID, plan.VpcID.ValueInt64()); err != nil {
 				resp.Diagnostics.AddError("Failed to attach service to VPC", err.Error())
 				return
 			}
@@ -494,7 +494,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	service, err := r.waitForServiceReadiness(ctx, serviceID, plan.Timeouts)
 	if err != nil {
-		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occured while waiting for service reconfiguration, got error: %s", err))
+		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occurred while waiting for service reconfiguration, got error: %s", err))
 		return
 	}
 	resources := serviceToResource(resp.Diagnostics, service, plan)
@@ -549,10 +549,10 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		ReadReplicaSource: state.ReadReplicaSource,
 	}
 	if s.VPCEndpoint != nil {
-		if vpcId, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
+		if vpcID, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
 			diag.AddError("Parse Error", "could not parse vpcID")
 		} else {
-			model.VpcId = types.Int64Value(vpcId)
+			model.VpcID = types.Int64Value(vpcID)
 		}
 		model.Hostname = types.StringValue(s.VPCEndpoint.Host)
 		model.Port = types.Int64Value(s.VPCEndpoint.Port)

@@ -117,8 +117,8 @@ func (c *ServiceConfig) WithSpec(milliCPU, memoryGB int64) *ServiceConfig {
 	return c
 }
 
-func (c *ServiceConfig) WithVPC(ID int64) *ServiceConfig {
-	c.VpcID = ID
+func (c *ServiceConfig) WithVPC(id int64) *ServiceConfig {
+	c.VpcID = id
 	return c
 }
 

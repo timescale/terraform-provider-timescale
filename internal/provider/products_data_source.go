@@ -57,7 +57,7 @@ func (d *productsDataSource) Metadata(_ context.Context, req datasource.Metadata
 }
 
 // Read refreshes the Terraform state with the latest data.
-func (d *productsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *productsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var state productsDataSourceModel
 
 	products, err := d.client.GetProducts(ctx)

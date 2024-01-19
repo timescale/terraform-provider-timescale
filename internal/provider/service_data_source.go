@@ -36,7 +36,7 @@ type ServiceDataSourceModel struct {
 	Spec       SpecModel       `tfsdk:"spec"`
 	Resources  []ResourceModel `tfsdk:"resources"`
 	Created    types.String    `tfsdk:"created"`
-	VpcId      types.Int64     `tfsdk:"vpc_id"`
+	VpcID      types.Int64     `tfsdk:"vpc_id"`
 }
 
 type SpecModel struct {
@@ -56,11 +56,11 @@ type ResourceSpecModel struct {
 	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
 }
 
-func (d *ServiceDataSource) Metadata(ctx context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *ServiceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_service"
 }
 
-func (d *ServiceDataSource) Schema(ctx context.Context, req datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "Service data source",
@@ -202,10 +202,10 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 		Created: types.StringValue(s.Created),
 	}
 	if s.VPCEndpoint != nil {
-		if vpcId, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
+		if vpcID, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
 			diag.AddError("Parse Error", "could not parse vpcID")
 		} else {
-			serviceModel.VpcId = types.Int64Value(vpcId)
+			serviceModel.VpcID = types.Int64Value(vpcID)
 		}
 		serviceModel.Spec.Hostname = types.StringValue(s.VPCEndpoint.Host)
 		serviceModel.Spec.Port = types.Int64Value(s.VPCEndpoint.Port)

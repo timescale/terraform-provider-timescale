@@ -24,20 +24,34 @@ var (
 	ResizeInstanceMutation string
 	//go:embed queries/delete_service.graphql
 	DeleteServiceMutation string
+	//go:embed queries/get_all_services.graphql
+	GetAllServicesQuery string
 	//go:embed queries/get_service.graphql
 	GetServiceQuery string
-	//go:embed queries/vpcs.graphql
-	GetVPCsQuery string
 	//go:embed queries/products.graphql
 	ProductsQuery string
 	//go:embed queries/jwt_cc.graphql
 	JWTFromCCQuery string
+	//go:embed queries/set_replica_count.graphql
+	SetReplicaCountMutation string
+
+	// VCPs ///////////////////////////////
+	//go:embed queries/vpcs.graphql
+	GetVPCsQuery string
+	//go:embed queries/vpc_by_name.graphql
+	GetVPCByNameQuery string
+	//go:embed queries/vpc_by_id.graphql
+	GetVPCByIDQuery string
 	//go:embed queries/attach_service_to_vpc.graphql
 	AttachServiceToVPCMutation string
 	//go:embed queries/detach_service_from_vpc.graphql
 	DetachServiceFromVPCMutation string
-	//go:embed queries/set_replica_count.graphql
-	SetReplicaCountMutation string
+	//go:embed queries/create_vpc.graphql
+	CreateVPCMutation string
+	//go:embed queries/delete_vpc.graphql
+	DeleteVPCMutation string
+	//go:embed queries/rename_vpc.graphql
+	RenameVPCMutation string
 )
 
 type Client struct {

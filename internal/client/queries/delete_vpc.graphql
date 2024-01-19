@@ -1,0 +1,6 @@
+mutation DeleteVPC($projectId: ID!, $vpcId: ID!) {
+    deleteVpc (data:{
+        vpcId: $vpcId,
+        projectId: $projectId
+    })
+}

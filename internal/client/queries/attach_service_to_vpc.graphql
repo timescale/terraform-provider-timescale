@@ -1,4 +1,4 @@
-mutation AttachServiceToVpc($projectId: ID!, $serviceId: ID!, $vpcId: ID!) {
+mutation AttachServiceToVPC($projectId: ID!, $serviceId: ID!, $vpcId: ID!) {
     attachServiceToVpc (data:{
         serviceId: $serviceId,
         projectId: $projectId,

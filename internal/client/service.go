@@ -12,6 +12,7 @@ import (
 
 type Service struct {
 	ID                string `json:"id"`
+	ProjectID         string `json:"projectId"`
 	Name              string `json:"name"`
 	AutoscaleSettings struct {
 		Enabled bool `json:"enabled"`
@@ -22,7 +23,8 @@ type Service struct {
 	Resources     []ResourceSpec `json:"resources"`
 	Created       string         `json:"created"`
 	ReplicaStatus string         `json:"replicaStatus"`
-	VpcEndpoint   *VpcEndpoint   `json:"vpcEndpoint"`
+	VPCEndpoint   *VPCEndpoint   `json:"vpcEndpoint"`
+	ForkSpec      *ForkSpec      `json:"forkedFromId"`
 }
 
 type ServiceSpec struct {
@@ -31,10 +33,10 @@ type ServiceSpec struct {
 	Port     int64  `json:"port"`
 }
 
-type VpcEndpoint struct {
+type VPCEndpoint struct {
 	Host  string `json:"host"`
 	Port  int64  `json:"port"`
-	VpcId string `json:"vpcId"`
+	VPCId string `json:"vpcId"`
 }
 
 type ResourceSpec struct {
@@ -52,6 +54,19 @@ type CreateServiceRequest struct {
 	RegionCode   string
 	ReplicaCount string
 	VpcID        int64
+	ForkConfig   *ForkConfig
+}
+
+type ForkConfig struct {
+	ProjectID string `json:"projectID"`
+	ServiceID string `json:"serviceID"`
+	IsStandby bool   `json:"isStandby"`
+}
+
+type ForkSpec struct {
+	ProjectID string `json:"projectId"`
+	ServiceID string `json:"serviceId"`
+	IsStandby bool   `json:"isStandby"`
 }
 
 type CreateServiceResponseData struct {
@@ -65,6 +80,10 @@ type CreateServiceResponse struct {
 
 type GetServiceResponse struct {
 	Service Service `json:"getService"`
+}
+
+type GetAllServicesResponse struct {
+	Services []*Service `json:"getAllServices"`
 }
 
 type DeleteServiceResponse struct {
@@ -92,6 +111,9 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 	}
 	if request.VpcID > 0 {
 		variables["vpcId"] = request.VpcID
+	}
+	if request.ForkConfig != nil {
+		variables["forkConfig"] = request.ForkConfig
 	}
 
 	req := map[string]interface{}{
@@ -218,6 +240,28 @@ func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 		return nil, errors.New("no response found")
 	}
 	return &resp.Data.Service, nil
+}
+
+func (c *Client) GetAllServices(ctx context.Context) ([]*Service, error) {
+	tflog.Trace(ctx, "Client.GetAllServices")
+	req := map[string]interface{}{
+		"operationName": "GetAllServices",
+		"query":         GetAllServicesQuery,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+		},
+	}
+	var resp Response[GetAllServicesResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Services, nil
 }
 
 func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error) {

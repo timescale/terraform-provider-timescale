@@ -1,4 +1,4 @@
-mutation DetachServiceFromVpc($projectId: ID!, $serviceId: ID!, $vpcId: ID!) {
+mutation DetachServiceFromVPC($projectId: ID!, $serviceId: ID!, $vpcId: ID!) {
     detachServiceFromVpc (data:{
         serviceId: $serviceId,
         projectId: $projectId,

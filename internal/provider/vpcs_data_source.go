@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -23,6 +24,31 @@ func NewVpcsDataSource() datasource.DataSource {
 	return &vpcsDataSource{}
 }
 
+var (
+	PeerVpcDSType = map[string]attr.Type{
+		"id":          types.StringType,
+		"cidr":        types.StringType,
+		"account_id":  types.StringType,
+		"region_code": types.StringType,
+	}
+
+	PeeringConnectionsDSType = types.ObjectType{
+		AttrTypes: map[string]attr.Type{
+			"vpc_id":        types.StringType,
+			"status":        types.StringType,
+			"error_message": types.StringType,
+			"peer_vpc": types.ObjectType{
+				AttrTypes: map[string]attr.Type{
+					"id":          types.StringType,
+					"cidr":        types.StringType,
+					"account_id":  types.StringType,
+					"region_code": types.StringType,
+				},
+			},
+		},
+	}
+)
+
 // vpcsDataSource is the data source implementation.
 type vpcsDataSource struct {
 	client *tsClient.Client
@@ -30,36 +56,35 @@ type vpcsDataSource struct {
 
 // vpcsDataSourceModel maps the data source schema data.
 type vpcsDataSourceModel struct {
-	Vpcs []vpcDataSourceModel `tfsdk:"vpcs"`
+	Vpcs []vpcDSModel `tfsdk:"vpcs"`
 	// following is a placeholder, required by terraform to run test suite
 	ID types.String `tfsdk:"id"`
 }
 
 // vpcDataSourceModel maps vpcs schema data.
-type vpcDataSourceModel struct {
-	ID                 types.Int64               `tfsdk:"id"`
-	ProvisionedID      types.String              `tfsdk:"provisioned_id"`
-	ProjectID          types.String              `tfsdk:"project_id"`
-	CIDR               types.String              `tfsdk:"cidr"`
-	Name               types.String              `tfsdk:"name"`
-	RegionCode         types.String              `tfsdk:"region_code"`
-	Status             types.String              `tfsdk:"status"`
-	ErrorMessage       types.String              `tfsdk:"error_message"`
-	Created            types.String              `tfsdk:"created"`
-	Updated            types.String              `tfsdk:"updated"`
-	PeeringConnections []*peeringConnectionModel `tfsdk:"peering_connections"`
+type vpcDSModel struct {
+	ID                 types.Int64                `tfsdk:"id"`
+	ProvisionedID      types.String               `tfsdk:"provisioned_id"`
+	ProjectID          types.String               `tfsdk:"project_id"`
+	CIDR               types.String               `tfsdk:"cidr"`
+	Name               types.String               `tfsdk:"name"`
+	RegionCode         types.String               `tfsdk:"region_code"`
+	Status             types.String               `tfsdk:"status"`
+	ErrorMessage       types.String               `tfsdk:"error_message"`
+	Created            types.String               `tfsdk:"created"`
+	Updated            types.String               `tfsdk:"updated"`
+	PeeringConnections []peeringConnectionDSModel `tfsdk:"peering_connections"`
 }
 
-type peeringConnectionModel struct {
-	ID           types.Int64     `tfsdk:"id"`
-	VpcID        types.Int64     `tfsdk:"vpc_id"`
-	Status       types.String    `tfsdk:"status"`
-	ErrorMessage types.String    `tfsdk:"error_message"`
-	PeerVpcs     []*peerVpcModel `tfsdk:"peer_vpc"`
+type peeringConnectionDSModel struct {
+	VpcID        types.String `tfsdk:"vpc_id"`
+	Status       types.String `tfsdk:"status"`
+	ErrorMessage types.String `tfsdk:"error_message"`
+	PeerVpcs     types.Object `tfsdk:"peer_vpc"`
 }
 
-type peerVpcModel struct {
-	ID         types.Int64  `tfsdk:"id"`
+type peerVpcDSModel struct {
+	ID         types.String `tfsdk:"id"`
 	CIDR       types.String `tfsdk:"cidr"`
 	AccountID  types.String `tfsdk:"account_id"`
 	RegionCode types.String `tfsdk:"region_code"`
@@ -89,50 +114,41 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
 			return
 		}
-		vpcState := vpcDataSourceModel{
+		vpcState := vpcDSModel{
 			ID:            types.Int64Value(vpcID),
 			Name:          types.StringValue(vpc.Name),
 			ProvisionedID: types.StringValue(vpc.ProvisionedID),
 			ProjectID:     types.StringValue(vpc.ProjectID),
 			CIDR:          types.StringValue(vpc.CIDR),
-			RegionCode:    types.StringValue(vpc.RegionCode),
 			Status:        types.StringValue(vpc.Status),
 			ErrorMessage:  types.StringValue(vpc.ErrorMessage),
-			Created:       types.StringValue(vpc.Created),
 			Updated:       types.StringValue(vpc.Updated),
+			RegionCode:    types.StringValue(vpc.RegionCode),
+			Created:       types.StringValue(vpc.Created),
 		}
 
-		for _, peeringConn := range vpc.PeeringConnections {
-			peeringConnID, err := strconv.ParseInt(peeringConn.ID, 10, 64)
-			if err != nil {
-				resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-				return
-			}
-			peeringConnVpcID, err := strconv.ParseInt(peeringConn.VPCID, 10, 64)
-			if err != nil {
-				resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-				return
-			}
-			peerConn := &peeringConnectionModel{
-				ID:           types.Int64Value(peeringConnID),
-				VpcID:        types.Int64Value(peeringConnVpcID),
-				Status:       types.StringValue(peeringConn.Status),
-				ErrorMessage: types.StringValue(peeringConn.ErrorMessage),
-			}
-			for _, peerVpc := range peeringConn.PeerVPCs {
-				peerVpcID, err := strconv.ParseInt(peerVpc.ID, 10, 64)
-				if err != nil {
-					resp.Diagnostics.AddError("Unable to Convert Vpc ID", err.Error())
-					return
+		if len(vpc.PeeringConnections) > 0 {
+			var pcms []peeringConnectionDSModel
+			for _, pc := range vpc.PeeringConnections {
+				var pcm peeringConnectionDSModel
+				if pc.ErrorMessage != "" {
+					pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 				}
-				peerConn.PeerVpcs = append(peerConn.PeerVpcs, &peerVpcModel{
-					ID:         types.Int64Value(peerVpcID),
-					AccountID:  types.StringValue(peerVpc.AccountID),
-					CIDR:       types.StringValue(peerVpc.CIDR),
-					RegionCode: types.StringValue(peerVpc.RegionCode),
+				pcm.VpcID = types.StringValue(pc.VPCID)
+				pcm.Status = types.StringValue(pc.Status)
+				peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcDSType, peerVpcDSModel{
+					ID:         types.StringValue(pc.PeerVPC.ID),
+					AccountID:  types.StringValue(pc.PeerVPC.AccountID),
+					CIDR:       types.StringValue(pc.PeerVPC.CIDR),
+					RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
 				})
+				if errDiag.HasError() {
+					resp.Diagnostics.Append(errDiag...)
+				}
+				pcm.PeerVpcs = peerVpcs
+				pcms = append(pcms, pcm)
 			}
-			vpcState.PeeringConnections = append(vpcState.PeeringConnections, peerConn)
+			vpcState.PeeringConnections = pcms
 		}
 		state.Vpcs = append(state.Vpcs, vpcState)
 	}
@@ -196,39 +212,19 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 						"updated": schema.StringAttribute{
 							Computed: true,
 						},
-						"peering_connections": schema.ListNestedAttribute{
+						"peering_connections": schema.ListAttribute{
 							Computed: true,
-							NestedObject: schema.NestedAttributeObject{
-								Attributes: map[string]schema.Attribute{
-									"id": schema.Int64Attribute{
-										Computed: true,
-									},
-									"vpc_id": schema.Int64Attribute{
-										Computed: true,
-									},
-									"status": schema.StringAttribute{
-										Computed: true,
-									},
-									"error_message": schema.StringAttribute{
-										Computed: true,
-									},
-									"peer_vpc": schema.ListNestedAttribute{
-										Computed: true,
-										NestedObject: schema.NestedAttributeObject{
-											Attributes: map[string]schema.Attribute{
-												"id": schema.Int64Attribute{
-													Computed: true,
-												},
-												"cidr": schema.StringAttribute{
-													Computed: true,
-												},
-												"region_code": schema.StringAttribute{
-													Computed: true,
-												},
-												"account_id": schema.StringAttribute{
-													Computed: true,
-												},
-											},
+							ElementType: types.ObjectType{
+								AttrTypes: map[string]attr.Type{
+									"vpc_id":        types.StringType,
+									"status":        types.StringType,
+									"error_message": types.StringType,
+									"peer_vpc": types.ObjectType{
+										AttrTypes: map[string]attr.Type{
+											"id":          types.StringType,
+											"cidr":        types.StringType,
+											"region_code": types.StringType,
+											"account_id":  types.StringType,
 										},
 									},
 								},

@@ -30,7 +30,7 @@ Read-Only:
 - `error_message` (String)
 - `id` (Number)
 - `name` (String)
-- `peering_connections` (Attributes List) (see [below for nested schema](#nestedatt--vpcs--peering_connections))
+- `peering_connections` (List of Object) (see [below for nested schema](#nestedatt--vpcs--peering_connections))
 - `project_id` (String)
 - `provisioned_id` (String)
 - `region_code` (String)
@@ -43,17 +43,16 @@ Read-Only:
 Read-Only:
 
 - `error_message` (String)
-- `id` (Number)
-- `peer_vpc` (Attributes List) (see [below for nested schema](#nestedatt--vpcs--peering_connections--peer_vpc))
+- `peer_vpc` (Object) (see [below for nested schema](#nestedobjatt--vpcs--peering_connections--peer_vpc))
 - `status` (String)
-- `vpc_id` (Number)
+- `vpc_id` (String)
 
-<a id="nestedatt--vpcs--peering_connections--peer_vpc"></a>
+<a id="nestedobjatt--vpcs--peering_connections--peer_vpc"></a>
 ### Nested Schema for `vpcs.peering_connections.peer_vpc`
 
 Read-Only:
 
 - `account_id` (String)
 - `cidr` (String)
-- `id` (Number)
+- `id` (String)
 - `region_code` (String)

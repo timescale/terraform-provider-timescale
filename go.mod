@@ -3,7 +3,7 @@ module github.com/timescale/terraform-provider-timescale
 go 1.21
 
 require (
-	github.com/hashicorp/terraform-plugin-docs v0.17.0
+	github.com/hashicorp/terraform-plugin-docs v0.18.0
 	github.com/hashicorp/terraform-plugin-framework v1.5.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.4.1
 	github.com/hashicorp/terraform-plugin-framework-validators v0.12.0

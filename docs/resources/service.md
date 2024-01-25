@@ -36,6 +36,7 @@ resource "timescale_service" "read_replica" {
 
 ### Optional
 
+- `connection_pooler_enabled` (Boolean) Set connection pooler status for this service.
 - `enable_ha_replica` (Boolean) Enable HA Replica
 - `memory_gb` (Number) Memory GB
 - `milli_cpu` (Number) Milli CPU
@@ -51,6 +52,8 @@ resource "timescale_service" "read_replica" {
 - `hostname` (String) The hostname for this service
 - `id` (String) Service ID is the unique identifier for this service.
 - `password` (String, Sensitive) The Postgres password for this service. The password is provided once during service creation
+- `pooler_hostname` (String) Hostname of the pooler of this service.
+- `pooler_port` (Number) Port of the pooler of this service.
 - `port` (Number) The port for this service
 - `username` (String) The Postgres user for this service
 

@@ -1,5 +1,6 @@
 mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceConfig:
-    ResourceConfig, $regionCode: String!, $vpcId: ID, $forkConfig: ForkConfig) {
+    ResourceConfig, $regionCode: String!, $vpcId: ID, $forkConfig: ForkConfig, 
+    $enableConnectionPooler: Boolean) {
     createService(data:{
         projectId:$projectId,
         name:$name,
@@ -7,6 +8,7 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
         resourceConfig:$resourceConfig,
         regionCode:$regionCode,
         forkConfig:$forkConfig,
+        enableConnectionPooler: $enableConnectionPooler,
         vpcId: $vpcId
     }){
         initialPassword
@@ -27,6 +29,9 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
                     username
                     port
                     defaultDBName
+                    poolerHostName
+                    poolerPort
+                    connectionPoolerEnabled
                 }
             }
             resources {

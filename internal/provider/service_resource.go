@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -74,11 +75,15 @@ type serviceResourceModel struct {
 	Password          types.String   `tfsdk:"password"`
 	Hostname          types.String   `tfsdk:"hostname"`
 	Port              types.Int64    `tfsdk:"port"`
+	PoolerHostname    types.String   `tfsdk:"pooler_hostname"`
+	PoolerPort        types.Int64    `tfsdk:"pooler_port"`
 	Username          types.String   `tfsdk:"username"`
 	RegionCode        types.String   `tfsdk:"region_code"`
 	EnableHAReplica   types.Bool     `tfsdk:"enable_ha_replica"`
 	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
 	VpcID             types.Int64    `tfsdk:"vpc_id"`
+
+	ConnectionPoolerEnabled types.Bool `tfsdk:"connection_pooler_enabled"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -132,7 +137,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Enable HA Replica",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(DefaultEnableHAReplica),
+				Default:             booldefault.StaticBool(false),
 			},
 			"read_replica_source": schema.StringAttribute{
 				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
@@ -174,6 +179,26 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "The port for this service",
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
+			},
+			"pooler_hostname": schema.StringAttribute{
+				MarkdownDescription: "Hostname of the pooler of this service.",
+				Description:         "Hostname of the pooler of this service.",
+				Computed:            true,
+			},
+			"pooler_port": schema.Int64Attribute{
+				MarkdownDescription: "Port of the pooler of this service.",
+				Description:         "Port of the pooler of this service.",
+				Computed:            true,
+			},
+			"connection_pooler_enabled": schema.BoolAttribute{
+				MarkdownDescription: "Set connection pooler status for this service.",
+				Description:         "Set connection pooler status for this service.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"username": schema.StringAttribute{
 				Description:         "The Postgres user for this service",
@@ -242,11 +267,12 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	request := tsClient.CreateServiceRequest{
-		Name:         plan.Name.ValueString(),
-		MilliCPU:     strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
-		MemoryGB:     strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
-		RegionCode:   plan.RegionCode.ValueString(),
-		ReplicaCount: strconv.FormatInt(replicaCount, 10),
+		Name:                   plan.Name.ValueString(),
+		MilliCPU:               strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10),
+		MemoryGB:               strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
+		RegionCode:             plan.RegionCode.ValueString(),
+		ReplicaCount:           strconv.FormatInt(replicaCount, 10),
+		EnableConnectionPooler: plan.ConnectionPoolerEnabled.ValueBool(),
 	}
 	if !plan.VpcID.IsNull() {
 		request.VpcID = plan.VpcID.ValueInt64()
@@ -431,6 +457,23 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	// Connection pooler ////////////////////////////////////////
+	if plan.ConnectionPoolerEnabled != state.ConnectionPoolerEnabled {
+		if err := r.client.ToggleConnectionPooler(ctx, serviceID, plan.ConnectionPoolerEnabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Failed to toggle connection pooler", err.Error())
+			return
+		}
+	}
+	if !plan.PoolerHostname.IsUnknown() {
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support pooler hostname change")
+		return
+	}
+	if !plan.PoolerPort.IsUnknown() {
+		resp.Diagnostics.AddError(ErrUpdateService, "Do not support pooler port change")
+		return
+	}
+
+	// HA Replica ////////////////////////////////////////
 	if plan.EnableHAReplica != state.EnableHAReplica {
 		if plan.EnableHAReplica.ValueBool() {
 			if err := r.client.SetReplicaCount(ctx, serviceID, 1); err != nil {
@@ -446,6 +489,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	}
 
+	// VPC ////////////////////////////////////////
 	if !plan.VpcID.Equal(state.VpcID) {
 		// if state.VpcId is known and different from plan.VpcId, we must detach first
 		if !state.VpcID.IsNull() && !state.VpcID.IsUnknown() {
@@ -535,18 +579,25 @@ func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportSt
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	model := serviceResourceModel{
-		ID:                types.StringValue(s.ID),
-		Password:          state.Password,
-		Name:              types.StringValue(s.Name),
-		MilliCPU:          types.Int64Value(s.Resources[0].Spec.MilliCPU),
-		MemoryGB:          types.Int64Value(s.Resources[0].Spec.MemoryGB),
-		Hostname:          types.StringValue(s.ServiceSpec.Hostname),
-		Username:          types.StringValue(s.ServiceSpec.Username),
-		Port:              types.Int64Value(s.ServiceSpec.Port),
-		RegionCode:        types.StringValue(s.RegionCode),
-		Timeouts:          state.Timeouts,
-		EnableHAReplica:   types.BoolValue(s.ReplicaStatus != ""),
-		ReadReplicaSource: state.ReadReplicaSource,
+		ID:                      types.StringValue(s.ID),
+		Password:                state.Password,
+		Name:                    types.StringValue(s.Name),
+		MilliCPU:                types.Int64Value(s.Resources[0].Spec.MilliCPU),
+		MemoryGB:                types.Int64Value(s.Resources[0].Spec.MemoryGB),
+		Hostname:                types.StringValue(s.ServiceSpec.Hostname),
+		Username:                types.StringValue(s.ServiceSpec.Username),
+		Port:                    types.Int64Value(s.ServiceSpec.Port),
+		RegionCode:              types.StringValue(s.RegionCode),
+		Timeouts:                state.Timeouts,
+		EnableHAReplica:         types.BoolValue(s.ReplicaStatus != ""),
+		ReadReplicaSource:       state.ReadReplicaSource,
+		ConnectionPoolerEnabled: types.BoolValue(s.ServiceSpec.Pooler),
+		PoolerHostname:          types.StringValue(s.ServiceSpec.PoolerHostname),
+		PoolerPort:              types.Int64Value(s.ServiceSpec.PoolerPort),
+	}
+	if !s.ServiceSpec.Pooler {
+		model.PoolerHostname = types.StringNull()
+		model.PoolerPort = types.Int64Null()
 	}
 	if s.VPCEndpoint != nil {
 		if vpcID, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {

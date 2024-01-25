@@ -40,9 +40,11 @@ type ServiceDataSourceModel struct {
 }
 
 type SpecModel struct {
-	Hostname types.String `tfsdk:"hostname"`
-	Username types.String `tfsdk:"username"`
-	Port     types.Int64  `tfsdk:"port"`
+	Hostname       types.String `tfsdk:"hostname"`
+	Username       types.String `tfsdk:"username"`
+	Port           types.Int64  `tfsdk:"port"`
+	PoolerHostname types.String `tfsdk:"pooler_hostname"`
+	PoolerPort     types.Int64  `tfsdk:"pooler_port"`
 }
 
 type ResourceModel struct {
@@ -95,6 +97,16 @@ func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 					"port": schema.Int64Attribute{
 						MarkdownDescription: "Port is the port assigned to this service.",
 						Description:         "port is the port assigned to this service",
+						Computed:            true,
+					},
+					"pooler_hostname": schema.StringAttribute{
+						MarkdownDescription: "Hostname of the pooler of this service.",
+						Description:         "Hostname of the pooler of this service.",
+						Computed:            true,
+					},
+					"pooler_port": schema.Int64Attribute{
+						MarkdownDescription: "Port of the pooler of this service.",
+						Description:         "Port of the pooler of this service.",
 						Computed:            true,
 					},
 				},
@@ -195,9 +207,11 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 		Name:       types.StringValue(s.Name),
 		RegionCode: types.StringValue(s.RegionCode),
 		Spec: SpecModel{
-			Hostname: types.StringValue(s.ServiceSpec.Hostname),
-			Username: types.StringValue(s.ServiceSpec.Username),
-			Port:     types.Int64Value(s.ServiceSpec.Port),
+			Hostname:       types.StringValue(s.ServiceSpec.Hostname),
+			Username:       types.StringValue(s.ServiceSpec.Username),
+			Port:           types.Int64Value(s.ServiceSpec.Port),
+			PoolerHostname: types.StringValue(s.ServiceSpec.PoolerHostname),
+			PoolerPort:     types.Int64Value(s.ServiceSpec.PoolerPort),
 		},
 		Created: types.StringValue(s.Created),
 	}

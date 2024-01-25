@@ -104,6 +104,7 @@ type ServiceConfig struct {
 	EnableHAReplica   bool
 	VpcID             int64
 	ReadReplicaSource string
+	Pooler            bool
 }
 
 func (c *ServiceConfig) WithName(name string) *ServiceConfig {
@@ -124,6 +125,10 @@ func (c *ServiceConfig) WithVPC(id int64) *ServiceConfig {
 
 func (c *ServiceConfig) WithHAReplica(enableHAReplica bool) *ServiceConfig {
 	c.EnableHAReplica = enableHAReplica
+	return c
+}
+func (c *ServiceConfig) WithPooler(pooler bool) *ServiceConfig {
+	c.Pooler = pooler
 	return c
 }
 
@@ -149,6 +154,9 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.EnableHAReplica {
 		write("enable_ha_replica = %t \n", c.EnableHAReplica)
+	}
+	if c.Pooler {
+		write("connection_pooler_enabled = %t \n", c.Pooler)
 	}
 	if c.RegionCode != "" {
 		write("region_code = %q \n", c.RegionCode)

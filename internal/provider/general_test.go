@@ -10,16 +10,16 @@ package provider
 // 		replicaFQID = "timescale_service." + replicaName
 // 	)
 // 	var (
-// 		// primaryConfig = &ServiceConfig{
-// 		// 	ResourceName: primaryName,
-// 		// 	Name:         "service resource test init",
-// 		// }
-// 		// replicaConfig = &ServiceConfig{
-// 		// 	ResourceName:      replicaName,
-// 		// 	ReadReplicaSource: primaryFQID + ".id",
-// 		// 	MilliCPU:          500,
-// 		// 	MemoryGB:          2,
-// 		// }
+// 		primaryConfig = &ServiceConfig{
+// 			ResourceName: primaryName,
+// 			Name:         "service resource test init",
+// 		}
+// 		replicaConfig = &ServiceConfig{
+// 			ResourceName:      replicaName,
+// 			ReadReplicaSource: primaryFQID + ".id",
+// 			MilliCPU:          500,
+// 			MemoryGB:          2,
+// 		}
 // 		config = &ServiceConfig{
 // 			ResourceName: "resource",
 // 		}
@@ -52,44 +52,41 @@ package provider
 // 						return fmt.Errorf("Could not parse ID")
 // 					}
 // 					return nil
-// 					fmt.Printf("%v\n", getVPCConfig(t, vpcConfig.WithName("global-test").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1"))+getServiceNoProviderConfig(t, config.WithName("create default").WithVPC(vpcID)))
 // 				},
 // 			},
-// 			// // Create with HA and VPC attached
-// 			// {
-// 			// 	Config: newServiceCustomVpcConfig("hareplica", ServiceConfig{
-// 			// 		Name:            "service resource test HA",
-// 			// 		RegionCode:      "us-east-1",
-// 			// 		MilliCPU:        500,
-// 			// 		MemoryGB:        2,
-// 			// 		EnableHAReplica: true,
-// 			// 		VpcID:           vpcID,
-// 			// 	}),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		resource.TestCheckResourceAttr("timescale_service.hareplica", "name", "service resource test HA"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.hareplica", "enable_ha_replica", "true"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.hareplica", "vpc_id", vpcIDStr),
-// 			// 	),
-// 			// },
+// 			// Create with VPC attached
+// 			{
+// 				Config: newServiceCustomVpcConfig("with_vpc", ServiceConfig{
+// 					Name:       "service-with-vpc",
+// 					RegionCode: "us-east-1",
+// 					MilliCPU:   500,
+// 					MemoryGB:   2,
+// 					VpcID:      vpcID,
+// 				}),
+// 				Check: resource.ComposeAggregateTestCheckFunc(
+// 					resource.TestCheckResourceAttr("timescale_service.with_vpc", "name", "service resource test HA"),
+// 					resource.TestCheckResourceAttr("timescale_service.with_vpc", "vpc_id", vpcIDStr),
+// 				),
+// 			},
 // 			// Create default and Read testing
-// 			// {
-// 			// 	Config: getServiceConfig(t, config.WithName("create default")),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		// Verify the name is set.
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "name"),
-// 			// 		// Verify ID value is set in state.
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "id"),
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "password"),
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "hostname"),
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "username"),
-// 			// 		resource.TestCheckResourceAttrSet("timescale_service.resource", "port"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
-// 			// 		resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
-// 			// 	),
-// 			// },
+// 			{
+// 				Config: getServiceConfig(t, config.WithName("create default")),
+// 				Check: resource.ComposeAggregateTestCheckFunc(
+// 					// Verify the name is set.
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "name"),
+// 					// Verify ID value is set in state.
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "id"),
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "password"),
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "hostname"),
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "username"),
+// 					resource.TestCheckResourceAttrSet("timescale_service.resource", "port"),
+// 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
+// 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
+// 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
+// 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
+// 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
+// 				),
+// 			},
 
 // 			// Add VPC
 // 			{
@@ -98,60 +95,39 @@ package provider
 // 					resource.TestCheckResourceAttr("timescale_service.resource", "vpc_id", vpcIDStr),
 // 				),
 // 			},
-// 			// // Add HA replica and remove VPC
-// 			// {
-// 			// 	Config: getServiceConfig(t, config.WithVPC(0).WithHAReplica(true)),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
-// 			// 		resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
-// 			// 	),
-// 			// },
-// 			// // Create with read replica
-// 			// {
-// 			// 	Config: getServiceConfig(t, primaryConfig, replicaConfig),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		// Verify service attributes
-// 			// 		resource.TestCheckResourceAttr(primaryFQID, "name", "service resource test init"),
-// 			// 		resource.TestCheckResourceAttrSet(primaryFQID, "id"),
-// 			// 		resource.TestCheckResourceAttrSet(primaryFQID, "password"),
-// 			// 		resource.TestCheckResourceAttrSet(primaryFQID, "hostname"),
-// 			// 		resource.TestCheckResourceAttrSet(primaryFQID, "username"),
-// 			// 		resource.TestCheckResourceAttrSet(primaryFQID, "port"),
-// 			// 		resource.TestCheckResourceAttr(primaryFQID, "milli_cpu", "500"),
-// 			// 		resource.TestCheckResourceAttr(primaryFQID, "memory_gb", "2"),
-// 			// 		resource.TestCheckResourceAttr(primaryFQID, "region_code", "us-east-1"),
-// 			// 		resource.TestCheckResourceAttr(primaryFQID, "enable_ha_replica", "false"),
-// 			// 		resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
-
-// 			// 		// Verify read replica attributes
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "name", "replica-service resource test init"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "id"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "password"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "hostname"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "username"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "port"),
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "milli_cpu", "500"),
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "memory_gb", "2"),
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "region_code", "us-east-1"),
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "enable_ha_replica", "false"),
-// 			// 		resource.TestCheckResourceAttrSet(replicaFQID, "read_replica_source"),
-// 			// 		resource.TestCheckNoResourceAttr(replicaFQID, "vpc_id"),
-// 			// 	),
-// 			// },
-// 			// // Add VPC to the read replica
-// 			// {
-// 			// 	Config: getServiceConfig(t, primaryConfig, replicaConfig.WithVPC(vpcID)),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		resource.TestCheckResourceAttr(replicaFQID, "vpc_id", vpcIDStr),
-// 			// 	),
-// 			// },
-// 			// // Remove VPC
-// 			// {
-// 			// 	Config: getServiceConfig(t, primaryConfig, replicaConfig.WithVPC(0)),
-// 			// 	Check: resource.ComposeAggregateTestCheckFunc(
-// 			// 		resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
-// 			// 	),
-// 			// },
+// 			// Add HA replica and remove VPC
+// 			{
+// 				Config: getServiceConfig(t, config.WithVPC(0).WithHAReplica(true)),
+// 				Check: resource.ComposeAggregateTestCheckFunc(
+// 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
+// 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
+// 				),
+// 			},
+// 			// Remove VPC
+// 			{
+// 				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithVPC(0)),
+// 				Check: resource.ComposeAggregateTestCheckFunc(
+// 					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
+// 				),
+// 			},
 // 		},
 // 	})
+// }
+
+// func newServiceCustomVpcConfig(resourceName string, config ServiceConfig) string {
+// 	if config.Timeouts.Create == "" {
+// 		config.Timeouts.Create = "30m"
+// 	}
+// 	return providerConfig + fmt.Sprintf(`
+// 		resource "timescale_service" "%s" {
+// 			name = %q
+// 			timeouts = {
+// 				create = %q
+// 			}
+// 			milli_cpu  = %d
+// 			memory_gb  = %d
+// 			region_code = %q
+// 			vpc_id = %d
+// 			enable_ha_replica = %t
+// 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
 // }

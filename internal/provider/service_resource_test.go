@@ -317,21 +317,3 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 			enable_ha_replica = %t
 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica)
 }
-
-// func newServiceCustomVpcConfig(resourceName string, config ServiceConfig) string {
-// 	if config.Timeouts.Create == "" {
-// 		config.Timeouts.Create = "30m"
-// 	}
-// 	return providerConfig + fmt.Sprintf(`
-// 		resource "timescale_service" "%s" {
-// 			name = %q
-// 			timeouts = {
-// 				create = %q
-// 			}
-// 			milli_cpu  = %d
-// 			memory_gb  = %d
-// 			region_code = %q
-// 			vpc_id = %d
-// 			enable_ha_replica = %t
-// 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.VpcID, config.EnableHAReplica)
-// }

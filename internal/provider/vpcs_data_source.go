@@ -127,29 +127,27 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			Created:       types.StringValue(vpc.Created),
 		}
 
-		if len(vpc.PeeringConnections) > 0 {
-			var pcms []peeringConnectionDSModel
-			for _, pc := range vpc.PeeringConnections {
-				var pcm peeringConnectionDSModel
-				if pc.ErrorMessage != "" {
-					pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
-				}
-				pcm.VpcID = types.StringValue(pc.VPCID)
-				pcm.Status = types.StringValue(pc.Status)
-				peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcDSType, peerVpcDSModel{
-					ID:         types.StringValue(pc.PeerVPC.ID),
-					AccountID:  types.StringValue(pc.PeerVPC.AccountID),
-					CIDR:       types.StringValue(pc.PeerVPC.CIDR),
-					RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
-				})
-				if errDiag.HasError() {
-					resp.Diagnostics.Append(errDiag...)
-				}
-				pcm.PeerVpcs = peerVpcs
-				pcms = append(pcms, pcm)
+		var pcms []peeringConnectionDSModel
+		for _, pc := range vpc.PeeringConnections {
+			var pcm peeringConnectionDSModel
+			if pc.ErrorMessage != "" {
+				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
-			vpcState.PeeringConnections = pcms
+			pcm.VpcID = types.StringValue(pc.VPCID)
+			pcm.Status = types.StringValue(pc.Status)
+			peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcDSType, peerVpcDSModel{
+				ID:         types.StringValue(pc.PeerVPC.ID),
+				AccountID:  types.StringValue(pc.PeerVPC.AccountID),
+				CIDR:       types.StringValue(pc.PeerVPC.CIDR),
+				RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
+			})
+			if errDiag.HasError() {
+				resp.Diagnostics.Append(errDiag...)
+			}
+			pcm.PeerVpcs = peerVpcs
+			pcms = append(pcms, pcm)
 		}
+		vpcState.PeeringConnections = pcms
 		state.Vpcs = append(state.Vpcs, vpcState)
 	}
 	// this is a placeholder, required by terraform to run test suite

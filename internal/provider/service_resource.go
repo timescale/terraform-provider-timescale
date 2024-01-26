@@ -305,6 +305,9 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 			ServiceID: primary.ID,
 			IsStandby: true,
 		}
+		if len(primary.Resources) > 0 {
+			request.StorageGB = strconv.FormatInt(primary.Resources[0].Spec.StorageGB, 10)
+		}
 	}
 
 	response, err := r.client.CreateService(ctx, request)

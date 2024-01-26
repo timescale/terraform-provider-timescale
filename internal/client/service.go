@@ -45,15 +45,19 @@ type VPCEndpoint struct {
 type ResourceSpec struct {
 	ID   string `json:"id"`
 	Spec struct {
-		MilliCPU int64 `json:"milliCPU"`
-		MemoryGB int64 `json:"memoryGB"`
+		MilliCPU  int64 `json:"milliCPU"`
+		MemoryGB  int64 `json:"memoryGB"`
+		StorageGB int64 `json:"storageGB"`
 	} `json:"spec"`
 }
 
 type CreateServiceRequest struct {
-	Name         string
-	MilliCPU     string
-	MemoryGB     string
+	Name     string
+	MilliCPU string
+	MemoryGB string
+	// StorageGB is used for forks, since the CreateServiceRequest expects a storage to be requested
+	// and the fork instance should match the storage size of the primary.
+	StorageGB    string
 	RegionCode   string
 	ReplicaCount string
 	VpcID        int64
@@ -104,6 +108,9 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		}
 		request.Name = fmt.Sprintf("db-%d", 10000+r.Int64())
 	}
+	if request.StorageGB == "" {
+		request.StorageGB = "50"
+	}
 
 	variables := map[string]any{
 		"projectId":  c.projectID,
@@ -112,7 +119,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		"regionCode": request.RegionCode,
 		"resourceConfig": map[string]string{
 			"milliCPU":     request.MilliCPU,
-			"storageGB":    "50",
+			"storageGB":    request.StorageGB,
 			"memoryGB":     request.MemoryGB,
 			"replicaCount": request.ReplicaCount,
 		},

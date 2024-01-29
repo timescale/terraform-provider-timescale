@@ -594,11 +594,11 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		Timeouts:                state.Timeouts,
 		EnableHAReplica:         types.BoolValue(s.ReplicaStatus != ""),
 		ReadReplicaSource:       state.ReadReplicaSource,
-		ConnectionPoolerEnabled: types.BoolValue(s.ServiceSpec.Pooler),
+		ConnectionPoolerEnabled: types.BoolValue(s.ServiceSpec.PoolerEnabled),
 		PoolerHostname:          types.StringValue(s.ServiceSpec.PoolerHostname),
 		PoolerPort:              types.Int64Value(s.ServiceSpec.PoolerPort),
 	}
-	if !s.ServiceSpec.Pooler {
+	if !s.ServiceSpec.PoolerEnabled {
 		model.PoolerHostname = types.StringNull()
 		model.PoolerPort = types.Int64Null()
 	}

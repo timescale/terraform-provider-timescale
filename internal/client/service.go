@@ -33,7 +33,7 @@ type ServiceSpec struct {
 	Port           int64  `json:"port"`
 	PoolerHostname string `json:"poolerHostName"`
 	PoolerPort     int64  `json:"poolerPort"`
-	Pooler         bool   `json:"connectionPoolerEnabled"`
+	PoolerEnabled  bool   `json:"connectionPoolerEnabled"`
 }
 
 type VPCEndpoint struct {

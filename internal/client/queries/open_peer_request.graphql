@@ -1,0 +1,9 @@
+mutation OpenPeerRequest($projectId: ID!, $vpcId: ID!, $externalVpcId: ID!, $accountId: ID!, 
+    $regionCode: String!) {
+    openPeerRequest (data:{
+        forgeVpcId: $vpcId,
+        projectId: $projectId,
+        peerVpc: {id: $externalVpcId, accountId: $accountId, regionCode: $regionCode, cidr: ""},
+        cloudProvider: AWS
+    })
+}

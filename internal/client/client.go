@@ -54,6 +54,10 @@ var (
 	DeleteVPCMutation string
 	//go:embed queries/rename_vpc.graphql
 	RenameVPCMutation string
+	//go:embed queries/open_peer_request.graphql
+	OpenPeerRequestMutation string
+	//go:embed queries/delete_peer_request.graphql
+	DeletePeeringConnectionMutation string
 )
 
 type Client struct {

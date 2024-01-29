@@ -26,6 +26,10 @@ variable "ts_secret_key" {
 variable "ts_project_id" {
 	type = string
 }
+
+variable "ts_aws_acc_id" {
+	type = string
+}
 	
 provider "timescale" {
 	access_key = var.ts_access_key
@@ -41,6 +45,62 @@ provider "timescale" {
 // reattach.
 var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServer, error){
 	"timescale": providerserver.NewProtocol6WithError(New("test")()),
+}
+
+type PeeringConnConfig struct {
+	ResourceName    string
+	ID              int64
+	VpcID           string
+	Status          string
+	ErrorMessage    string
+	PeerVPCID       string
+	PeerCIDR        string
+	PeerRegionCode  string
+	VpcResourceName string
+}
+
+func (vc *PeeringConnConfig) WithPeerRegionCode(s string) *PeeringConnConfig {
+	vc.PeerRegionCode = s
+	return vc
+}
+func (vc *PeeringConnConfig) WithPeerVPCID(s string) *PeeringConnConfig {
+	vc.PeerVPCID = s
+	return vc
+}
+func (vc *PeeringConnConfig) WithVpcResourceName(s string) *PeeringConnConfig {
+	vc.VpcResourceName = s
+	return vc
+}
+
+func (vc *PeeringConnConfig) String(t *testing.T) string {
+	b := &strings.Builder{}
+	write := func(format string, a ...any) {
+		_, err := fmt.Fprintf(b, format, a...)
+		require.NoError(t, err)
+	}
+	_, err := fmt.Fprintf(b, "\n\n resource timescale_peering_connection %q { \n", vc.ResourceName)
+	require.NoError(t, err)
+	write("peer_account_id = var.ts_aws_acc_id\n")
+	if vc.PeerRegionCode != "" {
+		write("peer_region_code = %q \n", vc.PeerRegionCode)
+	}
+	if vc.PeerVPCID != "" {
+		write("peer_vpc_id = %q \n", vc.PeerVPCID)
+	}
+	if vc.VpcResourceName != "" {
+		write("timescale_vpc_id = timescale_vpcs.%s.id \n", vc.VpcResourceName)
+	}
+	write("}")
+	return b.String()
+}
+
+// getPeeringConnConfig returns a configuration for a test step
+func getPeeringConnConfig(t *testing.T, cfgs ...*PeeringConnConfig) string {
+	res := strings.Builder{}
+	for _, cfg := range cfgs {
+		res.WriteString(cfg.String(t))
+	}
+	return res.String()
 }
 
 type VPCConfig struct {
@@ -84,7 +144,7 @@ func (vc *VPCConfig) String(t *testing.T) string {
 	return b.String()
 }
 
-// getServiceConfig returns a configuration for a test step
+// getVPCConfig returns a configuration for a test step
 func getVPCConfig(t *testing.T, cfgs ...*VPCConfig) string {
 	res := strings.Builder{}
 	res.WriteString(providerConfig)
@@ -222,6 +282,10 @@ func testAccPreCheck(t *testing.T) {
 	_, ok = os.LookupEnv("TF_VAR_ts_project_id")
 	if !ok {
 		t.Fatal("environment variable TF_VAR_ts_project_id not set")
+	}
+	_, ok = os.LookupEnv("TF_VAR_ts_aws_acc_id")
+	if !ok {
+		t.Fatal("environment variable TF_VAR_ts_aws_acc_id not set")
 	}
 	_, ok = os.LookupEnv("TIMESCALE_DEV_URL")
 	if !ok {

@@ -1,0 +1,7 @@
+mutation DeletePeeringConnection($projectId: ID!, $vpcId: ID!, $id: ID!) {
+    deletePeeringConnection (data:{
+        vpcId: $vpcId,
+        projectId: $projectId,
+        id: $id
+    })
+}

@@ -28,9 +28,12 @@ type Service struct {
 }
 
 type ServiceSpec struct {
-	Hostname string `json:"hostname"`
-	Username string `json:"username"`
-	Port     int64  `json:"port"`
+	Hostname       string `json:"hostname"`
+	Username       string `json:"username"`
+	Port           int64  `json:"port"`
+	PoolerHostname string `json:"poolerHostName"`
+	PoolerPort     int64  `json:"poolerPort"`
+	Pooler         bool   `json:"connectionPoolerEnabled"`
 }
 
 type VPCEndpoint struct {
@@ -55,6 +58,8 @@ type CreateServiceRequest struct {
 	ReplicaCount string
 	VpcID        int64
 	ForkConfig   *ForkConfig
+
+	EnableConnectionPooler bool
 }
 
 type ForkConfig struct {
@@ -111,6 +116,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 			"memoryGB":     request.MemoryGB,
 			"replicaCount": request.ReplicaCount,
 		},
+		"enableConnectionPooler": request.EnableConnectionPooler,
 	}
 	if request.VpcID > 0 {
 		variables["vpcId"] = request.VpcID
@@ -288,4 +294,28 @@ func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error)
 		return nil, errors.New("no response found")
 	}
 	return &resp.Data.Service, nil
+}
+
+func (c *Client) ToggleConnectionPooler(ctx context.Context, serviceID string, enable bool) error {
+	tflog.Trace(ctx, "Client.ToggleConnectionPooler")
+	req := map[string]interface{}{
+		"operationName": "ToggleConnectionPooler",
+		"query":         ToggleConnectionPoolerMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"enable":    enable,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
 }

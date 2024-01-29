@@ -1,0 +1,7 @@
+mutation ToggleConnectionPooler($projectId: ID!, $serviceId: ID!, $enable: Boolean!) {
+    toggleConnectionPooler (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        enable: $enable
+    })
+}

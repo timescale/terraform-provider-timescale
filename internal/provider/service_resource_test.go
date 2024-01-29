@@ -36,6 +36,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "connection_pooler_enabled", "false"),
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
 			},
@@ -52,6 +53,15 @@ func TestServiceResource_Default_Success(t *testing.T) {
 				Config: getServiceConfig(t, config.WithName("service resource test update")),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
+				),
+			},
+			// Enable pooler
+			{
+				Config: getServiceConfig(t, config.WithPooler(true)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "connection_pooler_enabled", "true"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_hostname"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_port"),
 				),
 			},
 		},

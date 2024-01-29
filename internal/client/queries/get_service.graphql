@@ -20,6 +20,9 @@ query GetService($projectId: ID!, $serviceId: ID!) {
                 username
                 port
                 defaultDBName
+                poolerHostName
+                poolerPort
+                connectionPoolerEnabled
             }
         }
         resources {

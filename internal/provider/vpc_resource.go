@@ -30,7 +30,7 @@ var (
 	ErrVPCCreate = "Error creating VPC"
 	ErrVPCUpdate = "Error updating VPC"
 
-	regionCodes = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
+	regionCodes = []string{"us-east-1", "us-east-2", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
 )
 
 // NewVpcsResource is a helper function to simplify the provider implementation.

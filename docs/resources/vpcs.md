@@ -18,7 +18,7 @@ description: |-
 ### Required
 
 - `cidr` (String) The IPv4 CIDR block
-- `region_code` (String) The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2
+- `region_code` (String) The region for this VPC.
 
 ### Optional
 
@@ -42,16 +42,9 @@ Read-Only:
 
 - `error_message` (String)
 - `id` (Number)
-- `peer_vpc` (Object) (see [below for nested schema](#nestedatt--peering_connections--peer_vpc))
+- `peer_account_id` (String)
+- `peer_cidr` (String)
+- `peer_region_code` (String)
+- `peer_vpc_id` (String)
 - `status` (String)
 - `vpc_id` (String)
-
-<a id="nestedatt--peering_connections--peer_vpc"></a>
-### Nested Schema for `peering_connections.peer_vpc`
-
-Read-Only:
-
-- `account_id` (String)
-- `cidr` (String)
-- `id` (String)
-- `region_code` (String)

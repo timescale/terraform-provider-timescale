@@ -43,16 +43,9 @@ Read-Only:
 Read-Only:
 
 - `error_message` (String)
-- `peer_vpc` (Object) (see [below for nested schema](#nestedobjatt--vpcs--peering_connections--peer_vpc))
+- `peer_account_id` (String)
+- `peer_cidr` (String)
+- `peer_region_code` (String)
+- `peer_vpc_id` (String)
 - `status` (String)
 - `vpc_id` (String)
-
-<a id="nestedobjatt--vpcs--peering_connections--peer_vpc"></a>
-### Nested Schema for `vpcs.peering_connections.peer_vpc`
-
-Read-Only:
-
-- `account_id` (String)
-- `cidr` (String)
-- `id` (String)
-- `region_code` (String)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -14,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -29,8 +27,6 @@ var (
 	ErrVPCRead   = "Error reading VPC"
 	ErrVPCCreate = "Error creating VPC"
 	ErrVPCUpdate = "Error updating VPC"
-
-	regionCodes = []string{"us-east-1", "eu-west-1", "us-west-2", "eu-central-1", "ap-southeast-2"}
 )
 
 // NewVpcsResource is a helper function to simplify the provider implementation.
@@ -58,45 +54,30 @@ type vpcResourceModel struct {
 }
 
 type peeringConnectionResourceModel struct {
-	ID           types.Int64  `tfsdk:"id"`
-	VpcID        types.String `tfsdk:"vpc_id"`
-	Status       types.String `tfsdk:"status"`
-	ErrorMessage types.String `tfsdk:"error_message"`
-	PeerVpcs     types.Object `tfsdk:"peer_vpc"`
-}
-
-type peerVpcModel struct {
-	ID         types.String `tfsdk:"id"`
-	CIDR       types.String `tfsdk:"cidr"`
-	AccountID  types.String `tfsdk:"account_id"`
-	RegionCode types.String `tfsdk:"region_code"`
+	ID             types.Int64  `tfsdk:"id"`
+	VpcID          types.String `tfsdk:"vpc_id"`
+	Status         types.String `tfsdk:"status"`
+	ErrorMessage   types.String `tfsdk:"error_message"`
+	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
+	PeerCIDR       types.String `tfsdk:"peer_cidr"`
+	PeerAccountID  types.String `tfsdk:"peer_account_id"`
+	PeerRegionCode types.String `tfsdk:"peer_region_code"`
 }
 
 var (
-	PeerVpcType = map[string]attr.Type{
-		"id":          types.StringType,
-		"cidr":        types.StringType,
-		"account_id":  types.StringType,
-		"region_code": types.StringType,
-	}
-
 	PeeringConnectionsType = types.ObjectType{
 		AttrTypes: PeeringConnectionType,
 	}
 
 	PeeringConnectionType = map[string]attr.Type{
-		"id":            types.Int64Type,
-		"vpc_id":        types.StringType,
-		"status":        types.StringType,
-		"error_message": types.StringType,
-		"peer_vpc": types.ObjectType{
-			AttrTypes: map[string]attr.Type{
-				"id":          types.StringType,
-				"cidr":        types.StringType,
-				"account_id":  types.StringType,
-				"region_code": types.StringType,
-			},
-		},
+		"id":               types.Int64Type,
+		"vpc_id":           types.StringType,
+		"status":           types.StringType,
+		"error_message":    types.StringType,
+		"peer_vpc_id":      types.StringType,
+		"peer_cidr":        types.StringType,
+		"peer_account_id":  types.StringType,
+		"peer_region_code": types.StringType,
 	}
 )
 
@@ -175,15 +156,11 @@ func vpcToResource(ctx context.Context, diag diag.Diagnostics, s *tsClient.VPC, 
 		if pc.ErrorMessage != "" {
 			pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 		}
+		pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
+		pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
+		pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
+		pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
 
-		peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcType, peerVpcModel{
-			ID:         types.StringValue(pc.PeerVPC.ID),
-			AccountID:  types.StringValue(pc.PeerVPC.AccountID),
-			CIDR:       types.StringValue(pc.PeerVPC.CIDR),
-			RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
-		})
-		diag.Append(errDiag...)
-		pcm.PeerVpcs = peerVpcs
 		pcmObj, d := types.ObjectValueFrom(ctx, PeeringConnectionType, pcm)
 		diag.Append(d...)
 		pcmObjs = append(pcmObjs, pcmObj)
@@ -350,10 +327,9 @@ func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				Computed: true,
 			},
 			"region_code": schema.StringAttribute{
-				Description:         `The region for this service`,
-				MarkdownDescription: "The region for this service. Currently supported regions are us-east-1, eu-west-1, us-west-2, eu-central-1, ap-southeast-2",
+				Description:         `The region for this VPC`,
+				MarkdownDescription: "The region for this VPC.",
 				Required:            true,
-				Validators:          []validator.String{stringvalidator.OneOf(regionCodes...)},
 			},
 			"status": schema.StringAttribute{
 				Computed: true,
@@ -395,14 +371,17 @@ func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 						"error_message": schema.StringAttribute{
 							Computed: true,
 						},
-						"peer_vpc": schema.ObjectAttribute{
+						"peer_account_id": schema.StringAttribute{
 							Computed: true,
-							AttributeTypes: map[string]attr.Type{
-								"id":          types.StringType,
-								"cidr":        types.StringType,
-								"account_id":  types.StringType,
-								"region_code": types.StringType,
-							},
+						},
+						"peer_region_code": schema.StringAttribute{
+							Computed: true,
+						},
+						"peer_cidr": schema.StringAttribute{
+							Computed: true,
+						},
+						"peer_vpc_id": schema.StringAttribute{
+							Computed: true,
 						},
 					},
 				},

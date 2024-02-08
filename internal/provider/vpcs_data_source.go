@@ -25,26 +25,15 @@ func NewVpcsDataSource() datasource.DataSource {
 }
 
 var (
-	PeerVpcDSType = map[string]attr.Type{
-		"id":          types.StringType,
-		"cidr":        types.StringType,
-		"account_id":  types.StringType,
-		"region_code": types.StringType,
-	}
-
 	PeeringConnectionsDSType = types.ObjectType{
 		AttrTypes: map[string]attr.Type{
-			"vpc_id":        types.StringType,
-			"status":        types.StringType,
-			"error_message": types.StringType,
-			"peer_vpc": types.ObjectType{
-				AttrTypes: map[string]attr.Type{
-					"id":          types.StringType,
-					"cidr":        types.StringType,
-					"account_id":  types.StringType,
-					"region_code": types.StringType,
-				},
-			},
+			"vpc_id":           types.StringType,
+			"status":           types.StringType,
+			"error_message":    types.StringType,
+			"peer_vpc_id":      types.StringType,
+			"peer_cidr":        types.StringType,
+			"peer_account_id":  types.StringType,
+			"peer_region_code": types.StringType,
 		},
 	}
 )
@@ -77,17 +66,13 @@ type vpcDSModel struct {
 }
 
 type peeringConnectionDSModel struct {
-	VpcID        types.String `tfsdk:"vpc_id"`
-	Status       types.String `tfsdk:"status"`
-	ErrorMessage types.String `tfsdk:"error_message"`
-	PeerVpcs     types.Object `tfsdk:"peer_vpc"`
-}
-
-type peerVpcDSModel struct {
-	ID         types.String `tfsdk:"id"`
-	CIDR       types.String `tfsdk:"cidr"`
-	AccountID  types.String `tfsdk:"account_id"`
-	RegionCode types.String `tfsdk:"region_code"`
+	VpcID          types.String `tfsdk:"vpc_id"`
+	Status         types.String `tfsdk:"status"`
+	ErrorMessage   types.String `tfsdk:"error_message"`
+	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
+	PeerCIDR       types.String `tfsdk:"peer_cidr"`
+	PeerAccountID  types.String `tfsdk:"peer_account_id"`
+	PeerRegionCode types.String `tfsdk:"peer_region_code"`
 }
 
 // Metadata returns the data source type name.
@@ -135,16 +120,10 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			}
 			pcm.VpcID = types.StringValue(pc.VPCID)
 			pcm.Status = types.StringValue(pc.Status)
-			peerVpcs, errDiag := types.ObjectValueFrom(ctx, PeerVpcDSType, peerVpcDSModel{
-				ID:         types.StringValue(pc.PeerVPC.ID),
-				AccountID:  types.StringValue(pc.PeerVPC.AccountID),
-				CIDR:       types.StringValue(pc.PeerVPC.CIDR),
-				RegionCode: types.StringValue(pc.PeerVPC.RegionCode),
-			})
-			if errDiag.HasError() {
-				resp.Diagnostics.Append(errDiag...)
-			}
-			pcm.PeerVpcs = peerVpcs
+			pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
+			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
+			pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
+			pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
 			pcms = append(pcms, pcm)
 		}
 		vpcState.PeeringConnections = pcms
@@ -214,17 +193,13 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 							ElementType: types.ObjectType{
 								AttrTypes: map[string]attr.Type{
-									"vpc_id":        types.StringType,
-									"status":        types.StringType,
-									"error_message": types.StringType,
-									"peer_vpc": types.ObjectType{
-										AttrTypes: map[string]attr.Type{
-											"id":          types.StringType,
-											"cidr":        types.StringType,
-											"region_code": types.StringType,
-											"account_id":  types.StringType,
-										},
-									},
+									"vpc_id":           types.StringType,
+									"status":           types.StringType,
+									"error_message":    types.StringType,
+									"peer_vpc_id":      types.StringType,
+									"peer_cidr":        types.StringType,
+									"peer_account_id":  types.StringType,
+									"peer_region_code": types.StringType,
 								},
 							},
 						},

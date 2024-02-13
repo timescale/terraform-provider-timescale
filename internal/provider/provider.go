@@ -122,6 +122,7 @@ func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Res
 	return []func() resource.Resource{
 		NewServiceResource,
 		NewVpcsResource,
+		NewPeeringConnectionResource,
 	}
 }
 

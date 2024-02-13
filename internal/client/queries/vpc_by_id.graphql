@@ -1,4 +1,4 @@
- query GetVPC($vpcId: ID!) {
+ query GetVPCByID($vpcId: ID!) {
     getVpc(vpcId: $vpcId) {
         id
         projectId

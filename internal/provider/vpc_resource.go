@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -40,46 +38,17 @@ type vpcResource struct {
 }
 
 type vpcResourceModel struct {
-	ID                 types.Int64  `tfsdk:"id"`
-	ProvisionedID      types.String `tfsdk:"provisioned_id"`
-	ProjectID          types.String `tfsdk:"project_id"`
-	CIDR               types.String `tfsdk:"cidr"`
-	Name               types.String `tfsdk:"name"`
-	RegionCode         types.String `tfsdk:"region_code"`
-	Status             types.String `tfsdk:"status"`
-	ErrorMessage       types.String `tfsdk:"error_message"`
-	Created            types.String `tfsdk:"created"`
-	Updated            types.String `tfsdk:"updated"`
-	PeeringConnections types.List   `tfsdk:"peering_connections"`
+	ID            types.Int64  `tfsdk:"id"`
+	ProvisionedID types.String `tfsdk:"provisioned_id"`
+	ProjectID     types.String `tfsdk:"project_id"`
+	CIDR          types.String `tfsdk:"cidr"`
+	Name          types.String `tfsdk:"name"`
+	RegionCode    types.String `tfsdk:"region_code"`
+	Status        types.String `tfsdk:"status"`
+	ErrorMessage  types.String `tfsdk:"error_message"`
+	Created       types.String `tfsdk:"created"`
+	Updated       types.String `tfsdk:"updated"`
 }
-
-type peeringConnectionResourceModel struct {
-	ID             types.Int64  `tfsdk:"id"`
-	VpcID          types.String `tfsdk:"vpc_id"`
-	Status         types.String `tfsdk:"status"`
-	ErrorMessage   types.String `tfsdk:"error_message"`
-	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
-	PeerCIDR       types.String `tfsdk:"peer_cidr"`
-	PeerAccountID  types.String `tfsdk:"peer_account_id"`
-	PeerRegionCode types.String `tfsdk:"peer_region_code"`
-}
-
-var (
-	PeeringConnectionsType = types.ObjectType{
-		AttrTypes: PeeringConnectionType,
-	}
-
-	PeeringConnectionType = map[string]attr.Type{
-		"id":               types.Int64Type,
-		"vpc_id":           types.StringType,
-		"status":           types.StringType,
-		"error_message":    types.StringType,
-		"peer_vpc_id":      types.StringType,
-		"peer_cidr":        types.StringType,
-		"peer_account_id":  types.StringType,
-		"peer_region_code": types.StringType,
-	}
-)
 
 // Metadata returns the data source type name.
 func (r *vpcResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -119,7 +88,7 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	state.CIDR = types.StringValue(vpc.CIDR)
 	state.RegionCode = types.StringValue(vpc.RegionCode)
 
-	model := vpcToResource(ctx, resp.Diagnostics, vpc, state)
+	model := vpcToResource(vpc, state)
 	// Save updated plan into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
 	if resp.Diagnostics.HasError() {
@@ -128,7 +97,7 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 }
 
-func vpcToResource(ctx context.Context, diag diag.Diagnostics, s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
+func vpcToResource(s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
 	model := vpcResourceModel{
 		ID:            state.ID,
 		ProjectID:     state.ProjectID,
@@ -141,37 +110,6 @@ func vpcToResource(ctx context.Context, diag diag.Diagnostics, s *tsClient.VPC, 
 		ErrorMessage:  types.StringValue(s.ErrorMessage),
 		Updated:       types.StringValue(s.Updated),
 	}
-
-	pcmObjs := make([]attr.Value, 0, len(s.PeeringConnections))
-	for _, pc := range s.PeeringConnections {
-		var pcm peeringConnectionResourceModel
-		pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
-		peeringConnID, err := strconv.ParseInt(pc.ID, 10, 64)
-		if err != nil {
-			diag.AddError("Parse Error", "could not parse peering connection ID")
-		}
-		pcm.ID = types.Int64Value(peeringConnID)
-		pcm.VpcID = types.StringValue(pc.VPCID)
-		pcm.Status = types.StringValue(pc.Status)
-		if pc.ErrorMessage != "" {
-			pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
-		}
-		pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
-		pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
-		pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
-		pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
-
-		pcmObj, d := types.ObjectValueFrom(ctx, PeeringConnectionType, pcm)
-		diag.Append(d...)
-		pcmObjs = append(pcmObjs, pcmObj)
-
-	}
-	pcms, err := types.ListValue(PeeringConnectionsType, pcmObjs)
-	if err != nil {
-		diag.AddError("Parse Error", "could not parse peering connection ID")
-	}
-	model.PeeringConnections = pcms
-
 	return model
 }
 
@@ -208,7 +146,7 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	plan.ProjectID = types.StringValue(vpc.ProjectID)
 	plan.CIDR = types.StringValue(vpc.CIDR)
 	plan.RegionCode = types.StringValue(vpc.RegionCode)
-	model := vpcToResource(ctx, resp.Diagnostics, vpc, plan)
+	model := vpcToResource(vpc, plan)
 
 	// Set state
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
@@ -266,8 +204,8 @@ func (r *vpcResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			resp.Diagnostics.AddError(ErrVPCUpdate, err.Error())
 			return
 		}
+		state.Name = plan.Name
 	}
-	state.Name = plan.Name
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -295,6 +233,7 @@ func (r *vpcResource) Configure(ctx context.Context, req resource.ConfigureReque
 // Schema defines the schema for the data source.
 func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Description: `Schema for a VPC. Import can be done using your VPCs name`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
@@ -353,37 +292,6 @@ func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"peering_connections": schema.ListNestedAttribute{
-				Computed: true,
-				NestedObject: schema.NestedAttributeObject{
-					Attributes: map[string]schema.Attribute{
-						"id": schema.Int64Attribute{
-							Computed: true,
-						},
-						"vpc_id": schema.StringAttribute{
-							Computed: true,
-						},
-						"status": schema.StringAttribute{
-							Computed: true,
-						},
-						"error_message": schema.StringAttribute{
-							Computed: true,
-						},
-						"peer_account_id": schema.StringAttribute{
-							Computed: true,
-						},
-						"peer_region_code": schema.StringAttribute{
-							Computed: true,
-						},
-						"peer_cidr": schema.StringAttribute{
-							Computed: true,
-						},
-						"peer_vpc_id": schema.StringAttribute{
-							Computed: true,
-						},
-					},
 				},
 			},
 		},

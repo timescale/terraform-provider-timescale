@@ -3,12 +3,12 @@
 page_title: "timescale_vpcs Resource - terraform-provider-timescale"
 subcategory: ""
 description: |-
-  
+  Schema for a VPC. Import can be done using your VPCs name
 ---
 
 # timescale_vpcs (Resource)
 
-
+Schema for a VPC. Import can be done using your VPCs name
 
 
 
@@ -29,22 +29,7 @@ description: |-
 - `created` (String)
 - `error_message` (String)
 - `id` (Number) The ID of this resource.
-- `peering_connections` (Attributes List) (see [below for nested schema](#nestedatt--peering_connections))
 - `project_id` (String)
 - `provisioned_id` (String)
 - `status` (String)
 - `updated` (String)
-
-<a id="nestedatt--peering_connections"></a>
-### Nested Schema for `peering_connections`
-
-Read-Only:
-
-- `error_message` (String)
-- `id` (Number)
-- `peer_account_id` (String)
-- `peer_cidr` (String)
-- `peer_region_code` (String)
-- `peer_vpc_id` (String)
-- `status` (String)
-- `vpc_id` (String)

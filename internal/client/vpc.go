@@ -48,6 +48,9 @@ type CreateVPCResponse struct {
 }
 
 type VPCResponse struct {
+	VPC *VPC `json:"getVPC"`
+}
+type VPCNameResponse struct {
 	VPC *VPC `json:"getVPCByName"`
 }
 
@@ -83,7 +86,7 @@ func (c *Client) GetVPCByName(ctx context.Context, name string) (*VPC, error) {
 			"name":      name,
 		},
 	}
-	var resp Response[VPCResponse]
+	var resp Response[VPCNameResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err
 	}
@@ -233,6 +236,52 @@ func (c *Client) DeleteVPC(ctx context.Context, vpcID int64) error {
 		"variables": map[string]any{
 			"projectId": c.projectID,
 			"vpcId":     vpcID,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}
+
+func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID, accountID, regionCode string) error {
+	tflog.Trace(ctx, "Client.OpenPeerRequest")
+
+	req := map[string]interface{}{
+		"operationName": "OpenPeerRequest",
+		"query":         OpenPeerRequestMutation,
+		"variables": map[string]any{
+			"projectId":     c.projectID,
+			"vpcId":         vpcID,
+			"externalVpcId": externalVpcID,
+			"accountId":     accountID,
+			"regionCode":    regionCode,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}
+
+func (c *Client) DeletePeeringConnection(ctx context.Context, vpcID, id int64) error {
+	tflog.Trace(ctx, "Client.DeletePeeringConnection")
+
+	req := map[string]interface{}{
+		"operationName": "DeletePeeringConnection",
+		"query":         DeletePeeringConnectionMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"vpcId":     vpcID,
+			"id":        id,
 		},
 	}
 	var resp Response[any]

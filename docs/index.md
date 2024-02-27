@@ -52,7 +52,7 @@ resource "timescale_service" "test" {
   # region_code = "us-east-1"
   # enable_ha_replica = false
   # timeouts = {
-  #   create = '30m'
+  #   create = "30m"
   # }
 }
 ```

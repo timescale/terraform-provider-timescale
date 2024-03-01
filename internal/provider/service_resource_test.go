@@ -140,6 +140,14 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
 				),
 			},
+			// Test creating a second read replica
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig, extraReplicaConfig),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
+					resource.TestCheckResourceAttr(extraFQID, "name", extraReplicaConfig.Name),
+				),
+			},
 			// Do a compute resize
 			{
 				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithSpec(1000, 4)),
@@ -167,11 +175,6 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 			{
 				Config:      getServiceConfig(t, primaryConfig.WithReadReplica(extraFQID+".id"), extraConfig, replicaConfig.WithReadReplica(primaryFQID+".id")),
 				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
-			},
-			// Check creating multiple read replicas returns an error
-			{
-				Config:      getServiceConfig(t, primaryConfig.WithReadReplica(""), replicaConfig, extraReplicaConfig),
-				ExpectError: regexp.MustCompile(errMultipleReadReplicas),
 			},
 			// Test creating a read replica from a read replica returns an error
 			{

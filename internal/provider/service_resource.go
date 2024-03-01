@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -34,15 +33,14 @@ var _ resource.Resource = &ServiceResource{}
 var _ resource.ResourceWithImportState = &ServiceResource{}
 
 const (
-	ErrCreateTimeout        = "Error waiting for service creation"
-	ErrUpdateService        = "Error updating service"
-	ErrInvalidAttribute     = "Invalid Attribute Value"
-	errMultipleReadReplicas = "cannot create multiple read replicas for a service"
-	errReplicaFromFork      = "cannot create a read replica from a read replica or fork"
-	errReplicaWithHA        = "cannot create a read replica with HA enabled"
-	errUpdateReplicaSource  = "cannot update read replica source"
-	DefaultMilliCPU         = 500
-	DefaultMemoryGB         = 2
+	ErrCreateTimeout       = "Error waiting for service creation"
+	ErrUpdateService       = "Error updating service"
+	ErrInvalidAttribute    = "Invalid Attribute Value"
+	errReplicaFromFork     = "cannot create a read replica from a read replica or fork"
+	errReplicaWithHA       = "cannot create a read replica with HA enabled"
+	errUpdateReplicaSource = "cannot update read replica source"
+	DefaultMilliCPU        = 500
+	DefaultMemoryGB        = 2
 
 	DefaultEnableHAReplica = false
 )
@@ -55,9 +53,6 @@ var (
 func NewServiceResource() resource.Resource {
 	return &ServiceResource{}
 }
-
-// readReplicaMu synchronizes operations on read replicas for a project.
-var readReplicaMu sync.Mutex
 
 // ServiceResource defines the resource implementation.
 type ServiceResource struct {
@@ -280,10 +275,6 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
 	if readReplicaSource != "" {
-		// Locking is done to prevent multiple read replicas being created for a service at once
-		readReplicaMu.Lock()
-		defer readReplicaMu.Unlock()
-
 		primary, err := r.client.GetService(ctx, readReplicaSource)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("unable to get primary service %s, got error: %s", readReplicaSource, err))
@@ -344,15 +335,6 @@ func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, 
 	}
 	if plan.EnableHAReplica.ValueBool() {
 		return errors.New(errReplicaWithHA)
-	}
-	services, err := r.client.GetAllServices(ctx)
-	if err != nil {
-		return err
-	}
-	for _, service := range services {
-		if service.ForkSpec != nil && service.ForkSpec.ServiceID == primary.ID {
-			return errors.New(errMultipleReadReplicas)
-		}
 	}
 	return nil
 }

@@ -24,6 +24,8 @@ var (
 	ResizeInstanceMutation string
 	//go:embed queries/delete_service.graphql
 	DeleteServiceMutation string
+	//go:embed queries/toggle_service.graphql
+	ToggleServiceMutation string
 	//go:embed queries/toggle_connection_pooler.graphql
 	ToggleConnectionPoolerMutation string
 	//go:embed queries/get_all_services.graphql

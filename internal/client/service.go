@@ -19,6 +19,7 @@ type Service struct {
 	} `json:"autoscaleSettings"`
 	Status        string         `json:"status"`
 	RegionCode    string         `json:"regionCode"`
+	Paused        bool           `json:"paused"`
 	ServiceSpec   ServiceSpec    `json:"spec"`
 	Resources     []ResourceSpec `json:"resources"`
 	Created       string         `json:"created"`
@@ -97,6 +98,10 @@ type GetAllServicesResponse struct {
 
 type DeleteServiceResponse struct {
 	Service Service `json:"deleteService"`
+}
+
+type ToggleServiceResponse struct {
+	Service Service `json:"toggleService"`
 }
 
 func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest) (*CreateServiceResponse, error) {
@@ -278,6 +283,30 @@ func (c *Client) GetAllServices(ctx context.Context) ([]*Service, error) {
 		return nil, errors.New("no response found")
 	}
 	return resp.Data.Services, nil
+}
+
+func (c *Client) ToggleService(ctx context.Context, id, status string) (*Service, error) {
+	tflog.Trace(ctx, "Client.ToggleService")
+	req := map[string]interface{}{
+		"operationName": "ToggleService",
+		"query":         ToggleServiceMutation,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+			"serviceId": id,
+			"status":    status,
+		},
+	}
+	var resp Response[ToggleServiceResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return &resp.Data.Service, nil
 }
 
 func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error) {

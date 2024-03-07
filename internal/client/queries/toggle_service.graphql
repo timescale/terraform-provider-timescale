@@ -1,0 +1,13 @@
+mutation ToggleService($projectId: ID!, $serviceId: ID!, $status: Status!) {
+    toggleService (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        status: $status
+    }) {
+        id
+        projectId
+        name
+        status
+        regionCode
+    }
+}

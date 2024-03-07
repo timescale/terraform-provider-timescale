@@ -41,8 +41,6 @@ const (
 	errUpdateReplicaSource = "cannot update read replica source"
 	DefaultMilliCPU        = 500
 	DefaultMemoryGB        = 2
-
-	DefaultEnableHAReplica = false
 )
 
 var (
@@ -75,6 +73,7 @@ type serviceResourceModel struct {
 	Username          types.String   `tfsdk:"username"`
 	RegionCode        types.String   `tfsdk:"region_code"`
 	EnableHAReplica   types.Bool     `tfsdk:"enable_ha_replica"`
+	Paused            types.Bool     `tfsdk:"paused"`
 	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
 	VpcID             types.Int64    `tfsdk:"vpc_id"`
 
@@ -220,6 +219,16 @@ The change has been taken into account but must still be propagated. You can run
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+			"paused": schema.BoolAttribute{
+				Description:         `Paused status of the service.`,
+				MarkdownDescription: `Paused status of the service.`,
+				Default:             booldefault.StaticBool(false),
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -350,8 +359,8 @@ func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, id string
 	}
 
 	conf := retry.StateChangeConf{
-		Pending:                   []string{"QUEUED", "CONFIGURING", "UNSTABLE"},
-		Target:                    []string{"READY"},
+		Pending:                   []string{"QUEUED", "CONFIGURING", "UNSTABLE", "PAUSING", "RESUMING"},
+		Target:                    []string{"READY", "PAUSED"},
 		Delay:                     10 * time.Second,
 		Timeout:                   timeout,
 		PollInterval:              5 * time.Second,
@@ -440,6 +449,17 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if plan.RegionCode != state.RegionCode {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support region code change")
 		return
+	}
+
+	if plan.Paused != state.Paused {
+		status := "ACTIVE"
+		if plan.Paused.ValueBool() {
+			status = "INACTIVE"
+		}
+		if _, err := r.client.ToggleService(ctx, serviceID, status); err != nil {
+			resp.Diagnostics.AddError("Failed to toggle service", err.Error())
+			return
+		}
 	}
 
 	// Connection pooler ////////////////////////////////////////
@@ -575,6 +595,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		RegionCode:              types.StringValue(s.RegionCode),
 		Timeouts:                state.Timeouts,
 		EnableHAReplica:         types.BoolValue(s.ReplicaStatus != ""),
+		Paused:                  types.BoolValue(s.Status == "PAUSED" || s.Status == "PAUSING"),
 		ReadReplicaSource:       state.ReadReplicaSource,
 		ConnectionPoolerEnabled: types.BoolValue(s.ServiceSpec.PoolerEnabled),
 		PoolerHostname:          types.StringValue(s.ServiceSpec.PoolerHostname),

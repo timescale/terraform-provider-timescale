@@ -4,6 +4,7 @@ query GetVPCByName($projectId: ID!, $name: String!) {
         vpcName: $name,
     }) {
         id
+        provisionedId
         projectId
         cidr
         name
@@ -12,6 +13,7 @@ query GetVPCByName($projectId: ID!, $name: String!) {
         peeringConnections {
           id
           vpcId
+          provisionedId
           peerVpc {
             id
             accountId

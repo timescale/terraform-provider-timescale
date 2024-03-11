@@ -70,7 +70,7 @@ func TestVPCResource_Import(t *testing.T) {
 			{
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"created", "status"},
+				ImportStateVerifyIgnore: []string{"created", "status", "provisioned_id"},
 				ImportStateId:           "import-test",
 				ResourceName:            "timescale_vpcs.resource_import",
 				Config: getVPCConfig(t, config.WithName("import-test").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")) + `

@@ -41,6 +41,7 @@ type peeringConnectionResource struct {
 type peeringConnectionResourceModel struct {
 	ID             types.Int64  `tfsdk:"id"`
 	VpcID          types.String `tfsdk:"vpc_id"`
+	ProvisionedID  types.String `tfsdk:"provisioned_id"`
 	Status         types.String `tfsdk:"status"`
 	ErrorMessage   types.String `tfsdk:"error_message"`
 	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
@@ -58,6 +59,7 @@ var (
 	PeeringConnectionType = map[string]attr.Type{
 		"id":               types.Int64Type,
 		"vpc_id":           types.StringType,
+		"provisioned_id":   types.StringType,
 		"status":           types.StringType,
 		"error_message":    types.StringType,
 		"peer_vpc_id":      types.StringType,
@@ -125,6 +127,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 			}
 			pcm.ID = types.Int64Value(peeringConnID)
 			pcm.VpcID = types.StringValue(pc.VPCID)
+			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
 			pcm.PeerAccountID = state.PeerAccountID
 			pcm.PeerRegionCode = state.PeerRegionCode
@@ -271,6 +274,13 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 			},
 			"vpc_id": schema.StringAttribute{
 				Description: "AWS VPC ID of the timescale instance VPC",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"provisioned_id": schema.StringAttribute{
+				Description: "AWS ID of the peering connection (starts with pcx-...)",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

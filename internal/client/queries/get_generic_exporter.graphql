@@ -1,5 +1,5 @@
-query GetMetricExporter($projectId: ID!, $exporterId: ID!) {
-    getMetricExporter(
+query GetGenericExporter($projectId: ID!, $exporterId: ID!) {
+    getGenericExporter(
       data: { projectId: $projectId, exporterId: $exporterId }
     ) {
       id

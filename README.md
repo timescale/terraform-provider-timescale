@@ -1,6 +1,8 @@
 # Timescale Terraform Provider
 The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 
+Does not work for Managed Service for TimescaleDB.
+
 ## Requirements
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
 

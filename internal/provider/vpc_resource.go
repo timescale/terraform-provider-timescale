@@ -85,6 +85,7 @@ func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	state.ID = types.Int64Value(vpcID)
 	state.Created = types.StringValue(vpc.Created)
 	state.ProjectID = types.StringValue(vpc.ProjectID)
+	state.ProvisionedID = types.StringValue(vpc.ProvisionedID)
 	state.CIDR = types.StringValue(vpc.CIDR)
 	state.RegionCode = types.StringValue(vpc.RegionCode)
 
@@ -144,6 +145,7 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	plan.ID = types.Int64Value(vpcID)
 	plan.Created = types.StringValue(vpc.Created)
 	plan.ProjectID = types.StringValue(vpc.ProjectID)
+	plan.ProvisionedID = types.StringValue(vpc.ProvisionedID)
 	plan.CIDR = types.StringValue(vpc.CIDR)
 	plan.RegionCode = types.StringValue(vpc.RegionCode)
 	model := vpcToResource(vpc, plan)

@@ -1,6 +1,7 @@
  query GetAllVPCs($projectId: ID!) {
     getAllVpcs(projectId: $projectId) {
       id
+      provisionedId
       projectId
       cidr
       name
@@ -9,6 +10,7 @@
       peeringConnections {
         id
         vpcId
+        provisionedId
         peerVpc {
           id
           accountId

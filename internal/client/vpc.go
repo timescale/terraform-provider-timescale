@@ -25,11 +25,12 @@ type VPC struct {
 }
 
 type PeeringConnection struct {
-	ID           string   `json:"id"`
-	VPCID        string   `json:"vpcId"`
-	Status       string   `json:"status"`
-	ErrorMessage string   `json:"errorMessage"`
-	PeerVPC      *PeerVPC `json:"peerVPC"`
+	ID            string   `json:"id"`
+	VPCID         string   `json:"vpcId"`
+	ProvisionedID string   `json:"provisionedId"`
+	Status        string   `json:"status"`
+	ErrorMessage  string   `json:"errorMessage"`
+	PeerVPC       *PeerVPC `json:"peerVPC"`
 }
 
 type PeerVPC struct {

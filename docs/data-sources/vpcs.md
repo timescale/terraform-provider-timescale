@@ -47,5 +47,6 @@ Read-Only:
 - `peer_cidr` (String)
 - `peer_region_code` (String)
 - `peer_vpc_id` (String)
+- `provisioned_id` (String)
 - `status` (String)
 - `vpc_id` (String)

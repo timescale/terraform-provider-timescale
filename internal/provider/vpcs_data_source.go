@@ -28,6 +28,7 @@ var (
 	PeeringConnectionsDSType = types.ObjectType{
 		AttrTypes: map[string]attr.Type{
 			"vpc_id":           types.StringType,
+			"provisioned_id":   types.StringType,
 			"status":           types.StringType,
 			"error_message":    types.StringType,
 			"peer_vpc_id":      types.StringType,
@@ -67,6 +68,7 @@ type vpcDSModel struct {
 
 type peeringConnectionDSModel struct {
 	VpcID          types.String `tfsdk:"vpc_id"`
+	ProvisionedID  types.String `tfsdk:"provisioned_id"`
 	Status         types.String `tfsdk:"status"`
 	ErrorMessage   types.String `tfsdk:"error_message"`
 	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
@@ -119,6 +121,7 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
 			pcm.VpcID = types.StringValue(pc.VPCID)
+			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
 			pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
@@ -194,6 +197,7 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							ElementType: types.ObjectType{
 								AttrTypes: map[string]attr.Type{
 									"vpc_id":           types.StringType,
+									"provisioned_id":   types.StringType,
 									"status":           types.StringType,
 									"error_message":    types.StringType,
 									"peer_vpc_id":      types.StringType,

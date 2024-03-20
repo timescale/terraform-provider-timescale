@@ -13,6 +13,8 @@ From here, you can create client credentials for programmatic usage. Click the `
 ### Project ID
 The project ID can be found from the `Services` dashboard. In the upper right-hand side of the page, click on the three vertical dots to view the project ID.
 
+If you don't have a service, the project ID can be found on the `Project settings` page.
+
 Create a `main.tf` configuration file with the following content.
 ```hcl
 terraform {

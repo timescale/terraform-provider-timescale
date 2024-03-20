@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
@@ -205,8 +207,16 @@ func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.Del
 
 	err := r.client.DeletePeeringConnection(ctx, state.TimescaleVPCID.ValueInt64(), state.ID.ValueInt64())
 	if err != nil {
-		resp.Diagnostics.AddError("Error Deleting Timescale peering connection", err.Error())
-		return
+		var gqlErr *gqlerror.Error
+		if errors.As(err, &gqlErr) {
+			if gqlErr.Extensions["status"] != 404 {
+				resp.Diagnostics.AddError("Error Deleting Timescale peering connection", err.Error())
+				return
+			}
+		} else {
+			resp.Diagnostics.AddError("Error Deleting Timescale peering connection", err.Error())
+			return
+		}
 	}
 }
 

@@ -11,9 +11,7 @@ When you log in to your [Timescale Account](https://console.cloud.timescale.com/
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
 ### Project ID
-The project ID can be found from the `Services` dashboard. In the upper right-hand side of the page, click on the three vertical dots to view the project ID.
-
-If you don't have a service, the project ID can be found on the `Project settings` page.
+The project ID can be found on the `Project settings` page.
 
 Create a `main.tf` configuration file with the following content.
 ```hcl
@@ -59,6 +57,45 @@ resource "timescale_service" "test" {
 }
 ```
 
+### VPC Peering
+
+Since v1.9.0 it is possible to peer Timescale VPCs using terraform.
+
+Below is an example configuration:
+
+```
+resource "timescale_vpcs" "vpc" { 
+  cidr                = "10.10.10.10/16"
+  name                = "vpc_name"
+  region_code         = ${AWS_REGION}
+}
+
+resource "aws_vpc" "vpc" {
+  cidr_block = "11.11.11.11/24"
+}
+
+resource "timescale_peering_connection" "pc" { 
+  peer_account_id  = ${AWS_ACC_ID}
+  peer_region_code = ${AWS_REGION}
+  peer_vpc_id      = aws_vpc.main.id
+  timescale_vpc_id = timescale_vpcs.full.id
+}
+
+resource "aws_vpc_peering_connection" "pc" {
+  peer_vpc_id = aws_vpc.vpc.id
+  vpc_id = timescale_vpcs.vpc.provisioned_id
+  auto_accept   = true
+}
+
+import {
+  to = aws_vpc_peering_connection.pc
+  id = "pcx-..."
+}
+```
+
+As of v1.9.2, the aws_vpc_peering_connection import id must be manually added. This 
+value, always starting with `pcx-...` will be available in `timescale_peering_connection.pc.provisioned_id` after a terraform refresh.
+
 ## Supported Service Configurations
 ### Compute
 - 500m CPU / 2 GB Memory
@@ -72,6 +109,7 @@ resource "timescale_service" "test" {
 ### Storage
 Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
 See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
+
 ## Supported Operations
 ✅ Create service <br />
 ✅ Rename service <br />
@@ -80,6 +118,7 @@ See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-
 ✅ Import service <br />
 ✅ Enable High Availability replicas <br />
 ✅ Enable read replicas <br />
+✅ VPC peering <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,

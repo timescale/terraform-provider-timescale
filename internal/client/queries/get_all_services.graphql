@@ -7,9 +7,6 @@ query GetAllServices($projectId: ID!) {
         created
         status
         replicaStatus
-        autoscaleSettings {
-            enabled
-        }
         regionCode
         spec {
             ... on TimescaleDBServiceSpec {

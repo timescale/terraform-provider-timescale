@@ -11,12 +11,9 @@ import (
 )
 
 type Service struct {
-	ID                string `json:"id"`
-	ProjectID         string `json:"projectId"`
-	Name              string `json:"name"`
-	AutoscaleSettings struct {
-		Enabled bool `json:"enabled"`
-	} `json:"autoscaleSettings"`
+	ID            string         `json:"id"`
+	ProjectID     string         `json:"projectId"`
+	Name          string         `json:"name"`
 	Status        string         `json:"status"`
 	RegionCode    string         `json:"regionCode"`
 	Paused        bool           `json:"paused"`

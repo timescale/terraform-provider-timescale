@@ -20,9 +20,6 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
             created
             status
             vpcId
-            autoscaleSettings {
-                enabled
-            }
             spec {
                 ... on TimescaleDBServiceSpec {
                     hostname

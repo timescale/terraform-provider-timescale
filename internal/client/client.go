@@ -60,6 +60,16 @@ var (
 	OpenPeerRequestMutation string
 	//go:embed queries/delete_peer_request.graphql
 	DeletePeeringConnectionMutation string
+
+	// Exporters
+	//go:embed queries/create_metric_exporter.graphql
+	CreateMetricExporterMutation string
+	//go:embed queries/get_all_metric_exporters.graphql
+	GetAllMetricExporters string
+	//go:embed queries/create_generic_exporter.graphql
+	CreateGenericExporterMutation string
+	//go:embed queries/get_all_generic_exporters.graphql
+	GetAllGenericMetricExporters string
 )
 
 type Client struct {

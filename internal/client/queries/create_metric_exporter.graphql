@@ -1,0 +1,29 @@
+mutation CreateMetricExporter($projectId: ID!, $name: String!, $regionCode: String!, $config: MetricExporterConfigInput!){
+    createMetricExporter(data: {
+        projectId: $projectId,
+        name: $name,
+        regionCode: $regionCode,
+        config: $config,
+    }){
+        id
+        projectId
+        created
+        name
+        type
+        regionCode
+        config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+            }
+            ... on CloudWatchMetricConfig {
+                awsAccessKey
+                awsSecretKey
+                awsRoleArn
+                awsRegion
+                logGroupName
+                logStreamName
+            }
+        }
+    }
+}

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -16,7 +18,7 @@ import (
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
-var _ resource.Resource
+var _ resource.ResourceWithImportState = &ExporterResource{}
 
 func NewExporterResource() resource.Resource {
 	return &ExporterResource{}
@@ -115,8 +117,6 @@ func (e *ExporterResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	// TODO, wait for export readiness
-
 	exporterModel := exporterToResource(exporter, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, exporterModel)...)
 	if resp.Diagnostics.HasError() {
@@ -134,13 +134,13 @@ func (e *ExporterResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 	tflog.Info(ctx, "Getting Exporter: "+state.ID.ValueString())
 
-	exporter, err := e.client.GetExporter(ctx, &tsClient.GetExporterRequest{
+	exporter, err := e.client.GetExporterByID(ctx, &tsClient.GetExporterByIDRequest{
 		ID:       state.ID.ValueString(),
 		Provider: state.Provider.ValueString(),
 		Type:     state.Type.ValueString(),
 	})
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", "unable to get exporter "+exporter.Name+" got error "+err.Error())
+		resp.Diagnostics.AddError("Client Error", "unable to get exporter, got error "+err.Error())
 		return
 	}
 	exporterModel := exporterToResource(exporter, state)
@@ -157,6 +157,36 @@ func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateReques
 
 func (e *ExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 
+}
+
+func (e *ExporterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.Split(req.ID, ",")
+	if len(parts) != 3 {
+		resp.Diagnostics.AddError("unexpected import format", "expected format is `exporter_name,exporter_provider,exporter_type")
+		return
+	}
+	name, provider, dataType := parts[0], parts[1], parts[2]
+	exporter, err := e.client.GetExporterByName(ctx, &tsClient.GetExporterByNameRequest{
+		Name:     name,
+		Provider: provider,
+		Type:     dataType,
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("unable to import exporter", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), exporter.ID)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("export_to"), provider)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("type"), dataType)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 func exporterToResource(e *tsClient.Exporter, state exporterResourceModel) exporterResourceModel {

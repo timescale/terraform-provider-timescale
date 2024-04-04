@@ -22,7 +22,7 @@ const (
 
 type exporterManager interface {
 	Create(ctx context.Context, request *CreateExporterRequest) (*Exporter, error)
-	Get(ctx context.Context, request *GetExporterRequest) (*Exporter, error)
+	GetAll(ctx context.Context) ([]*Exporter, error)
 	Update() (*Exporter, error)
 	Delete() (*Exporter, error)
 }
@@ -76,7 +76,7 @@ func (m *MetricExporter) getConfigName() (string, error) {
 	}
 }
 
-func (m *MetricExporter) Get(ctx context.Context, request *GetExporterRequest) (*Exporter, error) {
+func (m *MetricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
 	tflog.Trace(ctx, "MetricExporter.Get")
 	req := map[string]interface{}{
 		"operationName": "GetAllMetricExporters",
@@ -90,13 +90,7 @@ func (m *MetricExporter) Get(ctx context.Context, request *GetExporterRequest) (
 	if err = coalesceErrors(resp, err); err != nil {
 		return nil, err
 	}
-	exporter, ok := lo.Find(resp.Data.Exporters, func(e *Exporter) bool {
-		return e.ID == request.ID
-	})
-	if !ok {
-		return nil, errNotFound
-	}
-	return exporter, nil
+	return resp.Data.Exporters, nil
 }
 
 func (m *MetricExporter) Update() (*Exporter, error) {
@@ -148,8 +142,14 @@ type CreateExporterRequest struct {
 	Config     json.RawMessage
 }
 
-type GetExporterRequest struct {
+type GetExporterByIDRequest struct {
 	ID       string
+	Provider string
+	Type     string
+}
+
+type GetExporterByNameRequest struct {
+	Name     string
 	Provider string
 	Type     string
 }
@@ -180,10 +180,41 @@ func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequ
 	return manager.Create(ctx, request)
 }
 
-func (c *Client) GetExporter(ctx context.Context, request *GetExporterRequest) (*Exporter, error) {
+func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRequest) (*Exporter, error) {
 	manager, err := c.newExporterFactory(request.Provider, request.Type)
 	if err != nil {
 		return nil, err
 	}
-	return manager.Get(ctx, request)
+	exporters, err := manager.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	exporter, ok := lo.Find(exporters, func(e *Exporter) bool {
+		return e.ID == request.ID
+	})
+	if !ok {
+		return nil, errNotFound
+	}
+	return exporter, nil
+}
+
+func (c *Client) GetExporterByName(ctx context.Context, request *GetExporterByNameRequest) (*Exporter, error) {
+	manager, err := c.newExporterFactory(request.Provider, request.Type)
+	if err != nil {
+		return nil, err
+	}
+	exporters, err := manager.GetAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	e := lo.Filter(exporters, func(e *Exporter, _ int) bool {
+		return e.Name == request.Name
+	})
+	if len(e) == 0 {
+		return nil, errNotFound
+	}
+	if len(e) > 1 {
+		return nil, errors.New("exporter names must be unique for importing")
+	}
+	return e[0], nil
 }

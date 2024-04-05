@@ -27,12 +27,12 @@ type exporterManager interface {
 	Delete() (*Exporter, error)
 }
 
-type MetricExporter struct {
+type metricExporter struct {
 	provider string
 	client   *Client
 }
 
-func (m *MetricExporter) Create(ctx context.Context, req *CreateExporterRequest) (*Exporter, error) {
+func (m *metricExporter) Create(ctx context.Context, req *CreateExporterRequest) (*Exporter, error) {
 	configName, err := m.getConfigName()
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (m *MetricExporter) Create(ctx context.Context, req *CreateExporterRequest)
 	return resp.Data.Exporter, nil
 }
 
-func (m *MetricExporter) getConfigName() (string, error) {
+func (m *metricExporter) getConfigName() (string, error) {
 	switch m.provider {
 	case providerDatadog:
 		return configNameDatadog, nil
@@ -76,7 +76,7 @@ func (m *MetricExporter) getConfigName() (string, error) {
 	}
 }
 
-func (m *MetricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
+func (m *metricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
 	tflog.Trace(ctx, "MetricExporter.Get")
 	req := map[string]interface{}{
 		"operationName": "GetAllMetricExporters",
@@ -93,12 +93,12 @@ func (m *MetricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
 	return resp.Data.Exporters, nil
 }
 
-func (m *MetricExporter) Update() (*Exporter, error) {
+func (m *metricExporter) Update() (*Exporter, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (m *MetricExporter) Delete() (*Exporter, error) {
+func (m *metricExporter) Delete() (*Exporter, error) {
 	//TODO implement me
 	panic("implement me")
 }
@@ -106,9 +106,9 @@ func (m *MetricExporter) Delete() (*Exporter, error) {
 type GenericMetricExporter struct {
 }
 
-func (c *Client) newExporterFactory(provider, data string) (exporterManager, error) {
+func (c *Client) newExporterManager(provider, data string) (exporterManager, error) {
 	if data == "metrics" {
-		return &MetricExporter{
+		return &metricExporter{
 			provider: provider,
 			client:   c,
 		}, nil
@@ -173,7 +173,7 @@ type Exporter struct {
 }
 
 func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequest) (*Exporter, error) {
-	manager, err := c.newExporterFactory(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.Provider, request.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequ
 }
 
 func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRequest) (*Exporter, error) {
-	manager, err := c.newExporterFactory(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.Provider, request.Type)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRe
 }
 
 func (c *Client) GetExporterByName(ctx context.Context, request *GetExporterByNameRequest) (*Exporter, error) {
-	manager, err := c.newExporterFactory(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.Provider, request.Type)
 	if err != nil {
 		return nil, err
 	}

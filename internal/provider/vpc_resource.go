@@ -4,15 +4,20 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
@@ -38,16 +43,17 @@ type vpcResource struct {
 }
 
 type vpcResourceModel struct {
-	ID            types.Int64  `tfsdk:"id"`
-	ProvisionedID types.String `tfsdk:"provisioned_id"`
-	ProjectID     types.String `tfsdk:"project_id"`
-	CIDR          types.String `tfsdk:"cidr"`
-	Name          types.String `tfsdk:"name"`
-	RegionCode    types.String `tfsdk:"region_code"`
-	Status        types.String `tfsdk:"status"`
-	ErrorMessage  types.String `tfsdk:"error_message"`
-	Created       types.String `tfsdk:"created"`
-	Updated       types.String `tfsdk:"updated"`
+	ID            types.Int64    `tfsdk:"id"`
+	ProvisionedID types.String   `tfsdk:"provisioned_id"`
+	ProjectID     types.String   `tfsdk:"project_id"`
+	CIDR          types.String   `tfsdk:"cidr"`
+	Name          types.String   `tfsdk:"name"`
+	RegionCode    types.String   `tfsdk:"region_code"`
+	Status        types.String   `tfsdk:"status"`
+	ErrorMessage  types.String   `tfsdk:"error_message"`
+	Created       types.String   `tfsdk:"created"`
+	Updated       types.String   `tfsdk:"updated"`
+	Timeouts      timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the data source type name.
@@ -110,6 +116,7 @@ func vpcToResource(s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
 		Status:        types.StringValue(s.Status),
 		ErrorMessage:  types.StringValue(s.ErrorMessage),
 		Updated:       types.StringValue(s.Updated),
+		Timeouts:      state.Timeouts,
 	}
 	return model
 }
@@ -141,6 +148,12 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	vpcID, err := strconv.ParseInt(vpc.ID, 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Parse Error", "could not parse vpcID")
+		return
+	}
+	vpc, err = r.waitForVPCReadiness(ctx, vpcID, plan.Timeouts)
+	if err != nil {
+		resp.Diagnostics.AddError("Create VPC Error", "error waiting for VPC readiness: "+err.Error())
+		return
 	}
 	plan.ID = types.Int64Value(vpcID)
 	plan.Created = types.StringValue(vpc.Created)
@@ -155,6 +168,41 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+}
+
+func (r *vpcResource) waitForVPCReadiness(ctx context.Context, id int64, timeouts timeouts.Value) (*tsClient.VPC, error) {
+	tflog.Trace(ctx, "VPCResource.waitForServiceReadiness")
+
+	defaultTimeout := 5 * time.Minute
+	timeout, diags := timeouts.Create(ctx, defaultTimeout)
+	if diags != nil && diags.HasError() {
+		tflog.Error(ctx, fmt.Sprintf("found errs %v", diags.Errors()))
+		return nil, fmt.Errorf("unable to get timeout from config %v", diags.Errors())
+	}
+	conf := retry.StateChangeConf{
+		Pending:                   []string{"CREATING"},
+		Target:                    []string{"CREATED"},
+		Delay:                     5 * time.Second,
+		Timeout:                   timeout,
+		PollInterval:              5 * time.Second,
+		ContinuousTargetOccurence: 1,
+		Refresh: func() (result interface{}, state string, err error) {
+			vpc, err := r.client.GetVPCByID(ctx, id)
+			if err != nil {
+				return nil, "", err
+			}
+			return vpc, vpc.Status, nil
+		},
+	}
+	res, err := conf.WaitForStateContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	vpc, ok := res.(*tsClient.VPC)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type found, expected VPC but got %T", res)
+	}
+	return vpc, nil
 }
 
 // Delete deletes a VPC shell
@@ -233,7 +281,7 @@ func (r *vpcResource) Configure(ctx context.Context, req resource.ConfigureReque
 }
 
 // Schema defines the schema for the data source.
-func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *vpcResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: `Schema for a VPC. Import can be done using your VPCs name`,
 		Attributes: map[string]schema.Attribute{
@@ -296,6 +344,33 @@ func (r *vpcResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"timeouts": timeoutSchema(ctx, timeouts.Opts{
+				Create: true,
+			}),
 		},
 	}
+}
+
+// adding timeouts can break earlier versions of the provider since the field is not set.
+// reference: https://github.com/hashicorp/terraform-plugin-framework-timeouts/issues/49#issuecomment-1511027690
+func timeoutSchema(ctx context.Context, opts timeouts.Opts) schema.SingleNestedAttribute {
+	timeout := timeouts.Attributes(ctx, opts).(schema.SingleNestedAttribute)
+	at := map[string]attr.Type{}
+	if opts.Create {
+		at["create"] = types.StringType
+	}
+	if opts.Read {
+		at["read"] = types.StringType
+	}
+	if opts.Update {
+		at["update"] = types.StringType
+	}
+	if opts.Delete {
+		at["delete"] = types.StringType
+	}
+	timeout.Computed = true
+	timeout.Default = objectdefault.StaticValue(
+		types.ObjectNull(at),
+	)
+	return timeout
 }

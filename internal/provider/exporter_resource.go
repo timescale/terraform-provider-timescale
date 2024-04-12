@@ -56,7 +56,6 @@ func (e *ExporterResource) Configure(ctx context.Context, req resource.Configure
 			"Unexpected Resource Configure Type",
 			fmt.Sprintf("Expected *tsClient.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
-
 		return
 	}
 	e.client = client
@@ -75,6 +74,9 @@ func (e *ExporterResource) Schema(ctx context.Context, _ resource.SchemaRequest,
 			"name": schema.StringAttribute{
 				Computed: true,
 				Optional: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"export_to": schema.StringAttribute{
 				Required: true,

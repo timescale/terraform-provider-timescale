@@ -31,7 +31,7 @@ func TestVPCResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
 					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
+					resource.TestCheckResourceAttr("timescale_vpcs.resource", "status", "CREATED"),
 					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-1"),
 					// resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "updated"),
 					// resource.TestCheckNoResourceAttr("timescale_vpcs.resource", "created"),

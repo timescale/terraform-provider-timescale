@@ -23,7 +23,7 @@ const (
 type exporterManager interface {
 	Create(ctx context.Context, request *CreateExporterRequest) (*Exporter, error)
 	GetAll(ctx context.Context) ([]*Exporter, error)
-	Update() (*Exporter, error)
+	Update(ctx context.Context, request *UpdateExporterRequest) error
 	Delete() (*Exporter, error)
 }
 
@@ -77,7 +77,7 @@ func (m *metricExporter) getConfigName() (string, error) {
 }
 
 func (m *metricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
-	tflog.Trace(ctx, "MetricExporter.Get")
+	tflog.Trace(ctx, "MetricExporter.GetAll")
 	req := map[string]interface{}{
 		"operationName": "GetAllMetricExporters",
 		"query":         GetAllMetricExporters,
@@ -93,9 +93,31 @@ func (m *metricExporter) GetAll(ctx context.Context) ([]*Exporter, error) {
 	return resp.Data.Exporters, nil
 }
 
-func (m *metricExporter) Update() (*Exporter, error) {
-	//TODO implement me
-	panic("implement me")
+func (m *metricExporter) Update(ctx context.Context, req *UpdateExporterRequest) error {
+	tflog.Trace(ctx, "MetricExporter.Update")
+	configName, err := m.getConfigName()
+	if err != nil {
+		return err
+	}
+	r := map[string]interface{}{
+		"operationName": "UpdateMetricExporter",
+		"query":         UpdateMetricExporterMutation,
+		"variables": map[string]any{
+			"projectId":  m.client.projectID,
+			"exporterId": req.ExporterID,
+			"name":       req.Name,
+			"config": map[string]any{
+				configName: req.Config,
+			},
+		},
+	}
+	var resp Response[any]
+	err = m.client.do(ctx, r, &resp)
+	if err = coalesceErrors(resp, err); err != nil {
+		return err
+	}
+	return nil
+
 }
 
 func (m *metricExporter) Delete() (*Exporter, error) {
@@ -139,6 +161,14 @@ type CreateExporterRequest struct {
 	Type       string
 	Name       string
 	RegionCode string
+	Config     json.RawMessage
+}
+
+type UpdateExporterRequest struct {
+	ExporterID string
+	Provider   string
+	Type       string
+	Name       string
 	Config     json.RawMessage
 }
 
@@ -199,6 +229,14 @@ func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequ
 		return nil, err
 	}
 	return manager.Create(ctx, request)
+}
+
+func (c *Client) UpdateExporter(ctx context.Context, request *UpdateExporterRequest) error {
+	manager, err := c.newExporterManager(request.Provider, request.Type)
+	if err != nil {
+		return err
+	}
+	return manager.Update(ctx, request)
 }
 
 func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRequest) (*Exporter, error) {

@@ -162,7 +162,75 @@ func (e *ExporterResource) Read(ctx context.Context, req resource.ReadRequest, r
 }
 
 func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	/* possible updates:
+		datadog:
+			- exporter name
+			- api key
+	 		- site (optional)
+	 	cloudwatch:
+			- exporter name
+			- config
+				- logGroupName
+				- logStreamName
+				- Namespace
+				- AWS Access Key
+				- AWS Secret Key
 
+	*/
+	tflog.Trace(ctx, "ExporterResource.Update")
+	var plan, state exporterResourceModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, fmt.Sprintf("%v+", plan))
+
+	if plan.Provider.ValueString() != state.Provider.ValueString() {
+		resp.Diagnostics.AddError("error updating service", "cannot update provider field")
+		return
+	}
+	if plan.Type.ValueString() != state.Type.ValueString() {
+		resp.Diagnostics.AddError("error updating service", "cannot update type field")
+		return
+	}
+	if plan.RegionCode.ValueString() != state.RegionCode.ValueString() {
+		resp.Diagnostics.AddError("error updating service", "cannot update regionCode field")
+		return
+	}
+
+	err := e.client.UpdateExporter(ctx, &tsClient.UpdateExporterRequest{
+		ExporterID: state.ID.ValueString(),
+		Provider:   state.Provider.ValueString(),
+		Type:       state.Type.ValueString(),
+		Name:       plan.Name.ValueString(),
+		Config:     json.RawMessage(plan.Config.ValueString()),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("unable to update exporter", err.Error())
+		return
+	}
+	exp, err := e.client.GetExporterByID(ctx, &tsClient.GetExporterByIDRequest{
+		ID:       state.ID.ValueString(),
+		Provider: state.Provider.ValueString(),
+		Type:     state.Type.ValueString(),
+	})
+	if err != nil {
+		resp.Diagnostics.AddError("unable to get updated exporter", err.Error())
+		return
+	}
+	model, err := exporterToResource(exp, state)
+	if err != nil {
+		resp.Diagnostics.AddError("unable to update exporter in Terraform State", err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 }
 
 func (e *ExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

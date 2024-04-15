@@ -1,0 +1,8 @@
+mutation UpdateMetricExporter($projectId: ID!, $name: String!, $config: MetricExporterConfigInput!, $exporterId: ID!) {
+    updateMetricExporter(data: {
+        projectId: $projectId,
+        name: $name,
+        config: $config,
+        exporterId: $exporterId
+    })
+}

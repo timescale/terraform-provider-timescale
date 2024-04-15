@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -91,11 +92,12 @@ type Response[T any] struct {
 }
 
 type Error struct {
-	Message string `json:"message"`
+	Message string   `json:"message"`
+	Path    []string `json:"path"`
 }
 
 func (e *Error) Error() string {
-	return e.Message
+	return e.Message + " " + strings.Join(e.Path, ".")
 }
 
 func coalesceErrors[T any](resp Response[T], err error) error {

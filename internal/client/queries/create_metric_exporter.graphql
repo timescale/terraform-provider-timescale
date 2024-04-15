@@ -23,6 +23,7 @@ mutation CreateMetricExporter($projectId: ID!, $name: String!, $regionCode: Stri
                 awsRegion
                 logGroupName
                 logStreamName
+                namespace
             }
         }
     }

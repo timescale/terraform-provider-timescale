@@ -119,7 +119,11 @@ func (e *ExporterResource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	exporterModel := exporterToResource(exporter, plan)
+	exporterModel, err := exporterToResource(exporter, plan)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to set exporter in state", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, exporterModel)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -145,7 +149,11 @@ func (e *ExporterResource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.Diagnostics.AddError("Client Error", "unable to get exporter, got error "+err.Error())
 		return
 	}
-	exporterModel := exporterToResource(exporter, state)
+	exporterModel, err := exporterToResource(exporter, state)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to set exporter in state", err.Error())
+		return
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, exporterModel)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -191,14 +199,18 @@ func (e *ExporterResource) ImportState(ctx context.Context, req resource.ImportS
 	}
 }
 
-func exporterToResource(e *tsClient.Exporter, state exporterResourceModel) exporterResourceModel {
+func exporterToResource(e *tsClient.Exporter, state exporterResourceModel) (exporterResourceModel, error) {
+	cfg, err := e.GetConfig()
+	if err != nil {
+		return exporterResourceModel{}, err
+	}
 	model := exporterResourceModel{
 		ID:         types.StringValue(e.ID),
 		Provider:   state.Provider,
 		Type:       state.Type,
 		Name:       types.StringValue(e.Name),
 		RegionCode: types.StringValue(e.RegionCode),
-		Config:     jsontypes.NewNormalizedValue(string(e.Config)),
+		Config:     jsontypes.NewNormalizedValue(cfg),
 	}
-	return model
+	return model, nil
 }

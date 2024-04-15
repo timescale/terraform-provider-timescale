@@ -15,7 +15,7 @@ import (
 
 const (
 	configNameDatadog    = "configDatadog"
-	configNameCloudwatch = "configCloudwatch"
+	configNameCloudwatch = "configCloudWatch"
 	providerDatadog      = "datadog"
 	providerCloudwatch   = "cloudwatch"
 )
@@ -119,7 +119,7 @@ func (c *Client) newExporterManager(provider, data string) (exporterManager, err
 	return nil, errors.New("unsupported exporter: " + provider + " " + data)
 }
 
-type CloudWatchMetricConfigInput struct {
+type CloudWatchMetricConfig struct {
 	LogGroupName  string  `json:"logGroupName"`
 	LogStreamName string  `json:"logStreamName"`
 	Namespace     string  `json:"namespace"`
@@ -129,9 +129,9 @@ type CloudWatchMetricConfigInput struct {
 	AwsRoleArn    *string `json:"awsRoleArn,omitempty"`
 }
 
-type DatadogMetricConfigInput struct {
-	ApiKey string  `json:"apiKey"`
-	Site   *string `json:"site,omitempty"`
+type DatadogMetricConfig struct {
+	ApiKey string `json:"apiKey"`
+	Site   string `json:"site,omitempty"`
 }
 
 type CreateExporterRequest struct {
@@ -170,6 +170,27 @@ type Exporter struct {
 	Type       string          `json:"type"`
 	RegionCode string          `json:"regionCode"`
 	Config     json.RawMessage `json:"config"`
+}
+
+// GetConfig returns the exporter config as a JSON string
+func (e *Exporter) GetConfig() (string, error) {
+	var config interface{}
+	switch e.Type {
+	case "DATADOG":
+		config = &DatadogMetricConfig{}
+	case "CLOUDWATCH":
+		config = &CloudWatchMetricConfig{}
+	default:
+		return "", fmt.Errorf("unsupported config type %s", e.Type)
+	}
+	if err := json.Unmarshal(e.Config, config); err != nil {
+		return "", err
+	}
+	marshaled, err := json.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+	return string(marshaled), nil
 }
 
 func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequest) (*Exporter, error) {

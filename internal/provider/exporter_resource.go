@@ -107,8 +107,10 @@ func (e *ExporterResource) Create(ctx context.Context, req resource.CreateReques
 	tflog.Info(ctx, "config", map[string]interface{}{"config": plan.Config.ValueString()})
 
 	request := &tsClient.CreateExporterRequest{
-		Provider:   plan.Provider.ValueString(),
-		Type:       plan.Type.ValueString(),
+		ExporterType: tsClient.ExporterType{
+			Provider: plan.Provider.ValueString(),
+			DataType: plan.Type.ValueString(),
+		},
 		Name:       plan.Name.ValueString(),
 		RegionCode: plan.RegionCode.ValueString(),
 		Config:     json.RawMessage(plan.Config.ValueString()),
@@ -141,9 +143,11 @@ func (e *ExporterResource) Read(ctx context.Context, req resource.ReadRequest, r
 	tflog.Info(ctx, "Getting Exporter: "+state.ID.ValueString())
 
 	exporter, err := e.client.GetExporterByID(ctx, &tsClient.GetExporterByIDRequest{
-		ID:       state.ID.ValueString(),
-		Provider: state.Provider.ValueString(),
-		Type:     state.Type.ValueString(),
+		ID: state.ID.ValueString(),
+		ExporterType: tsClient.ExporterType{
+			Provider: state.Provider.ValueString(),
+			DataType: state.Type.ValueString(),
+		},
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", "unable to get exporter, got error "+err.Error())
@@ -187,7 +191,6 @@ func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	tflog.Info(ctx, fmt.Sprintf("%v+", plan))
 
 	if plan.Provider.ValueString() != state.Provider.ValueString() {
 		resp.Diagnostics.AddError("error updating service", "cannot update provider field")
@@ -204,19 +207,23 @@ func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateReques
 
 	err := e.client.UpdateExporter(ctx, &tsClient.UpdateExporterRequest{
 		ExporterID: state.ID.ValueString(),
-		Provider:   state.Provider.ValueString(),
-		Type:       state.Type.ValueString(),
-		Name:       plan.Name.ValueString(),
-		Config:     json.RawMessage(plan.Config.ValueString()),
+		ExporterType: tsClient.ExporterType{
+			Provider: plan.Provider.ValueString(),
+			DataType: plan.Type.ValueString(),
+		},
+		Name:   plan.Name.ValueString(),
+		Config: json.RawMessage(plan.Config.ValueString()),
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("unable to update exporter", err.Error())
 		return
 	}
 	exp, err := e.client.GetExporterByID(ctx, &tsClient.GetExporterByIDRequest{
-		ID:       state.ID.ValueString(),
-		Provider: state.Provider.ValueString(),
-		Type:     state.Type.ValueString(),
+		ID: state.ID.ValueString(),
+		ExporterType: tsClient.ExporterType{
+			Provider: plan.Provider.ValueString(),
+			DataType: plan.Type.ValueString(),
+		},
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("unable to get updated exporter", err.Error())
@@ -234,7 +241,27 @@ func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateReques
 }
 
 func (e *ExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-
+	tflog.Trace(ctx, "ServiceResource.Delete")
+	var state exporterResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	tflog.Info(ctx, "Deleting Exporter: "+state.ID.ValueString())
+	err := e.client.DeleteExporter(ctx, &tsClient.DeleteExporterRequest{
+		ExporterID: state.ID.ValueString(),
+		ExporterType: tsClient.ExporterType{
+			Provider: state.Provider.ValueString(),
+			DataType: state.Type.ValueString(),
+		},
+	})
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"error deleting exporter",
+			err.Error(),
+		)
+		return
+	}
 }
 
 func (e *ExporterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -245,9 +272,11 @@ func (e *ExporterResource) ImportState(ctx context.Context, req resource.ImportS
 	}
 	name, provider, dataType := parts[0], parts[1], parts[2]
 	exporter, err := e.client.GetExporterByName(ctx, &tsClient.GetExporterByNameRequest{
-		Name:     name,
-		Provider: provider,
-		Type:     dataType,
+		Name: name,
+		ExporterType: tsClient.ExporterType{
+			Provider: provider,
+			DataType: dataType,
+		},
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("unable to import exporter", err.Error())

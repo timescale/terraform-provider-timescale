@@ -24,7 +24,7 @@ type exporterManager interface {
 	Create(ctx context.Context, request *CreateExporterRequest) (*Exporter, error)
 	GetAll(ctx context.Context) ([]*Exporter, error)
 	Update(ctx context.Context, request *UpdateExporterRequest) error
-	Delete() (*Exporter, error)
+	Delete(ctx context.Context, request *DeleteExporterRequest) error
 }
 
 type metricExporter struct {
@@ -120,25 +120,43 @@ func (m *metricExporter) Update(ctx context.Context, req *UpdateExporterRequest)
 
 }
 
-func (m *metricExporter) Delete() (*Exporter, error) {
-	//TODO implement me
-	panic("implement me")
+func (m *metricExporter) Delete(ctx context.Context, req *DeleteExporterRequest) error {
+	tflog.Trace(ctx, "MetricExporter.Delete")
+	r := map[string]interface{}{
+		"operationName": "DeleteMetricExporter",
+		"query":         DeleteMetricExporterMutation,
+		"variables": map[string]any{
+			"projectId":  m.client.projectID,
+			"exporterId": req.ExporterID,
+		},
+	}
+	var resp Response[any]
+	err := m.client.do(ctx, r, &resp)
+	if err = coalesceErrors(resp, err); err != nil {
+		return err
+	}
+	return nil
 }
 
 type GenericMetricExporter struct {
 }
 
-func (c *Client) newExporterManager(provider, data string) (exporterManager, error) {
-	if data == "metrics" {
+type ExporterType struct {
+	Provider string
+	DataType string
+}
+
+func (c *Client) newExporterManager(t ExporterType) (exporterManager, error) {
+	if t.DataType == "metrics" {
 		return &metricExporter{
-			provider: provider,
+			provider: t.Provider,
 			client:   c,
 		}, nil
 	}
-	if provider == "cloudwatch" && data == "log" {
+	if t.Provider == "cloudwatch" && t.DataType == "logs" {
 
 	}
-	return nil, errors.New("unsupported exporter: " + provider + " " + data)
+	return nil, errors.New("unsupported exporter: " + t.Provider + " " + t.DataType)
 }
 
 type CloudWatchMetricConfig struct {
@@ -157,31 +175,32 @@ type DatadogMetricConfig struct {
 }
 
 type CreateExporterRequest struct {
-	Provider   string
-	Type       string
-	Name       string
-	RegionCode string
-	Config     json.RawMessage
+	ExporterType ExporterType
+	Name         string
+	RegionCode   string
+	Config       json.RawMessage
 }
 
 type UpdateExporterRequest struct {
-	ExporterID string
-	Provider   string
-	Type       string
-	Name       string
-	Config     json.RawMessage
+	ExporterType ExporterType
+	ExporterID   string
+	Name         string
+	Config       json.RawMessage
+}
+
+type DeleteExporterRequest struct {
+	ExporterID   string
+	ExporterType ExporterType
 }
 
 type GetExporterByIDRequest struct {
-	ID       string
-	Provider string
-	Type     string
+	ID           string
+	ExporterType ExporterType
 }
 
 type GetExporterByNameRequest struct {
-	Name     string
-	Provider string
-	Type     string
+	Name         string
+	ExporterType ExporterType
 }
 
 type CreateMetricExporterResponse struct {
@@ -224,7 +243,7 @@ func (e *Exporter) GetConfig() (string, error) {
 }
 
 func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequest) (*Exporter, error) {
-	manager, err := c.newExporterManager(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.ExporterType)
 	if err != nil {
 		return nil, err
 	}
@@ -232,15 +251,23 @@ func (c *Client) CreateExporter(ctx context.Context, request *CreateExporterRequ
 }
 
 func (c *Client) UpdateExporter(ctx context.Context, request *UpdateExporterRequest) error {
-	manager, err := c.newExporterManager(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.ExporterType)
 	if err != nil {
 		return err
 	}
 	return manager.Update(ctx, request)
 }
 
+func (c *Client) DeleteExporter(ctx context.Context, request *DeleteExporterRequest) error {
+	manager, err := c.newExporterManager(request.ExporterType)
+	if err != nil {
+		return err
+	}
+	return manager.Delete(ctx, request)
+}
+
 func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRequest) (*Exporter, error) {
-	manager, err := c.newExporterManager(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.ExporterType)
 	if err != nil {
 		return nil, err
 	}
@@ -258,7 +285,7 @@ func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRe
 }
 
 func (c *Client) GetExporterByName(ctx context.Context, request *GetExporterByNameRequest) (*Exporter, error) {
-	manager, err := c.newExporterManager(request.Provider, request.Type)
+	manager, err := c.newExporterManager(request.ExporterType)
 	if err != nil {
 		return nil, err
 	}

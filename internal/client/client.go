@@ -73,6 +73,8 @@ var (
 	GetAllGenericMetricExporters string
 	//go:embed queries/update_metric_exporter.graphql
 	UpdateMetricExporterMutation string
+	//go:embed queries/delete_metric_exporter.graphql
+	DeleteMetricExporterMutation string
 )
 
 var (

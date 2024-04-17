@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -60,6 +61,24 @@ var (
 	OpenPeerRequestMutation string
 	//go:embed queries/delete_peer_request.graphql
 	DeletePeeringConnectionMutation string
+
+	// Exporters
+	//go:embed queries/create_metric_exporter.graphql
+	CreateMetricExporterMutation string
+	//go:embed queries/get_all_metric_exporters.graphql
+	GetAllMetricExporters string
+	//go:embed queries/create_generic_exporter.graphql
+	CreateGenericExporterMutation string
+	//go:embed queries/get_all_generic_exporters.graphql
+	GetAllGenericMetricExporters string
+	//go:embed queries/update_metric_exporter.graphql
+	UpdateMetricExporterMutation string
+	//go:embed queries/delete_metric_exporter.graphql
+	DeleteMetricExporterMutation string
+)
+
+var (
+	errNotFound = errors.New("resource not found")
 )
 
 type Client struct {
@@ -77,7 +96,29 @@ type Response[T any] struct {
 }
 
 type Error struct {
-	Message string `json:"message"`
+	Message string   `json:"message"`
+	Path    []string `json:"path"`
+}
+
+func (e *Error) Error() string {
+	return e.Message + " " + strings.Join(e.Path, ".")
+}
+
+func coalesceErrors[T any](resp Response[T], err error) error {
+	if err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		errs := make([]error, len(resp.Errors))
+		for idx, e := range resp.Errors {
+			errs[idx] = e
+		}
+		return errors.Join(errs...)
+	}
+	if resp.Data == nil {
+		return errNotFound
+	}
+	return nil
 }
 
 func NewClient(token, projectID, env, terraformVersion string) *Client {
@@ -132,10 +173,6 @@ func JWTFromCC(c *Client, accessKey, secretKey string) error {
 	return nil
 }
 
-func (e *Error) Error() string {
-	return e.Message
-}
-
 func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interface{}) error {
 	tflog.Trace(ctx, "Client.do")
 	jsonValue, err := json.Marshal(req)
@@ -148,6 +185,7 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 	}
 	c.setRequestHeaders(request)
 
+	tflog.Info(ctx, "", map[string]interface{}{"req": fmt.Sprintf("%v+", request)})
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
@@ -159,6 +197,7 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
 		return err
 	}
+	tflog.Info(ctx, "RESP: "+string(data))
 	return json.Unmarshal(data, resp)
 }
 

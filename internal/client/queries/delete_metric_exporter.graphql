@@ -1,0 +1,6 @@
+mutation DeleteMetricExporter($projectId: ID!, $exporterId: ID!) {
+    deleteMetricExporter(data: {
+        projectId: $projectId,
+        exporterId: $exporterId
+    })
+}

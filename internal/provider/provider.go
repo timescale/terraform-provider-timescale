@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/providervalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -119,12 +120,15 @@ func (p *TimescaleProvider) Configure(ctx context.Context, req provider.Configur
 // Resources defines the resources implemented in the provider.
 func (p *TimescaleProvider) Resources(ctx context.Context) []func() resource.Resource {
 	tflog.Trace(ctx, "TimescaleProvider.Resources")
-	return []func() resource.Resource{
+	resources := []func() resource.Resource{
 		NewServiceResource,
 		NewVpcsResource,
 		NewPeeringConnectionResource,
-		NewExporterResource,
 	}
+	if _, ok := os.LookupEnv("FF_ENABLE_EXPORTERS"); ok {
+		resources = append(resources, NewExporterResource)
+	}
+	return resources
 }
 
 // DataSources defines the data sources implemented in the provider.

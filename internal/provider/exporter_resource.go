@@ -241,7 +241,7 @@ func (e *ExporterResource) Update(ctx context.Context, req resource.UpdateReques
 }
 
 func (e *ExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	tflog.Trace(ctx, "ServiceResource.Delete")
+	tflog.Trace(ctx, "ExporterResource.Delete")
 	var state exporterResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {

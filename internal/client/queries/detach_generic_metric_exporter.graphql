@@ -1,0 +1,7 @@
+mutation DetachServiceFromGenericExporter($projectId: ID!, $serviceId: ID!, $exporterId: String!) {
+    detachServiceFromGenericExporter(data: {
+        projectId: $projectId,
+        serviceId: $serviceId,
+        exporterId: $exporterId
+    })
+}

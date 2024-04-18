@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"golang.org/x/exp/maps"
 )
 
 func TestServiceResource_Default_Success(t *testing.T) {
@@ -258,6 +259,86 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
 					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
 				),
+			},
+		},
+	})
+}
+
+func TestServiceResource_Exporters(t *testing.T) {
+	const (
+		primaryName = "primary"
+		primaryFQID = "timescale_service." + primaryName
+	)
+	var (
+		exporterDataSources = map[string]*exporterDataSourceConfig{
+			datadogMetricExporterName: {
+				identifier: "datadog_metric_exporter",
+				name:       datadogMetricExporterName,
+			},
+			cloudwatchMetricExporterName: {
+				identifier: "cloudwatch_metric_exporter",
+				name:       cloudwatchMetricExporterName,
+			},
+			cloudwatchLogExporterName: {
+				identifier: "cloudwatch_logs_exporter",
+				name:       cloudwatchLogExporterName,
+			},
+		}
+		primaryConfig = &ServiceConfig{
+			ResourceName:     primaryName,
+			Name:             "service resource test init",
+			MetricExporterID: exporterDataSources[cloudwatchMetricExporterName].id(),
+			LogExporterID:    exporterDataSources[cloudwatchLogExporterName].id(),
+		}
+
+		dataSourceCfg = exporterConfig(t, maps.Values(exporterDataSources)...)
+	)
+
+	checkExporterID := func(configKey, identifier string) resource.TestCheckFunc {
+		return func(state *terraform.State) error {
+			id := state.RootModule().Resources[identifier].Primary.ID
+			return resource.TestCheckResourceAttr(primaryFQID, configKey, id)(state)
+		}
+	}
+
+	// Test creating a service with metric and log exporters
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: dataSourceCfg + getServiceConfig(t, primaryConfig),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					// Verify service attributes
+					resource.TestCheckResourceAttr(primaryFQID, "name", "service resource test init"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "id"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "password"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "hostname"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "username"),
+					resource.TestCheckResourceAttrSet(primaryFQID, "port"),
+					resource.TestCheckResourceAttr(primaryFQID, "milli_cpu", "500"),
+					resource.TestCheckResourceAttr(primaryFQID, "memory_gb", "2"),
+					resource.TestCheckResourceAttr(primaryFQID, "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr(primaryFQID, "enable_ha_replica", "false"),
+					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
+					checkExporterID("metric_exporter_id", exporterDataSources[cloudwatchMetricExporterName].fqid()),
+					checkExporterID("log_exporter_id", exporterDataSources[cloudwatchLogExporterName].fqid()),
+				),
+			},
+			// Update metric exporter
+			{
+				Config: dataSourceCfg + getServiceConfig(t, primaryConfig.WithMetricExporterID(exporterDataSources[datadogMetricExporterName].id())),
+				Check:  checkExporterID("metric_exporter_id", exporterDataSources[datadogMetricExporterName].fqid()),
+			},
+			// Detach metric exporter
+			{
+				Config: dataSourceCfg + getServiceConfig(t, primaryConfig.WithMetricExporterID("")),
+				Check:  resource.TestCheckNoResourceAttr(primaryFQID, "metric_exporter_id"),
+			},
+			// Detach log exporter
+			{
+				Config: dataSourceCfg + getServiceConfig(t, primaryConfig.WithLogExporterID("")),
+				Check:  resource.TestCheckNoResourceAttr(primaryFQID, "log_exporter_id"),
 			},
 		},
 	})

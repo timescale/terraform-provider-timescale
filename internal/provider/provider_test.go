@@ -165,6 +165,8 @@ type ServiceConfig struct {
 	VpcID             int64
 	ReadReplicaSource string
 	Pooler            bool
+	MetricExporterID  string
+	LogExporterID     string
 }
 
 func (c *ServiceConfig) WithName(name string) *ServiceConfig {
@@ -197,6 +199,16 @@ func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
 	return c
 }
 
+func (c *ServiceConfig) WithMetricExporterID(id string) *ServiceConfig {
+	c.MetricExporterID = id
+	return c
+}
+
+func (c *ServiceConfig) WithLogExporterID(id string) *ServiceConfig {
+	c.LogExporterID = id
+	return c
+}
+
 func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -223,6 +235,12 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.VpcID != 0 {
 		write("vpc_id = %d \n", c.VpcID)
+	}
+	if c.MetricExporterID != "" {
+		write("metric_exporter_id = %s \n", c.MetricExporterID)
+	}
+	if c.LogExporterID != "" {
+		write("log_exporter_id = %s \n", c.LogExporterID)
 	}
 	write(`
 			milli_cpu  = %d
@@ -265,6 +283,53 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 // 	}
 // 	return res.String()
 // }
+
+type exporterDataSourceConfig struct {
+	identifier string
+	name       string
+}
+
+func (e *exporterDataSourceConfig) fqid() string {
+	return "data.timescale_exporter." + e.identifier
+}
+
+func (e *exporterDataSourceConfig) id() string {
+	return e.fqid() + ".id"
+}
+
+func (e *exporterDataSourceConfig) String(t *testing.T) string {
+	b := &strings.Builder{}
+	write := func(format string, a ...any) {
+		_, err := fmt.Fprintf(b, format, a...)
+		require.NoError(t, err)
+	}
+	if e.identifier == "" {
+		t.Fatal("exporter data source identifier must be set")
+	}
+	_, err := fmt.Fprintf(b, "\n\n data timescale_exporter %q { \n", e.identifier)
+	require.NoError(t, err)
+	if e.name == "" {
+		t.Fatal("exporter data source name must be set")
+	}
+	write("name = %q \n", e.name)
+	write("}")
+	return b.String()
+}
+
+func exporterConfigWithProvider(t *testing.T, cfgs ...*exporterDataSourceConfig) string {
+	res := strings.Builder{}
+	res.WriteString(providerConfig)
+	res.WriteString(exporterConfig(t, cfgs...))
+	return res.String()
+}
+
+func exporterConfig(t *testing.T, cfgs ...*exporterDataSourceConfig) string {
+	res := strings.Builder{}
+	for _, cfg := range cfgs {
+		res.WriteString(cfg.String(t))
+	}
+	return res.String()
+}
 
 type Timeouts struct {
 	Create string

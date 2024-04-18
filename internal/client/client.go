@@ -60,6 +60,24 @@ var (
 	OpenPeerRequestMutation string
 	//go:embed queries/delete_peer_request.graphql
 	DeletePeeringConnectionMutation string
+
+	// Exporters
+	//go:embed queries/attach_metric_exporter.graphql
+	AttachMetricExporterMutation string
+	//go:embed queries/attach_generic_exporter.graphql
+	AttachGenericExporterMutation string
+	//go:embed queries/detach_metric_exporter.graphql
+	DetachMetricExporterMutation string
+	//go:embed queries/detach_generic_metric_exporter.graphql
+	DetachGenericMetricExporterMutation string
+	//go:embed queries/get_all_metric_exporters.graphql
+	GetAllMetricExporters string
+	//go:embed queries/get_all_generic_exporters.graphql
+	GetAllGenericMetricExporters string
+)
+
+var (
+	errNotFound = errors.New("resource not found")
 )
 
 type Client struct {
@@ -74,10 +92,6 @@ type Client struct {
 type Response[T any] struct {
 	Data   *T       `json:"data"`
 	Errors []*Error `json:"errors"`
-}
-
-type Error struct {
-	Message string `json:"message"`
 }
 
 func NewClient(token, projectID, env, terraformVersion string) *Client {
@@ -130,10 +144,6 @@ func JWTFromCC(c *Client, accessKey, secretKey string) error {
 	}
 	c.token = resp.Data.Token
 	return nil
-}
-
-func (e *Error) Error() string {
-	return e.Message
 }
 
 func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interface{}) error {

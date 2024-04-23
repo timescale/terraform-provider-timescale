@@ -1,5 +1,11 @@
 package provider
 
+const (
+	datadogMetricExporterName    = "datadog-metrics-ci"
+	cloudwatchMetricExporterName = "cloudwatch-metrics-ci"
+	cloudwatchLogExporterName    = "cloud watch-logs-ci"
+)
+
 // func TestGeneralScenario(t *testing.T) {
 // 	const (
 // 		primaryName = "primary"

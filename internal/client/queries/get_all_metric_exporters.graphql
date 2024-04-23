@@ -1,0 +1,25 @@
+query GetAllMetricExporters($projectId: ID!) {
+    getAllMetricExporters(projectId: $projectId) {
+        id
+        projectId
+        name
+        type
+        created
+        regionCode
+        config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+            }
+            ... on CloudWatchMetricConfig {
+                awsAccessKey
+                awsSecretKey
+                awsRegion
+                awsRoleArn
+                logGroupName
+                logStreamName
+                namespace
+            }
+        }
+    }
+}

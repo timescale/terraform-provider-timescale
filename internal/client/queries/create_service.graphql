@@ -29,6 +29,8 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
                     poolerHostName
                     poolerPort
                     connectionPoolerEnabled
+                    exporterID
+                    genericExporterID
                 }
             }
             resources {

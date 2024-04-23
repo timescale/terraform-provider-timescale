@@ -1,0 +1,7 @@
+mutation AttachServiceToGenericExporter($projectId: ID!, $serviceId: ID!, $exporterId: String!) {
+    attachServiceToGenericExporter(data: {
+        projectId: $projectId,
+        serviceId: $serviceId,
+        exporterId: $exporterId}
+    )
+}

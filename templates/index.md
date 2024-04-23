@@ -96,6 +96,27 @@ import {
 As of v1.9.2, the aws_vpc_peering_connection import id must be manually added. This 
 value, always starting with `pcx-...` will be available in `timescale_peering_connection.pc.provisioned_id` after a terraform refresh.
 
+### Exporters
+
+Since v1.10.0 it is possible to attach and detach exporters using Terraform.
+Below is an example configuration:
+
+```
+
+data "timescale_exporter" "metric_exporter" {
+    name = "metric_exporter_name"
+}
+
+data "timescale_exporter" "log_exporter" {
+    name = "log_exporter_name"
+}
+
+resource "timescale_service" "service" {
+    metric_exporter_id = timescale_exporter.metric_exporter.id
+    log_exporter_id = timescale_exporter.log_exporter.id
+}
+```
+
 ## Supported Service Configurations
 ### Compute
 - 500m CPU / 2 GB Memory
@@ -119,6 +140,7 @@ See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-
 ✅ Enable High Availability replicas <br />
 ✅ Enable read replicas <br />
 ✅ VPC peering <br />
+✅ Attach and detach exporters <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,

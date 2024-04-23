@@ -39,6 +39,8 @@ const (
 	errReplicaFromFork     = "cannot create a read replica from a read replica or fork"
 	errReplicaWithHA       = "cannot create a read replica with HA enabled"
 	errUpdateReplicaSource = "cannot update read replica source"
+	errAttachExporter      = "error attaching exporter to service"
+	errDetachExporter      = "error detaching exporter form service"
 	DefaultMilliCPU        = 500
 	DefaultMemoryGB        = 2
 )
@@ -76,6 +78,8 @@ type serviceResourceModel struct {
 	Paused            types.Bool     `tfsdk:"paused"`
 	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
 	VpcID             types.Int64    `tfsdk:"vpc_id"`
+	MetricExporterID  types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID     types.String   `tfsdk:"log_exporter_id"`
 
 	ConnectionPoolerEnabled types.Bool `tfsdk:"connection_pooler_enabled"`
 }
@@ -219,6 +223,18 @@ The change has been taken into account but must still be propagated. You can run
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+			"metric_exporter_id": schema.StringAttribute{
+				Description:         "The Exporter ID attached to this service.",
+				MarkdownDescription: "The Exporter ID attached to this service.",
+				Optional:            true,
+			},
+			"log_exporter_id": schema.StringAttribute{
+				Description: `The Log Exporter ID attached to this service.
+				WARNING: To complete the logs exporter attachment, a service restart is required.`,
+				MarkdownDescription: `The Log Exporter ID attached to this service.
+				WARNING: To complete the logs exporter attachment, a service restart is required.`,
+				Optional: true,
+			},
 			"paused": schema.BoolAttribute{
 				Description:         `Paused status of the service.`,
 				MarkdownDescription: `Paused status of the service.`,
@@ -328,6 +344,37 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 		return
 	}
+
+	if !plan.MetricExporterID.IsNull() {
+		err := r.client.AttachMetricExporter(ctx, &tsClient.AttachExporterRequest{
+			ServiceID:  service.ID,
+			ExporterID: plan.MetricExporterID.ValueString(),
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
+		}
+	}
+
+	if !plan.LogExporterID.IsNull() {
+		err := r.client.AttachLogExporter(ctx, &tsClient.AttachExporterRequest{
+			ServiceID:  service.ID,
+			ExporterID: plan.LogExporterID.ValueString(),
+		})
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
+		}
+	}
+
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -519,6 +566,54 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	if !plan.MetricExporterID.Equal(state.MetricExporterID) {
+		// Note: Detach should be attempted before Attach in case the exporter is changed.
+		if !state.MetricExporterID.IsNull() && !state.MetricExporterID.IsUnknown() {
+			err := r.client.DetachMetricExporter(ctx, &tsClient.DetachExporterRequest{
+				ServiceID:  serviceID,
+				ExporterID: state.MetricExporterID.ValueString(),
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errDetachExporter, err.Error())
+				return
+			}
+		}
+		if !plan.MetricExporterID.IsNull() && !plan.MetricExporterID.IsUnknown() {
+			err := r.client.AttachMetricExporter(ctx, &tsClient.AttachExporterRequest{
+				ServiceID:  serviceID,
+				ExporterID: plan.MetricExporterID.ValueString(),
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errAttachExporter, err.Error())
+				return
+			}
+		}
+	}
+
+	if !plan.LogExporterID.Equal(state.LogExporterID) {
+		// Note: Detach should be attempted before Attach in case the exporter is changed.
+		if !state.LogExporterID.IsNull() && !state.LogExporterID.IsUnknown() {
+			err := r.client.DetachLogExporter(ctx, &tsClient.DetachExporterRequest{
+				ServiceID:  serviceID,
+				ExporterID: state.LogExporterID.ValueString(),
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errDetachExporter, err.Error())
+				return
+			}
+		}
+		if !plan.LogExporterID.IsNull() && !plan.LogExporterID.IsUnknown() {
+			err := r.client.AttachLogExporter(ctx, &tsClient.AttachExporterRequest{
+				ServiceID:  serviceID,
+				ExporterID: plan.LogExporterID.ValueString(),
+			})
+			if err != nil {
+				resp.Diagnostics.AddError(errAttachExporter, err.Error())
+				return
+			}
+		}
+	}
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -614,6 +709,11 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		model.Hostname = types.StringValue(s.VPCEndpoint.Host)
 		model.Port = types.Int64Value(s.VPCEndpoint.Port)
 	}
-
+	if s.ServiceSpec.ExporterID != nil {
+		model.MetricExporterID = types.StringValue(*s.ServiceSpec.ExporterID)
+	}
+	if s.ServiceSpec.GenericExporterID != nil {
+		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
+	}
 	return model
 }

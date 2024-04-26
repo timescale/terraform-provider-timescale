@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -77,7 +78,8 @@ type serviceResourceModel struct {
 	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
 	VpcID             types.Int64    `tfsdk:"vpc_id"`
 
-	ConnectionPoolerEnabled types.Bool `tfsdk:"connection_pooler_enabled"`
+	ConnectionPoolerEnabled types.Bool   `tfsdk:"connection_pooler_enabled"`
+	EnvironmentTag          types.String `tfsdk:"environment_tag"`
 }
 
 func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -194,6 +196,16 @@ The change has been taken into account but must still be propagated. You can run
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"environment_tag": schema.StringAttribute{
+				MarkdownDescription: "Set environment tag for this service.",
+				Description:         "Set environment tag for this service.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{stringvalidator.OneOf("DEV", "PROD")},
+			},
 			"username": schema.StringAttribute{
 				Description:         "The Postgres user for this service",
 				MarkdownDescription: "The Postgres user for this service",
@@ -277,6 +289,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		RegionCode:             plan.RegionCode.ValueString(),
 		ReplicaCount:           strconv.FormatInt(replicaCount, 10),
 		EnableConnectionPooler: plan.ConnectionPoolerEnabled.ValueBool(),
+		EnvironmentTag:         plan.EnvironmentTag.ValueString(),
 	}
 	if !plan.VpcID.IsNull() {
 		request.VpcID = plan.VpcID.ValueInt64()
@@ -469,6 +482,12 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 			return
 		}
 	}
+	if plan.EnvironmentTag != state.EnvironmentTag {
+		if err := r.client.SetEnvironmentTag(ctx, serviceID, plan.EnvironmentTag.ValueString()); err != nil {
+			resp.Diagnostics.AddError("Failed to set environment tag", err.Error())
+			return
+		}
+	}
 	if !plan.PoolerHostname.IsUnknown() {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support pooler hostname change")
 		return
@@ -613,6 +632,9 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		}
 		model.Hostname = types.StringValue(s.VPCEndpoint.Host)
 		model.Port = types.Int64Value(s.VPCEndpoint.Port)
+	}
+	if s.Metadata != nil {
+		model.EnvironmentTag = types.StringValue(s.Metadata.Environment)
 	}
 
 	return model

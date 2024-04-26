@@ -165,10 +165,16 @@ type ServiceConfig struct {
 	VpcID             int64
 	ReadReplicaSource string
 	Pooler            bool
+	Environment       string
 }
 
 func (c *ServiceConfig) WithName(name string) *ServiceConfig {
 	c.Name = name
+	return c
+}
+
+func (c *ServiceConfig) WithEnvironment(name string) *ServiceConfig {
+	c.Environment = name
 	return c
 }
 
@@ -217,6 +223,9 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.Pooler {
 		write("connection_pooler_enabled = %t \n", c.Pooler)
+	}
+	if c.Environment != "" {
+		write("environment_tag = %q \n", c.Environment)
 	}
 	if c.RegionCode != "" {
 		write("region_code = %q \n", c.RegionCode)

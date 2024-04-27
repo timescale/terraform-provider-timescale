@@ -114,11 +114,13 @@ See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-
 ✅ Create service <br />
 ✅ Rename service <br />
 ✅ Resize service <br />
+✅ Pause/resume service <br />
 ✅ Delete service <br />
 ✅ Import service <br />
 ✅ Enable High Availability replicas <br />
 ✅ Enable read replicas <br />
 ✅ VPC peering <br />
+✅ Connection pooling <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,

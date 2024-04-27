@@ -75,10 +75,13 @@ Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regi
 ✅ Create service <br />
 ✅ Rename service <br />
 ✅ Resize service <br />
+✅ Pause/resume service <br />
 ✅ Delete service <br />
 ✅ Import service <br />
 ✅ Enable High Availability replicas <br />
 ✅ Enable read replicas <br />
+✅ VPC peering <br />
+✅ Connection pooling <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,
@@ -98,6 +101,8 @@ go install .
 ```
 
 #### Generating the provider documentation
+
+Doc is generated from `./templates` files and in-file schema definitions.
 
 ```shell
 go generate

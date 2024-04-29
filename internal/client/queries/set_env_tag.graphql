@@ -1,0 +1,7 @@
+mutation SetEnvironmentTag($projectId: ID!, $serviceId: ID!, $environment: ServiceEnvironment!) {
+    setServiceEnvironmentTag (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        environment: $environment
+    })
+}

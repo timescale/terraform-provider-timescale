@@ -23,6 +23,7 @@ type Service struct {
 	ReplicaStatus string         `json:"replicaStatus"`
 	VPCEndpoint   *VPCEndpoint   `json:"vpcEndpoint"`
 	ForkSpec      *ForkSpec      `json:"forkedFromId"`
+	Metadata      *Metadata      `json:"metadata"`
 }
 
 type ServiceSpec struct {
@@ -49,6 +50,10 @@ type ResourceSpec struct {
 	} `json:"spec"`
 }
 
+type Metadata struct {
+	Environment string `json:"environment"`
+}
+
 type CreateServiceRequest struct {
 	Name     string
 	MilliCPU string
@@ -62,6 +67,7 @@ type CreateServiceRequest struct {
 	ForkConfig   *ForkConfig
 
 	EnableConnectionPooler bool
+	EnvironmentTag         string
 }
 
 type ForkConfig struct {
@@ -133,7 +139,9 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 	if request.ForkConfig != nil {
 		variables["forkConfig"] = request.ForkConfig
 	}
-
+	if request.EnvironmentTag != "" {
+		variables["environmentTag"] = request.EnvironmentTag
+	}
 	req := map[string]interface{}{
 		"operationName": "CreateService",
 		"query":         CreateServiceMutation,
@@ -338,6 +346,30 @@ func (c *Client) ToggleConnectionPooler(ctx context.Context, serviceID string, e
 			"projectId": c.projectID,
 			"serviceId": serviceID,
 			"enable":    enable,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
+func (c *Client) SetEnvironmentTag(ctx context.Context, serviceID, environment string) error {
+	tflog.Trace(ctx, "Client.SetEnvironmentTag")
+	req := map[string]interface{}{
+		"operationName": "SetEnvironmentTag",
+		"query":         SetEnvironmentTagMutation,
+		"variables": map[string]any{
+			"projectId":   c.projectID,
+			"serviceId":   serviceID,
+			"environment": environment,
 		},
 	}
 	var resp Response[any]

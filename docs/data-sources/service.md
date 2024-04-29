@@ -21,6 +21,7 @@ Service data source
 
 ### Optional
 
+- `environment_tag` (String) Environment tag for this service.
 - `vpc_id` (Number) VPC ID this service is linked to.
 
 ### Read-Only

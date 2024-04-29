@@ -40,5 +40,8 @@ query GetAllServices($projectId: ID!) {
             serviceId
             isStandby
         }
+        metadata {
+            environment
+        }
     }
 }

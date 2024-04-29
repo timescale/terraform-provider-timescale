@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 
@@ -37,6 +39,8 @@ type ServiceDataSourceModel struct {
 	Resources  []ResourceModel `tfsdk:"resources"`
 	Created    types.String    `tfsdk:"created"`
 	VpcID      types.Int64     `tfsdk:"vpc_id"`
+
+	EnvironmentTag types.String `tfsdk:"environment_tag"`
 }
 
 type SpecModel struct {
@@ -153,6 +157,13 @@ func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 				Optional:            true,
 				Computed:            true,
 			},
+			"environment_tag": schema.StringAttribute{
+				MarkdownDescription: "Environment tag for this service.",
+				Description:         "Environment tag for this service.",
+				Optional:            true,
+				Computed:            true,
+				Validators:          []validator.String{stringvalidator.OneOf("DEV", "PROD")},
+			},
 		},
 	}
 }
@@ -233,6 +244,9 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
 			},
 		})
+	}
+	if s.Metadata != nil {
+		serviceModel.EnvironmentTag = types.StringValue(s.Metadata.Environment)
 	}
 	return serviceModel
 }

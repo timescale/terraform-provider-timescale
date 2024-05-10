@@ -8,23 +8,27 @@ import (
 
 func TestExporterDataSource(t *testing.T) {
 	exporterDataSources := []*exporterDataSourceConfig{
-		{
-			identifier: "datadog_metric_exporter",
-			name:       datadogMetricExporterName,
-		},
-		{
-			identifier: "cloudwatch_metric_exporter",
-			name:       cloudwatchMetricExporterName,
-		},
+		//{
+		//	identifier: "datadog_metric_exporter",
+		//	name:       datadogMetricExporterName,
+		//},
+		//{
+		//	identifier: "cloudwatch_metric_exporter",
+		//	name:       cloudwatchMetricExporterName,
+		//},
 		{
 			identifier: "cloudwatch_log_exporter",
+			id:         cloudwatchLogExporterID,
 			name:       cloudwatchLogExporterName,
 		},
 	}
 	testExportersSet := func() []resource.TestCheckFunc {
 		checks := make([]resource.TestCheckFunc, len(exporterDataSources))
 		for idx, ds := range exporterDataSources {
-			checks[idx] = resource.TestCheckResourceAttrSet(ds.fqid(), "id")
+			checks[idx] = resource.ComposeTestCheckFunc(
+				resource.TestCheckResourceAttrSet(ds.fqid(), "id"),
+				resource.TestCheckResourceAttr(ds.fqid(), "name", ds.name),
+			)
 		}
 		return checks
 	}

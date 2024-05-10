@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -28,8 +27,8 @@ type GetAllGenericExporterResponse struct {
 	Exporters []*Exporter `json:"getAllGenericExporters"`
 }
 
-type GetExporterByNameRequest struct {
-	Name string
+type GetExporterByIDRequest struct {
+	ID string
 }
 
 type AttachExporterRequest struct {
@@ -89,20 +88,17 @@ func (c *Client) getAllExporters(ctx context.Context) ([]*Exporter, error) {
 	return append(metricExporters, logExporters...), nil
 }
 
-func (c *Client) GetExporterByName(ctx context.Context, request *GetExporterByNameRequest) (*Exporter, error) {
-	tflog.Trace(ctx, "Client.GetExporterByName")
+func (c *Client) GetExporterByID(ctx context.Context, request *GetExporterByIDRequest) (*Exporter, error) {
+	tflog.Trace(ctx, "Client.GetExporterByID")
 	exporters, err := c.getAllExporters(ctx)
 	if err != nil {
 		return nil, err
 	}
 	e := lo.Filter(exporters, func(e *Exporter, _ int) bool {
-		return e.Name == request.Name
+		return e.ID == request.ID
 	})
 	if len(e) == 0 {
 		return nil, errNotFound
-	}
-	if len(e) > 1 {
-		return nil, errors.New("exporter names must be unique for importing")
 	}
 	return e[0], nil
 }

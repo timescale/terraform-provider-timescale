@@ -286,15 +286,12 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 
 type exporterDataSourceConfig struct {
 	identifier string
+	id         string
 	name       string
 }
 
 func (e *exporterDataSourceConfig) fqid() string {
 	return "data.timescale_exporter." + e.identifier
-}
-
-func (e *exporterDataSourceConfig) id() string {
-	return e.fqid() + ".id"
 }
 
 func (e *exporterDataSourceConfig) String(t *testing.T) string {
@@ -308,10 +305,10 @@ func (e *exporterDataSourceConfig) String(t *testing.T) string {
 	}
 	_, err := fmt.Fprintf(b, "\n\n data timescale_exporter %q { \n", e.identifier)
 	require.NoError(t, err)
-	if e.name == "" {
+	if e.id == "" {
 		t.Fatal("exporter data source name must be set")
 	}
-	write("name = %q \n", e.name)
+	write("id = %q \n", e.id)
 	write("}")
 	return b.String()
 }

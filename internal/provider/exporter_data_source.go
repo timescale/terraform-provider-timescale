@@ -57,7 +57,7 @@ func (e *ExporterDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			"id": schema.StringAttribute{
 				MarkdownDescription: "exporter id is the unique identifier for an exporter",
 				Description:         "exporter id",
-				Computed:            true,
+				Required:            true,
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "The name of this exporter. Exporter names must be unique in order to manage them using Terraform.",
@@ -70,15 +70,15 @@ func (e *ExporterDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 
 func (e *ExporterDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	tflog.Trace(ctx, "ExporterDataSource.Read")
-	var name string
-	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("name"), &name)...)
+	var ID string
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("name"), &ID)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error reading terraform plan %v", resp.Diagnostics.Errors()))
 		return
 	}
-	tflog.Info(ctx, "getting exporter: "+name)
-	exporter, err := e.client.GetExporterByName(ctx, &tsClient.GetExporterByNameRequest{
-		Name: name,
+	tflog.Info(ctx, "getting exporter: "+ID)
+	exporter, err := e.client.GetExporterByID(ctx, &tsClient.GetExporterByIDRequest{
+		ID: ID,
 	})
 	if err != nil {
 		resp.Diagnostics.AddError("client error, unable to get exporter", err.Error())

@@ -287,8 +287,8 @@ func TestServiceResource_Exporters(t *testing.T) {
 		primaryConfig = &ServiceConfig{
 			ResourceName:     primaryName,
 			Name:             "service resource test init",
-			MetricExporterID: exporterDataSources[cloudwatchMetricExporterName].id(),
-			LogExporterID:    exporterDataSources[cloudwatchLogExporterName].id(),
+			MetricExporterID: exporterDataSources[cloudwatchMetricExporterName].fqid() + ".id",
+			LogExporterID:    exporterDataSources[cloudwatchLogExporterName].fqid() + ".id",
 		}
 
 		dataSourceCfg = exporterConfig(t, maps.Values(exporterDataSources)...)
@@ -327,8 +327,8 @@ func TestServiceResource_Exporters(t *testing.T) {
 			},
 			// Update metric exporter
 			{
-				Config: dataSourceCfg + getServiceConfig(t, primaryConfig.WithMetricExporterID(exporterDataSources[datadogMetricExporterName].id())),
-				Check:  checkExporterID("metric_exporter_id", exporterDataSources[datadogMetricExporterName].fqid()),
+				Config: dataSourceCfg + getServiceConfig(t, primaryConfig.WithMetricExporterID(exporterDataSources[datadogMetricExporterName].fqid()+".id")),
+				Check:  checkExporterID("metric_exporter_id", exporterDataSources[datadogMetricExporterName].fqid()+".id"),
 			},
 			// Detach metric exporter
 			{

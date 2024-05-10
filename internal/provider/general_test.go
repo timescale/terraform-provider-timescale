@@ -1,9 +1,11 @@
 package provider
 
 const (
-	datadogMetricExporterName    = "datadog-metrics-ci"
+	//datadogMetricExporterName    = "datadog-metrics-ci"
 	cloudwatchMetricExporterName = "cloudwatch-metrics-ci"
-	cloudwatchLogExporterName    = "cloud watch-logs-ci"
+	cloudwatchMetricExporterID   = "cloudwatch-metrics-ci"
+	cloudwatchLogExporterID      = "31377f38-5b42-4a5c-81a0-aee4c338a250"
+	cloudwatchLogExporterName    = "cloudwatch-logs-ci"
 )
 
 // func TestGeneralScenario(t *testing.T) {

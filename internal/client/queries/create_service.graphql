@@ -46,6 +46,20 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
             metadata {
                 environment
             }
+            endpoints {
+                primary {
+                    host
+                    port
+                }
+                replica {
+                    host
+                    port
+                }
+                pooler {
+                    host
+                    port
+                }
+            }
         }
     }
 }

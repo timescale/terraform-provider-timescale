@@ -57,6 +57,8 @@ resource "timescale_service" "read_replica" {
 - `pooler_hostname` (String) Hostname of the pooler of this service.
 - `pooler_port` (Number) Port of the pooler of this service.
 - `port` (Number) The port for this service
+- `replica_hostname` (String) Hostname of the HA-Replica of this service.
+- `replica_port` (Number) Port of the HA-Replica of this service.
 - `username` (String) The Postgres user for this service
 
 <a id="nestedatt--timeouts"></a>

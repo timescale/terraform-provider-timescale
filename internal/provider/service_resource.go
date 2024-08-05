@@ -69,6 +69,8 @@ type serviceResourceModel struct {
 	Password          types.String   `tfsdk:"password"`
 	Hostname          types.String   `tfsdk:"hostname"`
 	Port              types.Int64    `tfsdk:"port"`
+	ReplicaHostname   types.String   `tfsdk:"replica_hostname"`
+	ReplicaPort       types.Int64    `tfsdk:"replica_port"`
 	PoolerHostname    types.String   `tfsdk:"pooler_hostname"`
 	PoolerPort        types.Int64    `tfsdk:"pooler_port"`
 	Username          types.String   `tfsdk:"username"`
@@ -174,6 +176,16 @@ The change has been taken into account but must still be propagated. You can run
 			"port": schema.Int64Attribute{
 				Description:         "The port for this service",
 				MarkdownDescription: "The port for this service",
+				Computed:            true,
+			},
+			"replica_hostname": schema.StringAttribute{
+				MarkdownDescription: "Hostname of the HA-Replica of this service.",
+				Description:         "Hostname of the HA-Replica of this service.",
+				Computed:            true,
+			},
+			"replica_port": schema.Int64Attribute{
+				MarkdownDescription: "Port of the HA-Replica of this service.",
+				Description:         "Port of the HA-Replica of this service.",
 				Computed:            true,
 			},
 			"pooler_hostname": schema.StringAttribute{
@@ -602,39 +614,55 @@ func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportSt
 }
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
+	hasHaReplica := (s.ReplicaStatus != "")
+	hasPooler := s.ServiceSpec.PoolerEnabled
 	model := serviceResourceModel{
 		ID:                      types.StringValue(s.ID),
 		Password:                state.Password,
 		Name:                    types.StringValue(s.Name),
 		MilliCPU:                types.Int64Value(s.Resources[0].Spec.MilliCPU),
 		MemoryGB:                types.Int64Value(s.Resources[0].Spec.MemoryGB),
-		Hostname:                types.StringValue(s.ServiceSpec.Hostname),
 		Username:                types.StringValue(s.ServiceSpec.Username),
-		Port:                    types.Int64Value(s.ServiceSpec.Port),
 		RegionCode:              types.StringValue(s.RegionCode),
 		Timeouts:                state.Timeouts,
-		EnableHAReplica:         types.BoolValue(s.ReplicaStatus != ""),
+		EnableHAReplica:         types.BoolValue(hasHaReplica),
 		Paused:                  types.BoolValue(s.Status == "PAUSED" || s.Status == "PAUSING"),
 		ReadReplicaSource:       state.ReadReplicaSource,
-		ConnectionPoolerEnabled: types.BoolValue(s.ServiceSpec.PoolerEnabled),
-		PoolerHostname:          types.StringValue(s.ServiceSpec.PoolerHostname),
-		PoolerPort:              types.Int64Value(s.ServiceSpec.PoolerPort),
+		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
+		Hostname:                types.StringNull(),
+		Port:                    types.Int64Null(),
+		ReplicaHostname:         types.StringNull(),
+		ReplicaPort:             types.Int64Null(),
+		PoolerHostname:          types.StringNull(),
+		PoolerPort:              types.Int64Null(),
 	}
-	if !s.ServiceSpec.PoolerEnabled {
-		model.PoolerHostname = types.StringNull()
-		model.PoolerPort = types.Int64Null()
-	}
+
 	if s.VPCEndpoint != nil {
 		if vpcID, err := strconv.ParseInt(s.VPCEndpoint.VPCId, 10, 64); err != nil {
 			diag.AddError("Parse Error", "could not parse vpcID")
 		} else {
 			model.VpcID = types.Int64Value(vpcID)
 		}
-		model.Hostname = types.StringValue(s.VPCEndpoint.Host)
-		model.Port = types.Int64Value(s.VPCEndpoint.Port)
 	}
 	if s.Metadata != nil {
 		model.EnvironmentTag = types.StringValue(s.Metadata.Environment)
+	}
+
+	if s.Endpoints != nil {
+		if s.Endpoints.Primary != nil && s.Endpoints.Primary.Host != "" {
+			model.Hostname = types.StringValue(s.Endpoints.Primary.Host)
+			model.Port = types.Int64Value(int64(s.Endpoints.Primary.Port))
+		}
+
+		if hasHaReplica && s.Endpoints.Replica != nil && s.Endpoints.Replica.Host != "" {
+			model.ReplicaHostname = types.StringValue(s.Endpoints.Replica.Host)
+			model.ReplicaPort = types.Int64Value(int64(s.Endpoints.Replica.Port))
+		}
+
+		if hasPooler && s.Endpoints.Pooler != nil && s.Endpoints.Pooler.Host != "" {
+			model.PoolerHostname = types.StringValue(s.Endpoints.Pooler.Host)
+			model.PoolerPort = types.Int64Value(int64(s.Endpoints.Pooler.Port))
+		}
 	}
 
 	return model

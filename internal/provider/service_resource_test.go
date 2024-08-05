@@ -72,6 +72,15 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_port"),
 				),
 			},
+			// Enable ha-replica
+			{
+				Config: getServiceConfig(t, config.WithHAReplica(true)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "replica_hostname"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "replica_port"),
+				),
+			},
 		},
 	})
 }

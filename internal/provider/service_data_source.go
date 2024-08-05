@@ -44,11 +44,13 @@ type ServiceDataSourceModel struct {
 }
 
 type SpecModel struct {
-	Hostname       types.String `tfsdk:"hostname"`
-	Username       types.String `tfsdk:"username"`
-	Port           types.Int64  `tfsdk:"port"`
-	PoolerHostname types.String `tfsdk:"pooler_hostname"`
-	PoolerPort     types.Int64  `tfsdk:"pooler_port"`
+	Username        types.String `tfsdk:"username"`
+	Hostname        types.String `tfsdk:"hostname"`
+	Port            types.Int64  `tfsdk:"port"`
+	ReplicaHostname types.String `tfsdk:"replica_hostname"`
+	ReplicaPort     types.Int64  `tfsdk:"replica_port"`
+	PoolerHostname  types.String `tfsdk:"pooler_hostname"`
+	PoolerPort      types.Int64  `tfsdk:"pooler_port"`
 }
 
 type ResourceModel struct {
@@ -101,6 +103,16 @@ func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 					"port": schema.Int64Attribute{
 						MarkdownDescription: "Port is the port assigned to this service.",
 						Description:         "port is the port assigned to this service",
+						Computed:            true,
+					},
+					"replica_hostname": schema.StringAttribute{
+						MarkdownDescription: "Hostname of the HA-Replica of this service.",
+						Description:         "Hostname of the HA-Replica of this service.",
+						Computed:            true,
+					},
+					"replica_port": schema.Int64Attribute{
+						MarkdownDescription: "Port of the HA-Replica of this service.",
+						Description:         "Port of the HA-Replica of this service.",
 						Computed:            true,
 					},
 					"pooler_hostname": schema.StringAttribute{
@@ -213,16 +225,15 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 }
 
 func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataSourceModel {
+	hasHaReplica := (s.ReplicaStatus != "")
+	hasPooler := s.ServiceSpec.PoolerEnabled
+
 	serviceModel := ServiceDataSourceModel{
 		ID:         types.StringValue(s.ID),
 		Name:       types.StringValue(s.Name),
 		RegionCode: types.StringValue(s.RegionCode),
 		Spec: SpecModel{
-			Hostname:       types.StringValue(s.ServiceSpec.Hostname),
-			Username:       types.StringValue(s.ServiceSpec.Username),
-			Port:           types.Int64Value(s.ServiceSpec.Port),
-			PoolerHostname: types.StringValue(s.ServiceSpec.PoolerHostname),
-			PoolerPort:     types.Int64Value(s.ServiceSpec.PoolerPort),
+			Username: types.StringValue(s.ServiceSpec.Username),
 		},
 		Created: types.StringValue(s.Created),
 	}
@@ -232,8 +243,6 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 		} else {
 			serviceModel.VpcID = types.Int64Value(vpcID)
 		}
-		serviceModel.Spec.Hostname = types.StringValue(s.VPCEndpoint.Host)
-		serviceModel.Spec.Port = types.Int64Value(s.VPCEndpoint.Port)
 	}
 	for _, resource := range s.Resources {
 		serviceModel.Resources = append(serviceModel.Resources, ResourceModel{
@@ -247,6 +256,21 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 	}
 	if s.Metadata != nil {
 		serviceModel.EnvironmentTag = types.StringValue(s.Metadata.Environment)
+	}
+
+	if s.Endpoints != nil {
+		serviceModel.Spec.Hostname = types.StringValue(s.Endpoints.Primary.Host)
+		serviceModel.Spec.Port = types.Int64Value(int64(s.Endpoints.Primary.Port))
+
+		if hasHaReplica && s.Endpoints.Replica != nil && s.Endpoints.Replica.Host != "" {
+			serviceModel.Spec.ReplicaHostname = types.StringValue(s.Endpoints.Replica.Host)
+			serviceModel.Spec.ReplicaPort = types.Int64Value(int64(s.Endpoints.Replica.Port))
+		}
+
+		if hasPooler && s.Endpoints.Pooler != nil && s.Endpoints.Pooler.Host != "" {
+			serviceModel.Spec.PoolerHostname = types.StringValue(s.Endpoints.Pooler.Host)
+			serviceModel.Spec.PoolerPort = types.Int64Value(int64(s.Endpoints.Pooler.Port))
+		}
 	}
 	return serviceModel
 }

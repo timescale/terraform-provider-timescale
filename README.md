@@ -21,7 +21,12 @@ The project ID can be found from the `Services` dashboard. In the upper right-ha
 
 > [!NOTE]  
 > The example file creates:
->  * A single instance called `tf-test`
+>  * A single instance called `tf-test` that contains:
+>    * 0.5 CPUs
+>    * 2GB of RAM
+>    * the region set to `us-west-2`
+>    * a HA replica
+>    * the connection pooler enabled 
 >  * Outputs to display the connection info for:
 >    * the primary hostname and port
 >    * the ha-replica hostname and port

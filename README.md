@@ -14,16 +14,27 @@ From here, you can create client credentials for programmatic usage. Click the `
 
 Find more information on creating Client Credentials in the [Timescale docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
 
-### Project ID
+### Example file and usage
+
 The project ID can be found from the `Services` dashboard. In the upper right-hand side of the page, click on the three vertical dots to view the project ID. 
 
-Create a `main.tf` configuration file with the following content.
+
+> [!NOTE]  
+> The example file creates:
+>  * A single instance called `tf-test`
+>  * Outputs to display the connection info for:
+>    * the primary hostname and port
+>    * the ha-replica hostname and port
+>    * the pooler hostname and port
+
+Into a new folder, create the `main.tf` file:
+
 ```hcl
 terraform {
   required_providers {
     timescale = {
-      source  = "timescale/timescale"
-      version = "x.y.z"
+      source  = "registry.terraform.io/providers/timescale"
+      version = "~> 1.0"
     }
   }
 }
@@ -46,12 +57,63 @@ variable "ts_secret_key" {
   type = string
 }
 
-resource "timescale_service" "test" {
-  # name       = ""
-  # milli_cpu  = 500
-  # memory_gb  = 2
-  # region_code = "us-east-1"
+resource "timescale_service" "tf-test" {
+  name                      = "tf-test"
+  milli_cpu                 = 500
+  memory_gb                 = 2
+  region_code               = "us-west-2"
+  connection_pooler_enabled = true
+  enable_ha_replica         = true
 }
+
+## host connection info
+output "host_addr" {
+  value       = timescale_service.tf-test.hostname
+  description = "Service Host Address"
+}
+
+output "host_port" {
+  value       = timescale_service.tf-test.port
+  description = "Service Host port"
+}
+
+## ha-replica connection info
+output "replica_addr" {
+  value       = timescale_service.tf-test.replica_hostname
+  description = "Service Replica Host Address"
+}
+
+output "replica_port" {
+  value       = timescale_service.tf-test.replica_port
+  description = "Service Replica Host port"
+}
+
+## pooler connection info
+output "pooler_addr" {
+  value       = timescale_service.tf-test.pooler_hostname
+  description = "Service Pooler Host Address"
+}
+
+output "pooler_port" {
+  value       = timescale_service.tf-test.pooler_port
+  description = "Service Pooler Host port"
+}
+```
+
+and define the `secret.tfvars` file:
+
+```hcl
+ts_project_id="WWWWWWWWWW"
+ts_access_key="XXXXXXXXXXXXXXXXXXXXXXXXXX"
+ts_secret_key="YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+```
+> [!IMPORTANT]
+> Replace the values above with the the `ts_project_id`, the `ts_access_key`, and `ts_secret_key`
+
+Now use the `terraform` cli with the `secrets.tfvars` file, for example:
+
+```shell
+terraform plan --var-file=secrets.tfvars
 ```
 
 ## Supported Service Configurations
@@ -108,29 +170,38 @@ Doc is generated from `./templates` files and in-file schema definitions.
 go generate
 ```
 
+
+## Developing the Provider
+
 ### Local provider development override
-To use the locally built provider, create a `~/.terraformrc` file with the following content
 
-```text
+> [!IMPORTANT]
+> Change the `$HOME/go/bin` variable to be the location of your `GOBIN` if necessary.
+>
+> When using the local provider, is not necessary to run `terraform init`.
+
+To use the locally built provider, create a `~/.terraformrc` file with the following content:
+
+```hcl
 provider_installation {
+  dev_overrides {
+      "registry.terraform.io/providers/timescale" = "$HOME/go/bin"
+  }
 
-dev_overrides {
-   "registry.terraform.io/providers/timescale" = "<PATH>"
-}
-
-direct {}
+  direct {}
 }
 ```
-Change the `<Path>` variable to be the location of your `GOBIN`.
 
-### Developing the Provider
+### Runing the acceptance tests
+
 To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
 
 To generate or update documentation, run `go generate`.
 
 In order to run the full suite of Acceptance tests, run `make testacc`.
 
-*Note:* Acceptance tests create real resources.
+> [!WARNING]
+> Acceptance tests create real resources.
 
 ```shell
 make testacc

@@ -21,8 +21,7 @@ jobs:
           name: devenv
       - name: Install devenv.sh
         run: nix profile install nixpkgs#devenv
-      - run: devenv shell run-mod-download
-      - run: devenv shell -- go build -v .
+      - run: devenv build
   generate:
     name: Generate
     runs-on: ubuntu-latest

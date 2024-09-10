@@ -1,12 +1,4 @@
-{ pkgs, lib, config, inputs, ... }:
-let
-  providerBin = pkgs.buildGoModule {
-    pname = "terraform-provider-timescale";
-    version = "1.11.0";
-    src = ./.;
-    vendorHash = "sha256-ZDVMtvb49psIN+F4tABKl03HUvx/h6aOPs0Oni+KqqQ=";
-  };
-in {
+{ pkgs, lib, config, inputs, ... }: {
   packages = [ pkgs.git ];
 
   languages = {
@@ -32,6 +24,15 @@ in {
       '';
       pass_filenames = false;
     };
+  };
+
+  outputs = let
+    name = "terraform-provider-timescale";
+    version = "1.11.0";
+    app = import ./app.nix { inherit pkgs name version; };
+  in {
+    app = app;
+    image = import ./image.nix { inherit pkgs app name version; };
   };
 
   scripts = {

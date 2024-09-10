@@ -9,8 +9,10 @@ let
 in {
   packages = [ pkgs.git ];
 
-  languages.go.enable = true;
-  languages.terraform.enable = true;
+  languages = {
+    go.enable = true;
+    terraform.enable = true;
+  };
 
   pre-commit.hooks = {
     govet = {

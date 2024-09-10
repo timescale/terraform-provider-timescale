@@ -7,11 +7,11 @@ let
     vendorHash = "sha256-ZDVMtvb49psIN+F4tABKl03HUvx/h6aOPs0Oni+KqqQ=";
   };
 in {
-  packages = with pkgs; [ git terraform ];
+  packages = [ pkgs.git ];
 
   languages.go.enable = true;
+  languages.terraform.enable = true;
 
-  pre-commit.src = ./.;
   pre-commit.hooks = {
     govet = {
       enable = true;

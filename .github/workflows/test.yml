@@ -1,17 +1,12 @@
 # Terraform Provider testing workflow.
-name: Tests
-
-# This GitHub action runs your tests for each pull request and push.
-# Optionally, you can turn it on using a schedule for regular testing.
+name: integration-tests
 on:
   push:
     paths-ignore:
-      - 'README.md'
-
+      - "README.md"
 # Testing only needs permissions to read the repository contents.
 permissions:
   contents: read
-
 jobs:
   # Ensure project builds before running testing matrix
   build:
@@ -20,51 +15,41 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
-          go-version-file: 'go.mod'
-          cache: true
-      - run: go mod download
-      - run: go build -v .
-
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
+      - run: devenv shell run_mod_download
+      - run: devenv shell run_build
   generate:
+    name: Generate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
-          go-version-file: 'go.mod'
-          cache: true
-      - run: go generate ./...
-      - name: git diff
-        run: |
-          git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
-
-  # Run acceptance tests in a matrix with Terraform CLI versions
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
+      - run: devenv shell run_mod_download
+      - run: devenv shell run_generate
+      - run: devenv shell run_diff
   test:
-    name: Terraform Provider Acceptance Tests
-    needs: build
+    name: Acceptance Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        # list whatever Terraform versions here you would like to support
-        terraform:
-          # - '1.0.*'
-          # - '1.1.*'
-          - '1.2.*'
     steps:
-      - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v26
+      - uses: cachix/cachix-action@v14
         with:
-          go-version-file: 'go.mod'
-          cache: true
-      - uses: hashicorp/setup-terraform@97f030cf6dc0b4f5e0da352c7bca9cca34579800 # v3.1.0
-        with:
-          terraform_version: ${{ matrix.terraform }}
-          terraform_wrapper: false
+          name: devenv
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
+
       - run: go mod download
       - env:
           TF_ACC: "1"
@@ -74,5 +59,5 @@ jobs:
           TF_VAR_ts_aws_acc_id: ${{ secrets.TF_VAR_TS_AWS_ACC_ID }}
           # point to API
           TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
-        run: go test -v -cover ./internal/provider/
+        run: devenv test
         timeout-minutes: 10

@@ -1,5 +1,13 @@
-{ pkgs, lib, config, inputs, ... }: {
-  packages = with pkgs; [ git terraform golangci-lint ];
+{ pkgs, lib, config, inputs, ... }:
+let
+  providerBin = pkgs.buildGoModule {
+    pname = "terraform-provider-timescale";
+    version = "1.11.0";
+    src = ./.;
+    vendorHash = "sha256-ZDVMtvb49psIN+F4tABKl03HUvx/h6aOPs0Oni+KqqQ=";
+  };
+in {
+  packages = with pkgs; [ git terraform golangci-lint providerBin ];
 
   languages.go.enable = true;
 

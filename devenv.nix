@@ -7,14 +7,24 @@ let
     vendorHash = "sha256-ZDVMtvb49psIN+F4tABKl03HUvx/h6aOPs0Oni+KqqQ=";
   };
 in {
-  packages = with pkgs; [ git terraform golangci-lint providerBin ];
+  packages = with pkgs; [ git terraform ];
 
   languages.go.enable = true;
 
+  pre-commit.src = ./.;
+  pre-commit.hooks = {
+    govet = {
+      enable = true;
+      pass_filenames = false;
+    };
+    gotest.enable = true;
+    golangci-lint = {
+      enable = true;
+      pass_filenames = false;
+    };
+  };
+
   scripts = {
-    run_ci_lint.exec = ''
-      golangci-lint run
-    '';
     run_mod_download.exec = ''
       go mod download
     '';
@@ -29,8 +39,4 @@ in {
         (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
     '';
   };
-
-  enterTest = ''
-    go test -v -cover ./internal/provider/
-  '';
 }

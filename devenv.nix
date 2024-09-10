@@ -22,21 +22,26 @@ in {
       enable = true;
       pass_filenames = false;
     };
+    generate-check = {
+      enable = true;
+      name = "Go generate checks";
+      entry = ''
+        run-diff
+      '';
+      pass_filenames = false;
+    };
   };
 
   scripts = {
-    run_mod_download.exec = ''
+    run-mod-download.exec = ''
       go mod download
     '';
-    run_build.exec = ''
-      go build -v .
-    '';
-    run_generate.exec = ''
+    run-generate.exec = ''
       go generate ./...
     '';
-    run_diff.exec = ''
+    run-diff.exec = ''
       git diff --compact-summary --exit-code || \
-        (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+        (echo; echo "Unexpected difference in directories after code generation. Run 'run-generate' command and commit."; exit 1)
     '';
   };
 }

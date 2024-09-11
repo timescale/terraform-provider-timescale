@@ -1,7 +1,7 @@
 { pkgs, app, name, version, ... }:
 pkgs.dockerTools.buildImage {
   name = "docker.io/timescale/${name}";
-  tag = version;
+  tag = "v${version}-${pkgs.system}";
 
   copyToRoot = pkgs.buildEnv {
     name = "image-root";

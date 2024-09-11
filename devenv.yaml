@@ -2,4 +2,8 @@
 inputs:
   nixpkgs:
     url: github:cachix/devenv-nixpkgs/rolling
+  gomod:
+    url: github:nix-community/gomod2nix
+    overlays:
+      - default
 allowUnfree: true

@@ -1,5 +1,5 @@
 { pkgs, lib, config, inputs, ... }: {
-  packages = [ pkgs.git ];
+  packages = [ pkgs.git pkgs.gomod2nix ];
 
   languages = {
     go.enable = true;
@@ -29,7 +29,7 @@
   outputs = let
     name = "terraform-provider-timescale";
     version = "1.11.0";
-    app = import ./app.nix { inherit pkgs name version; };
+    app = import ./default.nix { inherit pkgs name version; };
   in {
     app = app;
     image = import ./image.nix { inherit pkgs app name version; };
@@ -38,6 +38,7 @@
   scripts = {
     run-mod-download.exec = ''
       go mod download
+      gomod2nix
     '';
     run-generate.exec = ''
       go generate ./...

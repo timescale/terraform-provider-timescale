@@ -5,9 +5,8 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/big"
-
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"math/big"
 )
 
 type VPC struct {

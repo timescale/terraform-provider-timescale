@@ -3,10 +3,10 @@
     "devenv": {
       "locked": {
         "dir": "src/modules",
-        "lastModified": 1726063457,
+        "lastModified": 1729179079,
         "owner": "cachix",
         "repo": "devenv",
-        "rev": "39bf6ce569103c9390d37322daa59468c31b3ce7",
+        "rev": "11c71a53661aff81b0f93d2958500d8c9ab71866",
         "type": "github"
       },
       "original": {
@@ -36,10 +36,10 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1710146030,
+        "lastModified": 1726560853,
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "b1d9ab70662946ef0850d488da1c9019f3a9752a",
+        "rev": "c1dfcf08411b08f6b8615f7d8971a2bfa81d5e8a",
         "type": "github"
       },
       "original": {
@@ -74,10 +74,10 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1725515722,
+        "lastModified": 1728509152,
         "owner": "nix-community",
         "repo": "gomod2nix",
-        "rev": "1c6fd4e862bf2f249c9114ad625c64c6c29a8a08",
+        "rev": "d5547e530464c562324f171006fc8f639aa01c9f",
         "type": "github"
       },
       "original": {
@@ -88,10 +88,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1726073643,
+        "lastModified": 1729186406,
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "758fd9dd53af731d11b23977fd1fdcc86b97b5c7",
+        "rev": "73bd40281687e5bd0dadb63b34865231fd20e7e4",
         "type": "github"
       },
       "original": {
@@ -103,10 +103,10 @@
     },
     "nixpkgs-stable": {
       "locked": {
-        "lastModified": 1725930920,
+        "lastModified": 1728909085,
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "44a71ff39c182edaf25a7ace5c9454e7cba2c658",
+        "rev": "c0b1da36f7c34a7146501f684e9ebdf15d2bebf8",
         "type": "github"
       },
       "original": {
@@ -141,10 +141,10 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1725513492,
+        "lastModified": 1729104314,
         "owner": "cachix",
         "repo": "pre-commit-hooks.nix",
-        "rev": "7570de7b9b504cfe92025dd1be797bf546f66528",
+        "rev": "3c3e88f0f544d6bb54329832616af7eb971b6be6",
         "type": "github"
       },
       "original": {

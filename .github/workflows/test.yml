@@ -18,7 +18,10 @@ jobs:
       - uses: cachix/install-nix-action@v26
       - uses: cachix/cachix-action@v14
         with:
-          name: devenv
+          name: terraform-provider-timescale
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+      - name: Install devenv.sh
+        run: nix profile install nixpkgs#devenv
       - name: Install devenv.sh
         run: nix profile install nixpkgs#devenv
       - run: devenv build
@@ -30,7 +33,8 @@ jobs:
       - uses: cachix/install-nix-action@v26
       - uses: cachix/cachix-action@v14
         with:
-          name: devenv
+          name: terraform-provider-timescale
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Install devenv.sh
         run: nix profile install nixpkgs#devenv
       - run: devenv shell run-mod-download
@@ -45,7 +49,8 @@ jobs:
       - uses: cachix/install-nix-action@v26
       - uses: cachix/cachix-action@v14
         with:
-          name: devenv
+          name: terraform-provider-timescale
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Install devenv.sh
         run: nix profile install nixpkgs#devenv
       - run: devenv shell run-mod-download

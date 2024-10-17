@@ -647,6 +647,9 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	if s.Metadata != nil {
 		model.EnvironmentTag = types.StringValue(s.Metadata.Environment)
 	}
+	if s.ForkSpec != nil && s.ForkSpec.IsStandby {
+		model.ReadReplicaSource = types.StringValue(s.ForkSpec.ServiceID)
+	}
 
 	if s.Endpoints != nil {
 		if s.Endpoints.Primary != nil && s.Endpoints.Primary.Host != "" {

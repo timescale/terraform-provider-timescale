@@ -204,6 +204,16 @@ To compile the provider, run `go install`. This will build the provider and put 
 To generate or update documentation, run `go generate`.
 
 In order to run the full suite of Acceptance tests, run `make testacc`.
+You'll need to set all required secrets in environment variables to allow the tests to run:
+
+```shell
+export TF_VAR_ts_project_id=<project_id>
+export TF_VAR_ts_access_key=<access_key>
+export TF_VAR_ts_secret_key=<secret_key>
+# this is the aws account id with which you want to test establishing vpc peering
+export TF_VAR_ts_aws_acc_id=<aws_acc_id>
+```
+
 
 > [!WARNING]
 > Acceptance tests create real resources.

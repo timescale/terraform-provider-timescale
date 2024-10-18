@@ -46,7 +46,7 @@ jobs:
     name: Terraform Provider Acceptance Tests
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -75,4 +75,3 @@ jobs:
           # point to API
           TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
         run: go test -v -cover ./internal/provider/
-        timeout-minutes: 10

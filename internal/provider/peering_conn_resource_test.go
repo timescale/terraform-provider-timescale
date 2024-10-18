@@ -25,7 +25,7 @@ func TestPeeringConnResource_Default_Success(t *testing.T) {
 			// Create the VPC
 			{
 				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-				Check: func(s *terraform.State) error {
+				Check: func(_ *terraform.State) error {
 					time.Sleep(10 * time.Second)
 					return nil
 				},
@@ -34,7 +34,7 @@ func TestPeeringConnResource_Default_Success(t *testing.T) {
 			{
 				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")) + getPeeringConnConfig(t, pcConfig.WithVpcResourceName(config.ResourceName)),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					func(s *terraform.State) error {
+					func(_ *terraform.State) error {
 						time.Sleep(10 * time.Second)
 						return nil
 					},
@@ -51,7 +51,7 @@ func TestPeeringConnResource_Default_Success(t *testing.T) {
 			{
 				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					func(s *terraform.State) error {
+					func(_ *terraform.State) error {
 						time.Sleep(10 * time.Second)
 						return nil
 					},

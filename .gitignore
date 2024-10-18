@@ -35,3 +35,12 @@ website/vendor
 
 # Keep windows files with windows line endings
 *.winfile eol=crlf
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

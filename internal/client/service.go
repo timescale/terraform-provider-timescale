@@ -24,6 +24,9 @@ type Service struct {
 	VPCEndpoint   *VPCEndpoint   `json:"vpcEndpoint"`
 	ForkSpec      *ForkSpec      `json:"forkedFromId"`
 	Metadata      *Metadata      `json:"metadata"`
+
+	// Endpoints contains the all service endpoints
+	Endpoints *ServiceEndpoints `json:"endpoints,omitempty"`
 }
 
 type ServiceSpec struct {
@@ -105,6 +108,21 @@ type DeleteServiceResponse struct {
 
 type ToggleServiceResponse struct {
 	Service Service `json:"toggleService"`
+}
+
+// ServiceEndpoints represents all service endpoints
+type ServiceEndpoints struct {
+	Primary *EndpointAddress `json:"primary"`
+	Replica *EndpointAddress `json:"replica"`
+	Pooler  *EndpointAddress `json:"pooler"`
+}
+
+// EndpointAddress represents the endpoint address
+type EndpointAddress struct {
+	// The hostname to use for connections.
+	Host string `json:"host"`
+	// The port to use for connections.
+	Port int `json:"port"`
 }
 
 func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest) (*CreateServiceResponse, error) {

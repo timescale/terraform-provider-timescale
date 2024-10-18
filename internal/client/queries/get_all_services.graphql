@@ -43,5 +43,19 @@ query GetAllServices($projectId: ID!) {
         metadata {
             environment
         }
+        endpoints {
+            primary {
+                host
+                port
+            }
+            replica {
+                host
+                port
+            }
+            pooler {
+                host
+                port
+            }
+        }
     }
 }

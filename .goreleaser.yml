@@ -20,7 +20,7 @@ builds:
     - "-s"
     - "-w"
     - "-X"
-    - "main.version={{.Version}}"
+    - "main.Version={{.Version}}"
     - "-X"
     - "main.commit={{.Commit}}"
   goos:

@@ -293,7 +293,7 @@ func TestServiceResource_Import(t *testing.T) {
 			// Import the resource. This step compares the resource attributes for "test" defined above with the imported resource
 			// "test_import" defined in the config for this step. This check is done by specifying the ImportStateVerify configuration option.
 			{
-				Check: func(s *terraform.State) error {
+				Check: func(_ *terraform.State) error {
 					time.Sleep(10 * time.Second)
 					return nil
 				},
@@ -317,7 +317,7 @@ func TestServiceResource_Import(t *testing.T) {
 			// Import the resource. This step compares the replica resource attributes for "test" defined above with the imported resource
 			// "test_import" defined in the config for this step. This check is done by specifying the ImportStateVerify configuration option.
 			{
-				Check: func(s *terraform.State) error {
+				Check: func(_ *terraform.State) error {
 					time.Sleep(10 * time.Second)
 					return nil
 				},

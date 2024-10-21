@@ -8,6 +8,7 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github/workflows/**'
+      - '.goreleaser.yml'
 
 # Testing only needs permissions to read the repository contents.
 permissions:

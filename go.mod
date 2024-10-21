@@ -1,8 +1,8 @@
 module github.com/timescale/terraform-provider-timescale
 
-go 1.21
+go 1.23
 
-toolchain go1.22.5
+toolchain go1.23.2
 
 require (
 	github.com/hashicorp/terraform-plugin-docs v0.19.4

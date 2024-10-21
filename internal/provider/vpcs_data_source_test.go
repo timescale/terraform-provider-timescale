@@ -15,7 +15,7 @@ func TestVPCDataSource(t *testing.T) {
 			// Read testing
 			{
 				Config: getVPCConfig(t, config.WithName("data-source-test").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-				Check: func(s *terraform.State) error {
+				Check: func(_ *terraform.State) error {
 					time.Sleep(5 * time.Second)
 					return nil
 				},

@@ -16,14 +16,6 @@
       enable = true;
       pass_filenames = false;
     };
-    generate-check = {
-      enable = true;
-      name = "Go generate checks";
-      entry = ''
-        run-diff
-      '';
-      pass_filenames = false;
-    };
   };
 
   outputs = let
@@ -35,17 +27,26 @@
     image = import ./image.nix { inherit pkgs app name version; };
   };
 
-  scripts = {
-    run-mod-download.exec = ''
-      go mod download
-      gomod2nix
-    '';
-    run-generate.exec = ''
-      go generate ./...
-    '';
-    run-diff.exec = ''
-      git diff --compact-summary --exit-code || \
-        (echo; echo "Unexpected difference in directories after code generation. Run 'run-generate' command and commit."; exit 1)
-    '';
+  tasks = {
+    "dev:mod" = {
+      exec = ''
+        go mod download
+        gomod2nix
+      '';
+      before = [ "dev:gen" "dev:diff" ];
+    };
+
+    "dev:gen" = {
+      exec = ''
+        go generate ./...
+      '';
+    };
+
+    "dev:diff" = {
+      exec = ''
+        git diff --compact-summary --exit-code || \
+         (echo; echo "Unexpected difference in directories after code generation. Run task 'dev:gen' and commit."; exit 1)
+      '';
+    };
   };
 }

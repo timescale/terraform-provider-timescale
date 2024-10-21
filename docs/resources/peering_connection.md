@@ -3,7 +3,7 @@
 page_title: "timescale_peering_connection Resource - terraform-provider-timescale"
 subcategory: ""
 description: |-
-  Schema for a peering connection. Import can be done with timescalevpcid,peeraccountid,peerregioncode,peervpcid format
+  Schema for a peering connection. Import can be done with timescale_vpc_id,peer_account_id,peer_region_code,peer_vpc_id format
 ---
 
 # timescale_peering_connection (Resource)

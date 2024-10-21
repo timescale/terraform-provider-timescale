@@ -314,13 +314,39 @@ func TestServiceResource_Import(t *testing.T) {
 				resource "timescale_service" "resource_import" {}
 				`,
 			},
+			// Import the resource. This step compares the replica resource attributes for "test" defined above with the imported resource
+			// "test_import" defined in the config for this step. This check is done by specifying the ImportStateVerify configuration option.
+			{
+				Check: func(s *terraform.State) error {
+					time.Sleep(10 * time.Second)
+					return nil
+				},
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					resources := state.RootModule().Resources
+					for name, r := range resources {
+						if name == "timescale_service.resource_replica.0" {
+							return r.Primary.ID, nil
+						}
+					}
+					return "", errors.New("import ID for replica not found")
+				},
+				ResourceName: "timescale_service.resource_replica_import[0]",
+				Config: config + `
+				resource "timescale_service" "resource_replica_import" {
+				  count = 1
+				}
+				`,
+			},
 		},
 	})
 }
 
 func newServiceConfig(config ServiceConfig) string {
 	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "10m"
+		config.Timeouts.Create = "15m"
 	}
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "resource" {
@@ -328,7 +354,15 @@ func newServiceConfig(config ServiceConfig) string {
 					timeouts = {
 						create = %q
 					}
-				}`, config.Name, config.Timeouts.Create)
+				}
+				resource "timescale_service" "resource_replica" {
+				  count = 1
+				  read_replica_source = timescale_service.resource.id
+				  name                = "%s replica"
+					timeouts = {
+						create = %q
+					}
+				}`, config.Name, config.Timeouts.Create, config.Name, config.Timeouts.Create)
 }
 
 func newServiceCustomConfig(resourceName string, config ServiceConfig) string {

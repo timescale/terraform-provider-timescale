@@ -74,4 +74,4 @@ jobs:
           TF_VAR_ts_aws_acc_id: ${{ secrets.TF_VAR_TS_AWS_ACC_ID }}
           # point to API
           TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
-        run: go test -v -cover ./internal/provider/
+        run: go test -timeout 120m -v -cover ./internal/provider/

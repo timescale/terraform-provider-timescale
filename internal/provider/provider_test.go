@@ -166,6 +166,7 @@ type ServiceConfig struct {
 	ReadReplicaSource string
 	Pooler            bool
 	Environment       string
+	Password          string
 }
 
 func (c *ServiceConfig) WithName(name string) *ServiceConfig {

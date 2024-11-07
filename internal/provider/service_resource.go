@@ -160,8 +160,9 @@ The change has been taken into account but must still be propagated. You can run
 				Create: true,
 			}),
 			"password": schema.StringAttribute{
-				Description:         "The Postgres password for this service. The password is provided once during service creation",
-				MarkdownDescription: "The Postgres password for this service. The password is provided once during service creation",
+				Description:         "The Postgres password for this service",
+				MarkdownDescription: "The Postgres password for this service",
+				Optional:            true,
 				Computed:            true,
 				Sensitive:           true,
 				PlanModifiers: []planmodifier.String{
@@ -342,7 +343,10 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	plan.Password = types.StringValue(response.InitialPassword)
+	// Set the password to the initial password if not provided by the user
+	if plan.Password.IsNull() || plan.Password.IsUnknown() {
+		plan.Password = types.StringValue(response.InitialPassword)
+	}
 	service, err := r.waitForServiceReadiness(ctx, response.Service.ID, plan.Timeouts)
 	if err != nil {
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occurred while waiting for service deployment, got error: %s", err))
@@ -353,6 +357,22 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 		return
 	}
+
+	// Check if a user-specified password was provided and update it if so, but only if the service is not a read replica
+	if !plan.Password.IsNull() && plan.Password.ValueString() != response.InitialPassword && readReplicaSource == "" {
+		err = r.client.ResetServicePassword(ctx, service.ID, plan.Password.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Setting the password failed", fmt.Sprintf("Unable to set user configured password, got error: %s", err))
+
+			// Attempt to delete the service to avoid leaving an instance in an inconsistent state
+			_, deleteErr := r.client.DeleteService(context.Background(), service.ID)
+			if deleteErr != nil {
+				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("Failed to delete service after password setting error; Remove orphaned resources from your account manually. Error: %s", deleteErr))
+			}
+			return
+		}
+	}
+
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -577,6 +597,16 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occurred while waiting for service reconfiguration, got error: %s", err))
 		return
 	}
+
+	// Update Password if it has changed and if it's not a read replica
+	if !plan.Password.Equal(state.Password) && !plan.Password.IsNull() && readReplicaSource == "" {
+		err := r.client.ResetServicePassword(ctx, serviceID, plan.Password.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to update password", fmt.Sprintf("Unable to update password, got error: %s", err))
+			return
+		}
+	}
+
 	resources := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resources)...)
 

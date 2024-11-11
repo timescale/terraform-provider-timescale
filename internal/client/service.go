@@ -228,6 +228,33 @@ func (c *Client) SetReplicaCount(ctx context.Context, serviceID string, replicaC
 	return nil
 }
 
+func (c *Client) ResetServicePassword(ctx context.Context, serviceID string, password string) error {
+	tflog.Trace(ctx, "Client.ResetServicePassword")
+
+	req := map[string]interface{}{
+		"operationName": "ResetServicePassword",
+		"query":         ResetServicePassword,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"password":  password,
+			// we only support SCRAM password type, MD5 is deprecated in the backend
+			"passwordType": "SCRAM",
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
 type ResourceConfig struct {
 	MilliCPU     string
 	MemoryGB     string

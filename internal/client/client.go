@@ -40,6 +40,8 @@ var (
 	JWTFromCCQuery string
 	//go:embed queries/set_replica_count.graphql
 	SetReplicaCountMutation string
+	//go:embed queries/change_service_password.graphql
+	ResetServicePassword string
 
 	// VCPs ///////////////////////////////
 	//go:embed queries/vpcs.graphql

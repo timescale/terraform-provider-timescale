@@ -269,9 +269,11 @@ func TestServiceResource_CustomConf(t *testing.T) {
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
 					MemoryGB:   4,
+					Password:   "test123456789",
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.custom", "name", "service resource test conf"),
+					resource.TestCheckResourceAttr("timescale_service.custom", "password", "test123456789"),
 					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
 					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
 				),
@@ -369,6 +371,12 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 	if config.Timeouts.Create == "" {
 		config.Timeouts.Create = "30m"
 	}
+
+	passwordLine := ""
+	if config.Password != "" {
+		passwordLine = fmt.Sprintf("\n\t\tpassword = %q", config.Password)
+	}
+
 	return providerConfig + fmt.Sprintf(`
 		resource "timescale_service" "%s" {
 			name = %q
@@ -378,6 +386,6 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 			milli_cpu  = %d
 			memory_gb  = %d
 			region_code = %q
-			enable_ha_replica = %t
-		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica)
+			enable_ha_replica = %t%s
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica, passwordLine)
 }

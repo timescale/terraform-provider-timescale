@@ -304,9 +304,6 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		EnableConnectionPooler: plan.ConnectionPoolerEnabled.ValueBool(),
 		EnvironmentTag:         plan.EnvironmentTag.ValueString(),
 	}
-	if !plan.VpcID.IsNull() {
-		request.VpcID = plan.VpcID.ValueInt64()
-	}
 
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
 	if readReplicaSource != "" {
@@ -358,6 +355,19 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	service, err = r.attachNewServiceToVPC(ctx, plan, service)
+	if err != nil {
+		resp.Diagnostics.AddError("Failed to attach service to VPC", err.Error())
+
+		// Attempt to delete the service to avoid leaving an instance in an inconsistent state
+		_, deleteErr := r.client.DeleteService(context.Background(), response.Service.ID)
+		if deleteErr != nil {
+			resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("Failed to delete service after attach to vpc error; Remove orphaned resources from your account manually. Error: %s", deleteErr))
+		}
+
+		return
+	}
+
 	// Check if a user-specified password was provided and update it if so, but only if the service is not a read replica
 	if !plan.Password.IsNull() && plan.Password.ValueString() != response.InitialPassword && readReplicaSource == "" {
 		err = r.client.ResetServicePassword(ctx, service.ID, plan.Password.ValueString())
@@ -379,6 +389,21 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
+}
+
+func (r *ServiceResource) attachNewServiceToVPC(ctx context.Context, plan serviceResourceModel, service *tsClient.Service) (*tsClient.Service, error) {
+	// Add service to vpc if vpc_id is provided
+	if plan.VpcID.IsNull() {
+		return service, nil
+	}
+
+	err := r.client.AttachServiceToVPC(ctx, service.ID, plan.VpcID.ValueInt64())
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach service to VPC: %w", err)
+	}
+
+	// Now wait for the service to be ready after attaching to VPC.
+	return r.waitForServiceReadiness(ctx, service.ID, plan.Timeouts)
 }
 
 func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, primary *tsClient.Service, plan serviceResourceModel) error {

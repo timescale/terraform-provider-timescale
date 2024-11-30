@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -169,7 +170,7 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, err
 	}
-	if len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 && !strings.Contains(resp.Errors[0].Message, "no Endpoint for that service id exists") {
 		return nil, resp.Errors[0]
 	}
 	if resp.Data == nil {

@@ -304,9 +304,6 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		EnableConnectionPooler: plan.ConnectionPoolerEnabled.ValueBool(),
 		EnvironmentTag:         plan.EnvironmentTag.ValueString(),
 	}
-	if !plan.VpcID.IsNull() {
-		request.VpcID = plan.VpcID.ValueInt64()
-	}
 
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
 	if readReplicaSource != "" {
@@ -334,6 +331,10 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 		if len(primary.Resources) > 0 {
 			request.StorageGB = strconv.FormatInt(primary.Resources[0].Spec.StorageGB, 10)
 		}
+	}
+
+	if !plan.VpcID.IsNull() {
+		request.VpcID = plan.VpcID.ValueInt64()
 	}
 
 	response, err := r.client.CreateService(ctx, request)

@@ -34,8 +34,6 @@ var (
 	GetAllServicesQuery string
 	//go:embed queries/get_service.graphql
 	GetServiceQuery string
-	//go:embed queries/products.graphql
-	ProductsQuery string
 	//go:embed queries/jwt_cc.graphql
 	JWTFromCCQuery string
 	//go:embed queries/set_replica_count.graphql

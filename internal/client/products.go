@@ -33,6 +33,9 @@ func (c *Client) GetProducts(ctx context.Context) ([]*Product, error) {
 	req := map[string]interface{}{
 		"operationName": "GetProducts",
 		"query":         ProductsQuery,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+		},
 	}
 	var resp Response[ProductsResponse]
 	if err := c.do(ctx, req, &resp); err != nil {

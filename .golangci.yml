@@ -56,7 +56,7 @@ linters:
   enable:
     - bodyclose
     - errcheck
-    - exportloopref
+    - copyloopvar
     - forbidigo
     - gocritic
     - gofmt

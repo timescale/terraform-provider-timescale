@@ -1,10 +1,9 @@
-query GetProducts {
-    products {
+query GetProducts($projectId: ID!) {
+    orbProducts(projectId: $projectId) {
         id
         name
         description
         plans {
-            id
             productId
             price
             milliCPU

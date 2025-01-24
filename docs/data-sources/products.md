@@ -35,7 +35,6 @@ Read-Only:
 
 Read-Only:
 
-- `id` (String)
 - `memory_gb` (Number)
 - `milli_cpu` (Number)
 - `price` (Number)

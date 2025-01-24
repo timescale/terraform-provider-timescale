@@ -43,7 +43,6 @@ type productsModel struct {
 }
 
 type planModel struct {
-	ID         types.String  `tfsdk:"id"`
 	ProductID  types.String  `tfsdk:"product_id"`
 	Price      types.Float64 `tfsdk:"price"`
 	MilliCPU   types.Int64   `tfsdk:"milli_cpu"`
@@ -87,7 +86,6 @@ func (d *productsDataSource) Read(ctx context.Context, _ datasource.ReadRequest,
 				continue
 			}
 			productState.Plans = append(productState.Plans, &planModel{
-				ID:         types.StringValue(plan.ID),
 				ProductID:  types.StringValue(plan.ProductID),
 				RegionCode: types.StringValue(plan.RegionCode),
 				Price:      types.Float64Value(plan.Price),
@@ -140,9 +138,6 @@ func (d *productsDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 							Computed: true,
 							NestedObject: schema.NestedAttributeObject{
 								Attributes: map[string]schema.Attribute{
-									"id": schema.StringAttribute{
-										Computed: true,
-									},
 									"product_id": schema.StringAttribute{
 										Computed: true,
 									},

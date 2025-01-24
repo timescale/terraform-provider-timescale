@@ -15,7 +15,6 @@ type Product struct {
 }
 
 type Plan struct {
-	ID         string  `json:"id"`
 	ProductID  string  `json:"productId"`
 	RegionCode string  `json:"regionCode"`
 	Price      float64 `json:"price"`
@@ -25,7 +24,7 @@ type Plan struct {
 }
 
 type ProductsResponse struct {
-	Products []*Product `json:"products"`
+	Products []*Product `json:"orbProducts"`
 }
 
 func (c *Client) GetProducts(ctx context.Context) ([]*Product, error) {

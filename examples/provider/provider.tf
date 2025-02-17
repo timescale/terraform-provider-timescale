@@ -16,5 +16,6 @@ variable "ts_access_key" {
 }
 
 variable "ts_secret_key" {
-  type = string
+  type      = string
+  sensitive = true
 }

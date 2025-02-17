@@ -42,7 +42,8 @@ variable "ts_access_key" {
 }
 
 variable "ts_secret_key" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 resource "timescale_service" "test" {
@@ -59,42 +60,85 @@ resource "timescale_service" "test" {
 
 ### VPC Peering
 
-Since v1.9.0 it is possible to peer Timescale VPCs using terraform.
+Since v1.9.0 it is possible to peer Timescale VPCs to AWS VPCs using terraform.
 
-Below is an example configuration:
+Below is a minimal working example:
 
-```
-resource "timescale_vpcs" "vpc" { 
-  cidr                = "10.10.10.10/16"
-  name                = "vpc_name"
-  region_code         = ${AWS_REGION}
+```hcl
+terraform {
+  required_providers {
+    timescale = {
+      source  = "timescale/timescale"
+      version = "~> 1.13.1"
+    }
+  }
 }
 
-resource "aws_vpc" "vpc" {
-  cidr_block = "11.11.11.11/24"
+provider "timescale" {
+  project_id = var.ts_project_id
+  access_key = var.ts_access_key
+  secret_key = var.ts_secret_key
 }
 
-resource "timescale_peering_connection" "pc" { 
-  peer_account_id  = ${AWS_ACC_ID}
-  peer_region_code = ${AWS_REGION}
+variable "aws_account_id" {
+  type = string
+}
+
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "ts_project_id" {
+  type = string
+}
+
+variable "ts_access_key" {
+  type = string
+}
+
+variable "ts_secret_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "ts_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+resource "timescale_vpcs" "main" {
+  cidr        = "10.10.0.0/16"
+  name        = "vpc_name"
+  region_code = var.ts_region
+}
+
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.1.0/24"
+}
+
+# Requester's side of the peering connection.
+resource "timescale_peering_connection" "peer" {
+  peer_account_id  = var.aws_account_id
+  peer_region_code = var.aws_region
   peer_vpc_id      = aws_vpc.main.id
-  timescale_vpc_id = timescale_vpcs.full.id
+  timescale_vpc_id = timescale_vpcs.main.id
 }
 
-resource "aws_vpc_peering_connection" "pc" {
-  peer_vpc_id = aws_vpc.vpc.id
-  vpc_id = timescale_vpcs.vpc.provisioned_id
-  auto_accept   = true
-}
+# Accepter's side of the peering connection.
+resource "aws_vpc_peering_connection_accepter" "peer" {
+  vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
+  auto_accept               = true
 
-import {
-  to = aws_vpc_peering_connection.pc
-  id = "pcx-..."
+  depends_on = [timescale_peering_connection.peer]
 }
 ```
 
-As of v1.9.2, the aws_vpc_peering_connection import id must be manually added. This 
-value, always starting with `pcx-...` will be available in `timescale_peering_connection.pc.provisioned_id` after a terraform refresh.
+Note that this configuration may fail on first apply, as the value of
+`timescale_peering_connection.peer.provisioned_id` (starting with `pcx-`) may
+not be immediately available. This typically happens due to the asynchronous
+nature of the VPC peering request and its acceptance process. In this case, a
+second `terraform apply` can be run to ensure everything is applied.
 
 ## Supported Service Configurations
 ### Compute

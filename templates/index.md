@@ -80,6 +80,11 @@ provider "timescale" {
   secret_key = var.ts_secret_key
 }
 
+provider "aws" {
+  alias  = "peer"
+  region = "us-east-1"
+}
+
 variable "aws_account_id" {
   type = string
 }
@@ -127,6 +132,7 @@ resource "timescale_peering_connection" "peer" {
 
 # Accepter's side of the peering connection.
 resource "aws_vpc_peering_connection_accepter" "peer" {
+  provider                  = aws.peer
   vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
   auto_accept               = true
 

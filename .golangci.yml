@@ -1,6 +1,5 @@
 linters-settings:
   govet:
-    check-shadowing: false
     settings:
       printf:
         funcs:

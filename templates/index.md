@@ -82,7 +82,7 @@ provider "timescale" {
 
 // If you have multiple regions, you’ll need to use multiple `provider` configurations.
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
 variable "aws_account_id" {

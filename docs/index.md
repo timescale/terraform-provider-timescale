@@ -80,6 +80,11 @@ provider "timescale" {
   secret_key = var.ts_secret_key
 }
 
+# If you have multiple regions, you’ll need to use multiple `provider` configurations.
+provider "aws" {
+  region = var.aws_region
+}
+
 variable "aws_account_id" {
   type = string
 }

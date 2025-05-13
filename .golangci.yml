@@ -1,83 +1,42 @@
-linters-settings:
-  govet:
-    settings:
-      printf:
-        funcs:
-          - (go.uber.org/zap/SugaredLogger).DPanicf
-          - (go.uber.org/zap/SugaredLogger).Debugf
-          - (go.uber.org/zap/SugaredLogger).Errorf
-          - (go.uber.org/zap/SugaredLogger).Fatalf
-          - (go.uber.org/zap/SugaredLogger).Infof
-          - (go.uber.org/zap/SugaredLogger).Panicf
-          - (go.uber.org/zap/SugaredLogger).Warnf
-  misspell:
-    locale: US
-  errcheck:
-    check-blank: false
-  forbidigo:
-    forbid:
-      - ^fmt\.Print.*(# likely just for debugging)?$
-      - if [!]?rows.Next*(# use dblib.EnsureSingle(Struct)Scan)$
-  revive:
-    ignore-generated-header: true
-    severity: warning
-    rules:
-      - name: atomic
-      - name: blank-imports
-      - name: context-as-argument
-      - name: context-keys-type
-      - name: dot-imports
-      - name: error-return
-      - name: error-strings
-      - name: error-naming
-      - name: exported
-      - name: if-return
-      - name: increment-decrement
-      - name: var-naming
-      - name: var-declaration
-      - name: package-comments
-      - name: range
-      - name: receiver-naming
-      - name: time-naming
-      - name: unexported-return
-      - name: indent-error-flow
-      - name: errorf
-      - name: empty-block
-      - name: superfluous-else
-      - name: unused-parameter
-      - name: unreachable-code
-      - name: redefines-builtin-id
-
+version: "2"
 linters:
-  enable-all: false
-  disable-all: true
-  fast: true
+  default: none
   enable:
-    - bodyclose
-    - errcheck
     - copyloopvar
-    - forbidigo
-    - gocritic
-    - gofmt
-    - gosec
-    - gosimple
-    - govet
+    - durationcheck
+    - errcheck
+    - forcetypeassert
+    - godot
     - ineffassign
     - makezero
     - misspell
-    - nilnil
-    - nolintlint
-    - prealloc
-    - revive
-    - rowserrcheck
+    - nilerr
+    - predeclared
     - staticcheck
-    - stylecheck
-    - unused
     - unconvert
-
+    - unparam
+    - unused
+    - usetesting
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-        - gosec
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

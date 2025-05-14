@@ -7,11 +7,31 @@ The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 ## Quick Start
 
 ### Authorization
-When you log in to your [Timescale Account](https://console.cloud.timescale.com/), navigate to the `Project settings` page.
+When you log in to your [Timescale Account](https://console.cloud.timescale.com/), click on your project name on the upper left-hand side of the page and go to the `Project settings` page.
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
+Find more information on creating Client Credentials in the [Timescale docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
+
 ### Project ID
-The project ID can be found on the `Project settings` page.
+
+To view the project ID, click on your project name on the upper left-hand side of the page.
+
+### Example files and usage
+
+#### Service with HA replica and pooler
+
+> [!NOTE]  
+> The example file creates:
+>  * A single instance called `tf-test` that contains:
+     >    * 0.5 CPUs
+     >    * 2GB of RAM
+>    * the region set to `us-west-2`
+>    * an HA replica
+>    * the connection pooler enabled
+>  * Outputs to display the connection info for:
+     >    * the primary hostname and port
+     >    * the ha-replica hostname and port
+>    * the pooler hostname and port
 
 Create a `main.tf` configuration file with the following content.
 ```hcl
@@ -47,22 +67,72 @@ variable "ts_secret_key" {
 }
 
 resource "timescale_service" "test" {
-  # name       = ""
-  # milli_cpu  = 500
-  # memory_gb  = 2
-  # region_code = "us-east-1"
-  # enable_ha_replica = false
-  # timeouts = {
-  #   create = "30m"
-  # }
+     name                      = "tf-test"
+     milli_cpu                 = 500
+     memory_gb                 = 2
+     region_code               = "us-west-2"
+     connection_pooler_enabled = true
+     enable_ha_replica         = true
+}
+
+## host connection info
+output "host_addr" {
+     value       = timescale_service.tf-test.hostname
+     description = "Service Host Address"
+}
+
+output "host_port" {
+     value       = timescale_service.tf-test.port
+     description = "Service Host port"
+}
+
+## ha-replica connection info
+output "replica_addr" {
+     value       = timescale_service.tf-test.replica_hostname
+     description = "Service Replica Host Address"
+}
+
+output "replica_port" {
+     value       = timescale_service.tf-test.replica_port
+     description = "Service Replica Host port"
+}
+
+## pooler connection info
+output "pooler_addr" {
+     value       = timescale_service.tf-test.pooler_hostname
+     description = "Service Pooler Host Address"
+}
+
+output "pooler_port" {
+     value       = timescale_service.tf-test.pooler_port
+     description = "Service Pooler Host port"
 }
 ```
 
-### VPC Peering
+and define the `secret.tfvars` file:
 
-Since v1.9.0 it is possible to peer Timescale VPCs to AWS VPCs using terraform.
+```hcl
+ts_project_id="WWWWWWWWWW"
+ts_access_key="XXXXXXXXXXXXXXXXXXXXXXXXXX"
+ts_secret_key="YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+```
+> [!IMPORTANT]
+> Replace the values above with the `ts_project_id`, the `ts_access_key`, and `ts_secret_key`
 
-Below is a minimal working example:
+Now use the `terraform` cli with the `secrets.tfvars` file, for example:
+
+```shell
+terraform plan --var-file=secrets.tfvars
+```
+
+#### VPC Peering
+
+> [!NOTE]  
+> The example file creates:
+>  * A VPC with name `tf-test` in `us-east-1`
+>  * A peering connection 
+
+Create a `main.tf` configuration file with the following content.
 
 ```hcl
 terraform {
@@ -114,7 +184,7 @@ variable "ts_region" {
 
 resource "timescale_vpcs" "main" {
   cidr        = "10.10.0.0/16"
-  name        = "vpc_name"
+  name        = "tf-test"
   region_code = var.ts_region
 }
 
@@ -159,6 +229,9 @@ second `terraform apply` can be run to ensure everything is applied.
 Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
 See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
 
+### Regions
+Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regions/) for a list of currently supported regions.
+
 ## Supported Operations
 ✅ Create service <br />
 ✅ Rename service <br />
@@ -174,3 +247,4 @@ See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,
 it will still be charged for the full hour of usage.
+

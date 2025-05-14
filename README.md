@@ -1,192 +1,47 @@
 # Timescale Terraform Provider
 The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 
-Does not work for Managed Service for TimescaleDB.
-
 ## Requirements
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
 
 ## Quick Start
-
-### Authorization
-When you log in to your [Timescale Account](https://console.cloud.timescale.com/), navigate to the `Project settings` page. 
-From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
-
-Find more information on creating Client Credentials in the [Timescale docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
-
-### Example file and usage
-
-The project ID can be found from the `Services` dashboard. In the upper right-hand side of the page, click on the three vertical dots to view the project ID. 
-
-
-> [!NOTE]  
-> The example file creates:
->  * A single instance called `tf-test` that contains:
->    * 0.5 CPUs
->    * 2GB of RAM
->    * the region set to `us-west-2`
->    * a HA replica
->    * the connection pooler enabled 
->  * Outputs to display the connection info for:
->    * the primary hostname and port
->    * the ha-replica hostname and port
->    * the pooler hostname and port
-
-Into a new folder, create the `main.tf` file:
-
-```hcl
-terraform {
-  required_providers {
-    timescale = {
-      source  = "registry.terraform.io/providers/timescale"
-      version = "~> 1.0"
-    }
-  }
-}
-
-provider "timescale" {
-  project_id = var.ts_project_id
-  access_key = var.ts_access_key
-  secret_key = var.ts_secret_key
-}
-
-variable "ts_project_id" {
-  type = string
-}
-
-variable "ts_access_key" {
-  type = string
-}
-
-variable "ts_secret_key" {
-  type      = string
-  sensitive = true
-}
-
-resource "timescale_service" "tf-test" {
-  name                      = "tf-test"
-  milli_cpu                 = 500
-  memory_gb                 = 2
-  region_code               = "us-west-2"
-  connection_pooler_enabled = true
-  enable_ha_replica         = true
-}
-
-## host connection info
-output "host_addr" {
-  value       = timescale_service.tf-test.hostname
-  description = "Service Host Address"
-}
-
-output "host_port" {
-  value       = timescale_service.tf-test.port
-  description = "Service Host port"
-}
-
-## ha-replica connection info
-output "replica_addr" {
-  value       = timescale_service.tf-test.replica_hostname
-  description = "Service Replica Host Address"
-}
-
-output "replica_port" {
-  value       = timescale_service.tf-test.replica_port
-  description = "Service Replica Host port"
-}
-
-## pooler connection info
-output "pooler_addr" {
-  value       = timescale_service.tf-test.pooler_hostname
-  description = "Service Pooler Host Address"
-}
-
-output "pooler_port" {
-  value       = timescale_service.tf-test.pooler_port
-  description = "Service Pooler Host port"
-}
-```
-
-and define the `secret.tfvars` file:
-
-```hcl
-ts_project_id="WWWWWWWWWW"
-ts_access_key="XXXXXXXXXXXXXXXXXXXXXXXXXX"
-ts_secret_key="YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
-```
-> [!IMPORTANT]
-> Replace the values above with the the `ts_project_id`, the `ts_access_key`, and `ts_secret_key`
-
-Now use the `terraform` cli with the `secrets.tfvars` file, for example:
-
-```shell
-terraform plan --var-file=secrets.tfvars
-```
-
-## Supported Service Configurations
-### Compute
-- 500m CPU / 2 GB Memory
-- 1000m CPU / 4 GB Memory
-- 2000m CPU / 8 GB Memory
-- 4000m CPU / 16 GB Memory
-- 8000m CPU / 32 GB Memory
-- 16000m CPU / 64 GB Memory
-- 32000m CPU / 128 GB Memory
-
-### Storage
-Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
-See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
-
-### Regions
-Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regions/) for a list of currently supported regions.
-
-## Supported Operations
-✅ Create service <br />
-✅ Rename service <br />
-✅ Resize service <br />
-✅ Pause/resume service <br />
-✅ Delete service <br />
-✅ Import service <br />
-✅ Enable High Availability replicas <br />
-✅ Enable read replicas <br />
-✅ VPC peering <br />
-✅ Connection pooling <br />
-
-## Billing
-Services are currently billed for hourly usage. If a service is running for less than an hour,
-it will still be charged for the full hour of usage.
+Check provider [documentation](docs/index.md#quick-start)
 
 ## Local Provider Usage and Development
-#### Requirements
-- [Go](https://go.dev) >= v1.20
+### Requirements
+- [Go](https://go.dev) >= v1.24
 
-#### Building The Provider
+### Building The Provider
 1. Clone the repository
 1. Enter the repository directory
-1. Build the provider using the Go `install` command:
-
+1. Run `make` to fmt/lint/install/generate:
 ```shell
-go install .
+make
 ```
 
-#### Generating the provider documentation
+### Update documentation
 
-Doc is generated from `./templates` files and in-file schema definitions.
+`docs` folder content is automatically generated. Please **do not modify these files manually**.
 
+Update `./templates/index.md` and just run `make`:
 ```shell
-go generate
+make
 ```
 
+`data-sources` and `resources` doc files are generated from the actual provider go code (Schema definitions, descriptions, etc.).
 
-## Developing the Provider
 
 ### Local provider development override
 
-> [!IMPORTANT]
+By default, Terraform cli will search providers in the official registry (registry.terraform.io).
+The following steps will tell Terraform to look for this specific provider in the local computer.
+Remember to remove this configuration when finished.
+
 > Change the `$HOME/go/bin` variable to be the location of your `GOBIN` if necessary.
 >
 > When using the local provider, is not necessary to run `terraform init`.
 
-To use the locally built provider, create a `~/.terraformrc` file with the following content:
+To use the local provider, create a `~/.terraformrc` file with the following content:
 
 ```hcl
 provider_installation {
@@ -198,27 +53,30 @@ provider_installation {
 }
 ```
 
-### Runing the acceptance tests
+From now on, `terraform plan` and `terraform apply` will interact with the locally installed provider.
 
-To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
+Remember to run `make` again whenever the provider code is changed.
 
-To generate or update documentation, run `go generate`.
+### Running the acceptance tests
 
-In order to run the full suite of Acceptance tests, run `make testacc`.
-You'll need to set all required secrets in environment variables to allow the tests to run:
+> [WARNING]
+> Acceptance tests create real resources.
+
+
+Run `make` to install the last version of the provider.
+
+Set all the required environment variables to allow the tests to run:
 
 ```shell
 export TF_VAR_ts_project_id=<project_id>
 export TF_VAR_ts_access_key=<access_key>
 export TF_VAR_ts_secret_key=<secret_key>
-# this is the aws account id with which you want to test establishing vpc peering
-export TF_VAR_ts_aws_acc_id=<aws_acc_id>
+export TIMESCALE_DEV_URL=<api_url> # Optional: to use different environment
 ```
 
+Use `make testacc` to run the full acceptance tests suite. This can take up to 20 minutes as several services are created. 
 
-> [!WARNING]
-> Acceptance tests create real resources.
-
+**Please do not abort the execution to prevent dangling resources.**
 ```shell
 make testacc
 ```

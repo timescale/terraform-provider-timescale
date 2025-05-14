@@ -12,7 +12,14 @@ func TestServiceDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: newServiceDataSource(),
+				Config: providerConfig + `
+resource "timescale_service" "resource" {
+	name = "newServiceDataSource test"
+}
+data "timescale_service" "data_source" {
+	id = timescale_service.resource.id
+}
+`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "id"),
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "name"),
@@ -28,15 +35,4 @@ func TestServiceDataSource(t *testing.T) {
 			},
 		},
 	})
-}
-
-func newServiceDataSource() string {
-	return providerConfig + `
-				resource "timescale_service" "resource" {
-					name = "newServiceDataSource test"
-				}
-				data "timescale_service" "data_source" {
-					id = timescale_service.resource.id
-				}
-`
 }

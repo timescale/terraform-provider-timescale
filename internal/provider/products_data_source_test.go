@@ -13,18 +13,12 @@ func TestProductDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read datasource
 			{
-				Config: newProductsConfig(),
+				Config: providerConfig + `data "timescale_products" "test" {}`,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify the products id is set.
-					resource.TestCheckResourceAttr("data.timescale_products.products", "id", "placeholder"),
+					resource.TestCheckResourceAttr("data.timescale_products.test", "id", "placeholder"),
 				),
 			},
 		},
 	})
-}
-
-func newProductsConfig() string {
-	return providerConfig + `
-		data "timescale_products" "products" {
-		}`
 }

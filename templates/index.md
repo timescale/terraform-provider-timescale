@@ -25,13 +25,13 @@ To view the project ID, click on your project name on the upper left-hand side o
 >  * A single instance called `tf-test` that contains:
      >    * 0.5 CPUs
      >    * 2GB of RAM
->    * the region set to `us-west-2`
+     >    * the region set to `us-west-2`
 >    * an HA replica
 >    * the connection pooler enabled
 >  * Outputs to display the connection info for:
      >    * the primary hostname and port
      >    * the ha-replica hostname and port
->    * the pooler hostname and port
+     >    * the pooler hostname and port
 
 Create a `main.tf` configuration file with the following content.
 ```hcl
@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "x.y.z"
+      version = "~> 2.0"
     }
   }
 }
@@ -130,24 +130,45 @@ terraform plan --var-file=secrets.tfvars
 > [!NOTE]  
 > The example file creates:
 >  * A VPC with name `tf-test` in `us-east-1`
->  * A peering connection 
+>  * A peering connection
 
 Create a `main.tf` configuration file with the following content.
 
 ```hcl
 terraform {
-  required_providers {
-    timescale = {
-      source  = "timescale/timescale"
-      version = "~> 1.13.1"
-    }
-  }
+     required_providers {
+          timescale = {
+               source  = "timescale/timescale"
+               version = "~> 2.0"
+          }
+     }
 }
 
+# Authenticate using client credentials.
+# They are issued through the Timescale UI.
+# When required, they will exchange for a short-lived JWT to do the calls.
 provider "timescale" {
-  project_id = var.ts_project_id
-  access_key = var.ts_access_key
-  secret_key = var.ts_secret_key
+     project_id = var.ts_project_id
+     access_key = var.ts_access_key
+     secret_key = var.ts_secret_key
+}
+
+variable "ts_project_id" {
+     type = string
+}
+
+variable "ts_access_key" {
+     type = string
+}
+
+variable "ts_secret_key" {
+     type      = string
+     sensitive = true
+}
+
+variable "ts_region" {
+     type    = string
+     default = "us-east-1"
 }
 
 # If you have multiple regions, you’ll need to use multiple `provider` configurations.
@@ -160,24 +181,6 @@ variable "aws_account_id" {
 }
 
 variable "aws_region" {
-  type    = string
-  default = "us-east-1"
-}
-
-variable "ts_project_id" {
-  type = string
-}
-
-variable "ts_access_key" {
-  type = string
-}
-
-variable "ts_secret_key" {
-  type      = string
-  sensitive = true
-}
-
-variable "ts_region" {
   type    = string
   default = "us-east-1"
 }

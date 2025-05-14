@@ -2,7 +2,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "registry.terraform.io/providers/timescale"
-      version = "~> 1.0"
+      version = "~> 2.0"
     }
   }
 }
@@ -12,7 +12,8 @@ variable "ts_access_key" {
 }
 
 variable "ts_secret_key" {
-  type = string
+  type      = string
+  sensitive = true
 }
 
 variable "ts_project_id" {
@@ -24,6 +25,7 @@ provider "timescale" {
   secret_key = var.ts_secret_key
   project_id = var.ts_project_id
 }
+
 
 resource "timescale_vpcs" "new_vpc" {
   name        = "test-vpc"

@@ -1,7 +1,6 @@
 package multiplyvalidator
 
 import (
-	"context"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -175,7 +174,7 @@ func TestEqualToMultipleOfValidator(t *testing.T) {
 
 			response := validator.Int64Response{}
 
-			EqualToMultipleOf(test.multiple, test.attributesToSumPathExpressions...).ValidateInt64(context.Background(), request, &response)
+			EqualToMultipleOf(test.multiple, test.attributesToSumPathExpressions...).ValidateInt64(t.Context(), request, &response)
 
 			if !response.Diagnostics.HasError() && test.expectError {
 				t.Fatal("expected error, got no error")

@@ -111,14 +111,14 @@ type ToggleServiceResponse struct {
 	Service Service `json:"toggleService"`
 }
 
-// ServiceEndpoints represents all service endpoints
+// ServiceEndpoints represents all service endpoints.
 type ServiceEndpoints struct {
 	Primary *EndpointAddress `json:"primary"`
 	Replica *EndpointAddress `json:"replica"`
 	Pooler  *EndpointAddress `json:"pooler"`
 }
 
-// EndpointAddress represents the endpoint address
+// EndpointAddress represents the endpoint address.
 type EndpointAddress struct {
 	// The hostname to use for connections.
 	Host string `json:"host"`

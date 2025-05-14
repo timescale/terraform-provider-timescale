@@ -27,10 +27,6 @@ variable "ts_project_id" {
 	type = string
 }
 
-variable "ts_aws_acc_id" {
-	type = string
-}
-	
 provider "timescale" {
 	access_key = var.ts_access_key
 	secret_key = var.ts_secret_key
@@ -56,6 +52,7 @@ type PeeringConnConfig struct {
 	PeerVPCID       string
 	PeerCIDR        string
 	PeerRegionCode  string
+	PeerAccountID   string
 	VpcResourceName string
 }
 
@@ -80,7 +77,9 @@ func (vc *PeeringConnConfig) String(t *testing.T) string {
 	}
 	_, err := fmt.Fprintf(b, "\n\n resource timescale_peering_connection %q { \n", vc.ResourceName)
 	require.NoError(t, err)
-	write("peer_account_id = var.ts_aws_acc_id\n")
+	if vc.PeerAccountID != "" {
+		write("peer_account_id = %q \n", vc.PeerAccountID)
+	}
 	if vc.PeerRegionCode != "" {
 		write("peer_region_code = %q \n", vc.PeerRegionCode)
 	}
@@ -94,7 +93,7 @@ func (vc *PeeringConnConfig) String(t *testing.T) string {
 	return b.String()
 }
 
-// getPeeringConnConfig returns a configuration for a test step
+// getPeeringConnConfig returns a configuration for a test step.
 func getPeeringConnConfig(t *testing.T, cfgs ...*PeeringConnConfig) string {
 	res := strings.Builder{}
 	for _, cfg := range cfgs {
@@ -144,7 +143,7 @@ func (vc *VPCConfig) String(t *testing.T) string {
 	return b.String()
 }
 
-// getVPCConfig returns a configuration for a test step
+// getVPCConfig returns a configuration for a test step.
 func getVPCConfig(t *testing.T, cfgs ...*VPCConfig) string {
 	res := strings.Builder{}
 	res.WriteString(providerConfig)
@@ -257,7 +256,7 @@ func (c *ServiceConfig) setDefaults() {
 	}
 }
 
-// getServiceConfig returns a configuration for a test step
+// getServiceConfig returns a configuration for a test step.
 func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 	res := strings.Builder{}
 	res.WriteString(providerConfig)
@@ -292,10 +291,6 @@ func testAccPreCheck(t *testing.T) {
 	_, ok = os.LookupEnv("TF_VAR_ts_project_id")
 	if !ok {
 		t.Fatal("environment variable TF_VAR_ts_project_id not set")
-	}
-	_, ok = os.LookupEnv("TF_VAR_ts_aws_acc_id")
-	if !ok {
-		t.Fatal("environment variable TF_VAR_ts_aws_acc_id not set")
 	}
 	_, ok = os.LookupEnv("TIMESCALE_DEV_URL")
 	if !ok {

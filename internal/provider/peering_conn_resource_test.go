@@ -13,6 +13,7 @@ var (
 		ResourceName:   "peering_conn",
 		PeerRegionCode: "us-east-1",
 		PeerVPCID:      "vpc-fake-test",
+		PeerAccountID:  "000000000000",
 	}
 )
 

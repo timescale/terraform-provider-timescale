@@ -29,7 +29,7 @@ import (
 	multiplyvalidator "github.com/timescale/terraform-provider-timescale/internal/utils"
 )
 
-// Ensure provider defined types fully satisfy framework interfaces
+// Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &ServiceResource{}
 var _ resource.ResourceWithImportState = &ServiceResource{}
 

@@ -121,7 +121,7 @@ func vpcToResource(s *tsClient.VPC, state vpcResourceModel) vpcResourceModel {
 	return model
 }
 
-// Create creates a VPC shell
+// Create creates a VPC shell.
 func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "VpcResource.Create")
 	var plan vpcResourceModel
@@ -205,7 +205,7 @@ func (r *vpcResource) waitForVPCReadiness(ctx context.Context, id int64, timeout
 	return vpc, nil
 }
 
-// Delete deletes a VPC shell
+// Delete deletes a VPC shell.
 func (r *vpcResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "VpcsResource.Delete")
 	var state vpcResourceModel
@@ -229,7 +229,7 @@ func (r *vpcResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	}
 }
 
-// Update updates a VPC shell
+// Update updates a VPC shell.
 func (r *vpcResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "VpcsResource.Update")
 	var plan, state vpcResourceModel
@@ -354,7 +354,7 @@ func (r *vpcResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp
 // adding timeouts can break earlier versions of the provider since the field is not set.
 // reference: https://github.com/hashicorp/terraform-plugin-framework-timeouts/issues/49#issuecomment-1511027690
 func timeoutSchema(ctx context.Context, opts timeouts.Opts) schema.SingleNestedAttribute {
-	timeout := timeouts.Attributes(ctx, opts).(schema.SingleNestedAttribute)
+	timeout, _ := timeouts.Attributes(ctx, opts).(schema.SingleNestedAttribute)
 	at := map[string]attr.Type{}
 	if opts.Create {
 		at["create"] = types.StringType

@@ -30,8 +30,8 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &ServiceResource{}
-var _ resource.ResourceWithImportState = &ServiceResource{}
+var _ resource.Resource = &serviceResource{}
+var _ resource.ResourceWithImportState = &serviceResource{}
 
 const (
 	ErrCreateTimeout       = "Error waiting for service creation"
@@ -50,47 +50,46 @@ var (
 )
 
 func NewServiceResource() resource.Resource {
-	return &ServiceResource{}
+	return &serviceResource{}
 }
 
-// ServiceResource defines the resource implementation.
-type ServiceResource struct {
+// serviceResource defines the resource implementation.
+type serviceResource struct {
 	client *tsClient.Client
 }
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                types.String   `tfsdk:"id"`
-	Name              types.String   `tfsdk:"name"`
-	Timeouts          timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU          types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB         types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB          types.Int64    `tfsdk:"memory_gb"`
-	Password          types.String   `tfsdk:"password"`
-	Hostname          types.String   `tfsdk:"hostname"`
-	Port              types.Int64    `tfsdk:"port"`
-	ReplicaHostname   types.String   `tfsdk:"replica_hostname"`
-	ReplicaPort       types.Int64    `tfsdk:"replica_port"`
-	PoolerHostname    types.String   `tfsdk:"pooler_hostname"`
-	PoolerPort        types.Int64    `tfsdk:"pooler_port"`
-	Username          types.String   `tfsdk:"username"`
-	RegionCode        types.String   `tfsdk:"region_code"`
-	EnableHAReplica   types.Bool     `tfsdk:"enable_ha_replica"`
-	Paused            types.Bool     `tfsdk:"paused"`
-	ReadReplicaSource types.String   `tfsdk:"read_replica_source"`
-	VpcID             types.Int64    `tfsdk:"vpc_id"`
-
-	ConnectionPoolerEnabled types.Bool   `tfsdk:"connection_pooler_enabled"`
-	EnvironmentTag          types.String `tfsdk:"environment_tag"`
+	ID                      types.String   `tfsdk:"id"`
+	Name                    types.String   `tfsdk:"name"`
+	Timeouts                timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU                types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB               types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB                types.Int64    `tfsdk:"memory_gb"`
+	Password                types.String   `tfsdk:"password"`
+	Hostname                types.String   `tfsdk:"hostname"`
+	Port                    types.Int64    `tfsdk:"port"`
+	ReplicaHostname         types.String   `tfsdk:"replica_hostname"`
+	ReplicaPort             types.Int64    `tfsdk:"replica_port"`
+	PoolerHostname          types.String   `tfsdk:"pooler_hostname"`
+	PoolerPort              types.Int64    `tfsdk:"pooler_port"`
+	Username                types.String   `tfsdk:"username"`
+	RegionCode              types.String   `tfsdk:"region_code"`
+	EnableHAReplica         types.Bool     `tfsdk:"enable_ha_replica"`
+	Paused                  types.Bool     `tfsdk:"paused"`
+	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
+	VpcID                   types.Int64    `tfsdk:"vpc_id"`
+	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
+	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
 }
 
-func (r *ServiceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	tflog.Trace(ctx, "ServiceResource.Metadata")
 	resp.TypeName = req.ProviderTypeName + "_service"
 }
 
 // Schema defines the schema for the service resource.
-func (r *ServiceResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *serviceResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	tflog.Trace(ctx, "ServiceResource.Schema")
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -259,7 +258,7 @@ The change has been taken into account but must still be propagated. You can run
 }
 
 // Configure adds the provider configured client to the service resource.
-func (r *ServiceResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *serviceResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	tflog.Trace(ctx, "ServiceResource.Configure")
 	if req.ProviderData == nil {
 		return
@@ -279,7 +278,7 @@ func (r *ServiceResource) Configure(ctx context.Context, req resource.ConfigureR
 	r.client = client
 }
 
-func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "ServiceResource.Create")
 	var plan serviceResourceModel
 
@@ -382,7 +381,7 @@ func (r *ServiceResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 }
 
-func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, primary *tsClient.Service, plan serviceResourceModel) error {
+func (r *serviceResource) validateCreateReadReplicaRequest(ctx context.Context, primary *tsClient.Service, plan serviceResourceModel) error {
 	tflog.Trace(ctx, "validateCreateReadReplicaRequest")
 
 	if primary.ForkSpec != nil {
@@ -394,7 +393,7 @@ func (r *ServiceResource) validateCreateReadReplicaRequest(ctx context.Context, 
 	return nil
 }
 
-func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, id string, timeouts timeouts.Value) (*tsClient.Service, error) {
+func (r *serviceResource) waitForServiceReadiness(ctx context.Context, id string, timeouts timeouts.Value) (*tsClient.Service, error) {
 	tflog.Trace(ctx, "ServiceResource.waitForServiceReadiness")
 
 	defaultTimeout := 45 * time.Minute
@@ -430,7 +429,7 @@ func (r *ServiceResource) waitForServiceReadiness(ctx context.Context, id string
 	return s, nil
 }
 
-func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Trace(ctx, "ServiceResource.Read")
 	var state serviceResourceModel
 	// Read Terraform prior state plan into the model
@@ -456,7 +455,7 @@ func (r *ServiceResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 }
 
-func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "ServiceResource.Update")
 	var plan, state serviceResourceModel
 	// Read Terraform plan data into the model
@@ -617,7 +616,7 @@ func (r *ServiceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 }
 
-func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "ServiceResource.Delete")
 	var data serviceResourceModel
 
@@ -640,12 +639,12 @@ func (r *ServiceResource) Delete(ctx context.Context, req resource.DeleteRequest
 	}
 }
 
-func (r *ServiceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
-	hasHaReplica := (s.ReplicaStatus != "")
+	hasHaReplica := s.ReplicaStatus != ""
 	hasPooler := s.ServiceSpec.PoolerEnabled
 	model := serviceResourceModel{
 		ID:                      types.StringValue(s.ID),

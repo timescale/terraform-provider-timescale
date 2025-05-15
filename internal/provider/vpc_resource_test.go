@@ -13,7 +13,6 @@ func TestAccVPCResource_basic(t *testing.T) {
 	vpcName := fmt.Sprintf("test-vpc-%s", acctest.RandString(8))
 	vpcRenamed := fmt.Sprintf("test-vpc-renamed-%s", acctest.RandString(8))
 	cidr := "10.0.0.0/16"
-	regionCode := "us-east-1"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -21,11 +20,11 @@ func TestAccVPCResource_basic(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create the VPC
 			{
-				Config: providerConfig + vpcResourceConfig(vpcName, cidr, regionCode),
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceName, "name", vpcName),
 					resource.TestCheckResourceAttr(resourceName, "cidr", cidr),
-					resource.TestCheckResourceAttr(resourceName, "region_code", regionCode),
+					resource.TestCheckResourceAttr(resourceName, "region_code", "us-east-1"),
 					resource.TestCheckResourceAttr(resourceName, "status", "CREATED"),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
@@ -35,11 +34,11 @@ func TestAccVPCResource_basic(t *testing.T) {
 			},
 			// Rename
 			{
-				Config: providerConfig + vpcResourceConfig(vpcRenamed, cidr, regionCode),
+				Config: providerConfig + vpcResourceConfig(vpcRenamed, cidr),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceName, "name", vpcRenamed),
 					resource.TestCheckResourceAttr(resourceName, "cidr", cidr),
-					resource.TestCheckResourceAttr(resourceName, "region_code", regionCode),
+					resource.TestCheckResourceAttr(resourceName, "region_code", "us-east-1"),
 					resource.TestCheckResourceAttr(resourceName, "status", "CREATED"),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
@@ -55,7 +54,6 @@ func TestAccVPCResource_import(t *testing.T) {
 	resourceName := "timescale_vpcs.test"
 	vpcName := fmt.Sprintf("test-import-%s", acctest.RandString(8))
 	cidr := "11.0.0.0/16"
-	regionCode := "eu-west-1"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -63,7 +61,7 @@ func TestAccVPCResource_import(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create the VPC to import
 			{
-				Config: providerConfig + vpcResourceConfig(vpcName, cidr, regionCode),
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr(resourceName, "name", vpcName),
 				),
@@ -74,7 +72,7 @@ func TestAccVPCResource_import(t *testing.T) {
 				ImportStateVerifyIgnore: []string{"created", "status", "provisioned_id"},
 				ImportStateId:           vpcName,
 				ResourceName:            "timescale_vpcs.resource_import",
-				Config: providerConfig + vpcResourceConfig(vpcName, cidr, regionCode) + `
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr) + `
 				resource "timescale_vpcs" "resource_import" {}
 				`,
 			},
@@ -82,12 +80,12 @@ func TestAccVPCResource_import(t *testing.T) {
 	})
 }
 
-func vpcResourceConfig(name, cidr, regionCode string) string {
+func vpcResourceConfig(name, cidr string) string {
 	return fmt.Sprintf(`
 resource "timescale_vpcs" "test" {
   name        = %q
   cidr        = %q
-  region_code = %q
+  region_code = "us-east-1"
 }
-`, name, cidr, regionCode)
+`, name, cidr)
 }

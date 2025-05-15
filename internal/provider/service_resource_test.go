@@ -3,7 +3,9 @@ package provider
 import (
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 func TestServiceResource_Default_Success(t *testing.T) {
 	// Test resource creation succeeds
 	config := &ServiceConfig{
+		Name:         "test-default",
 		ResourceName: "resource",
 	}
 	resource.ParallelTest(t, resource.TestCase{
@@ -220,7 +223,7 @@ func TestServiceResource_Timeout(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: newServiceConfig(ServiceConfig{
-					Name: "service resource test timeout",
+					Name: "test-service-timeout",
 					Timeouts: Timeouts{
 						Create: "1s",
 					},
@@ -240,7 +243,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Invalid conf millicpu & memory invalid ratio
 			{
 				Config: newServiceCustomConfig("invalid", ServiceConfig{
-					Name:     "service resource test conf",
+					Name:     "test-service-conf",
 					MilliCPU: 2000,
 					MemoryGB: 2,
 				}),
@@ -249,7 +252,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Invalid conf storage invalid value
 			{
 				Config: newServiceCustomConfig("invalid", ServiceConfig{
-					Name:     "service resource test conf",
+					Name:     "test-service-conf",
 					MilliCPU: 500,
 					MemoryGB: 3,
 				}),
@@ -265,14 +268,14 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Create with custom conf and region
 			{
 				Config: newServiceCustomConfig("custom", ServiceConfig{
-					Name:       "service resource test conf",
+					Name:       "test-service-conf",
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
 					MemoryGB:   4,
 					Password:   "test123456789",
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.custom", "name", "service resource test conf"),
+					resource.TestCheckResourceAttr("timescale_service.custom", "name", "test-service-conf"),
 					resource.TestCheckResourceAttr("timescale_service.custom", "password", "test123456789"),
 					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
 					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
@@ -283,7 +286,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 }
 
 func TestServiceResource_Import(t *testing.T) {
-	config := newServiceConfig(ServiceConfig{Name: "import test"})
+	config := newServiceConfig(ServiceConfig{Name: "test-import"})
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -389,3 +392,129 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 			enable_ha_replica = %t%s
 		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica, passwordLine)
 }
+
+type ServiceConfig struct {
+	ResourceName      string
+	Name              string
+	Timeouts          Timeouts
+	MilliCPU          int64
+	MemoryGB          int64
+	RegionCode        string
+	EnableHAReplica   bool
+	VpcID             int64
+	ReadReplicaSource string
+	Pooler            bool
+	Environment       string
+	Password          string
+}
+
+type Timeouts struct {
+	Create string
+}
+
+func (c *ServiceConfig) WithName(name string) *ServiceConfig {
+	c.Name = name
+	return c
+}
+
+func (c *ServiceConfig) WithEnvironment(name string) *ServiceConfig {
+	c.Environment = name
+	return c
+}
+
+func (c *ServiceConfig) WithSpec(milliCPU, memoryGB int64) *ServiceConfig {
+	c.MilliCPU = milliCPU
+	c.MemoryGB = memoryGB
+	return c
+}
+
+func (c *ServiceConfig) WithVPC(id int64) *ServiceConfig {
+	c.VpcID = id
+	return c
+}
+
+func (c *ServiceConfig) WithHAReplica(enableHAReplica bool) *ServiceConfig {
+	c.EnableHAReplica = enableHAReplica
+	return c
+}
+func (c *ServiceConfig) WithPooler(pooler bool) *ServiceConfig {
+	c.Pooler = pooler
+	return c
+}
+
+func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
+	c.ReadReplicaSource = source
+	return c
+}
+
+func (c *ServiceConfig) String(t *testing.T) string {
+	c.setDefaults()
+	b := &strings.Builder{}
+	write := func(format string, a ...any) {
+		_, err := fmt.Fprintf(b, format, a...)
+		require.NoError(t, err)
+	}
+	_, err := fmt.Fprintf(b, "\n\n resource timescale_service %q { \n", c.ResourceName)
+	require.NoError(t, err)
+	if c.Name != "" {
+		write("name = %q \n", c.Name)
+	}
+	if c.ReadReplicaSource != "" {
+		write("read_replica_source = %s \n", c.ReadReplicaSource)
+	}
+	if c.EnableHAReplica {
+		write("enable_ha_replica = %t \n", c.EnableHAReplica)
+	}
+	if c.Pooler {
+		write("connection_pooler_enabled = %t \n", c.Pooler)
+	}
+	if c.Environment != "" {
+		write("environment_tag = %q \n", c.Environment)
+	}
+	if c.RegionCode != "" {
+		write("region_code = %q \n", c.RegionCode)
+	}
+	if c.VpcID != 0 {
+		write("vpc_id = %d \n", c.VpcID)
+	}
+	write(`
+			milli_cpu  = %d
+			memory_gb  = %d
+			timeouts = {
+				create = %q
+			}`+"\n",
+		c.MilliCPU, c.MemoryGB, c.Timeouts.Create)
+	write("}")
+	return b.String()
+}
+
+func (c *ServiceConfig) setDefaults() {
+	if c.MilliCPU == 0 {
+		c.MilliCPU = 500
+	}
+	if c.MemoryGB == 0 {
+		c.MemoryGB = 2
+	}
+	if c.Timeouts.Create == "" {
+		c.Timeouts.Create = "10m"
+	}
+}
+
+// getServiceConfig returns a configuration for a test step.
+func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
+	res := strings.Builder{}
+	res.WriteString(providerConfig)
+	for _, cfg := range cfgs {
+		res.WriteString(cfg.String(t))
+	}
+	return res.String()
+}
+
+// // getServiceConfig returns a configuration for a test step
+// func getServiceNoProviderConfig(t *testing.T, cfgs ...*ServiceConfig) string {
+// 	res := strings.Builder{}
+// 	for _, cfg := range cfgs {
+// 		res.WriteString(cfg.String(t))
+// 	}
+// 	return res.String()
+// }

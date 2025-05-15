@@ -80,3 +80,14 @@ Use `make testacc` to run the full acceptance tests suite. This can take up to 2
 ```shell
 make testacc
 ```
+
+### Dangling resources and sweepers
+
+Acceptance tests usually destroy all created assets, but failures or execution abortions can leave dangling resources.
+
+We use [sweepers](https://developer.hashicorp.com/terraform/plugin/testing/acceptance-tests/sweepers) to cleanup all possible dangling resources before running the acceptance tests.
+
+```
+make testacc SWEEP=timescale_vpcs
+```
+

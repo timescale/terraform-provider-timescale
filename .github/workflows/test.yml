@@ -75,11 +75,20 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+      # Sweepers
       - env:
           TF_ACC: "1"
           TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
           TF_VAR_ts_secret_key: ${{ secrets.TF_VAR_TS_SECRET_KEY }}
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
           TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
-        run: go test -v -cover ./internal/provider/
+        run: go test ./internal/provider/ -v -timeout -sweep=all
         timeout-minutes: 30
+      - env:
+          TF_ACC: "1"
+          TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
+          TF_VAR_ts_secret_key: ${{ secrets.TF_VAR_TS_SECRET_KEY }}
+          TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
+          TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
+        run: go test ./internal/provider/ -v -cover
+        timeout-minutes: 10

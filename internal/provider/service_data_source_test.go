@@ -14,7 +14,7 @@ func TestServiceDataSource(t *testing.T) {
 			{
 				Config: providerConfig + `
 resource "timescale_service" "resource" {
-	name = "newServiceDataSource test"
+	name = "test-new-service"
 }
 data "timescale_service" "data_source" {
 	id = timescale_service.resource.id

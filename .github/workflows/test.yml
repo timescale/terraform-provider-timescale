@@ -85,7 +85,7 @@ jobs:
           PEER_ACCOUNT_ID: ${{ secrets.PEER_ACCOUNT_ID }}
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
-        run: go test ./internal/provider/ -v -timeout -sweep=all
+        run: go test ./internal/provider/ -v -sweep=all
         timeout-minutes: 30
       - env:
           TF_ACC: "1"

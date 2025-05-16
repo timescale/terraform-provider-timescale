@@ -88,6 +88,5 @@ Acceptance tests usually destroy all created assets, but failures or execution a
 We use [sweepers](https://developer.hashicorp.com/terraform/plugin/testing/acceptance-tests/sweepers) to cleanup all possible dangling resources before running the acceptance tests.
 
 ```
-make testacc SWEEP=timescale_vpcs
+make sweep
 ```
-

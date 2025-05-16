@@ -3,15 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
 func TestMain(m *testing.M) {
@@ -55,9 +53,6 @@ func sweepVPCs(_ string) error {
 			}
 		}
 	}
-
-	// TODO: Workaround to give some time for workflows to finish
-	time.Sleep(15 * time.Second)
 
 	return nil
 }

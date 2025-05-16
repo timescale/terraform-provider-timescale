@@ -11,6 +11,10 @@ on:
     paths-ignore:
       - 'README.md'
 
+# Don't run multiple acceptance tests actions simultaneously to avoid conflicts (f.e. VPCs).
+concurrency:
+  group: ${{ github.workflow }}
+
 # Testing only needs permissions to read the repository contents.
 permissions:
   contents: read

@@ -1,20 +1,23 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 func TestPeeringConnResource_basic(t *testing.T) {
 	resourceName := "timescale_peering_connection.test"
+	vpcName := fmt.Sprintf("test-vpc-for-pc-%s", acctest.RandString(8))
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: providerConfig + vpcPeeringConnectionConfig(),
+				Config: providerConfig + vpcPeeringConnectionConfig(vpcName),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "timescale_vpc_id"),
@@ -29,10 +32,10 @@ func TestPeeringConnResource_basic(t *testing.T) {
 	})
 }
 
-func vpcPeeringConnectionConfig() string {
-	return `
+func vpcPeeringConnectionConfig(vpcName string) string {
+	return fmt.Sprintf(`
 resource "timescale_vpcs" "test" {
-  name      = "test-vpc-for-pc"
+  name      = %q
   cidr        = "10.0.0.0/16"
   region_code = "us-east-1"
 }
@@ -43,5 +46,5 @@ resource "timescale_peering_connection" "test" {
   peer_region_code = "us-west-2"
   peer_vpc_id      = "vpc-12345678"
 }
-`
+`, vpcName)
 }

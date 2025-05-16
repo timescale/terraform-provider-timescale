@@ -263,6 +263,8 @@ func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcI
 
 func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "PeeringConnectionResource.Delete")
+	// TODO: Workaround to avoid deadlocks when many resources try to delete at once
+	time.Sleep(10 * time.Second)
 	var state peeringConnectionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {

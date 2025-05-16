@@ -209,8 +209,8 @@ func (r *vpcResource) waitForVPCReadiness(ctx context.Context, id int64, timeout
 func (r *vpcResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "VpcsResource.Delete")
 	var state vpcResourceModel
-	// // TODO: find a way to have this before automated test deletion
-	// time.Sleep(10 * time.Second)
+	// TODO: Workaround to avoid deadlocks when many resources try to delete at once
+	time.Sleep(10 * time.Second)
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {

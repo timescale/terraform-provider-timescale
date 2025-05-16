@@ -57,4 +57,16 @@ func testAccPreCheck(t *testing.T) {
 	if !ok {
 		t.Fatal("environment variable TIMESCALE_DEV_URL not set")
 	}
+	_, ok = os.LookupEnv("PEER_ACCOUNT_ID")
+	if !ok {
+		t.Fatal("environment variable PEER_ACCOUNT_ID not set")
+	}
+	_, ok = os.LookupEnv("PEER_VPC_ID")
+	if !ok {
+		t.Fatal("environment variable PEER_VPC_ID not set")
+	}
+	_, ok = os.LookupEnv("PEER_REGION")
+	if !ok {
+		t.Fatal("environment variable PEER_REGION not set")
+	}
 }

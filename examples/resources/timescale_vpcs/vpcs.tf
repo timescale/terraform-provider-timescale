@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     timescale = {
-      source  = "registry.terraform.io/providers/timescale"
+      source  = "timescale/timescale"
       version = "~> 2.0"
     }
   }
@@ -27,8 +27,17 @@ provider "timescale" {
 }
 
 
-resource "timescale_vpcs" "new_vpc" {
+resource "timescale_vpcs" "main" {
+  cidr        = "10.10.0.0/16"
   name        = "test-vpc"
-  cidr        = "10.0.0.0/19"
   region_code = "us-east-1"
 }
+
+# Requester's side of the peering connection.
+resource "timescale_peering_connection" "peer" {
+  peer_account_id  = "000000000000"
+  peer_region_code = "eu-central-1"
+  peer_vpc_id      = "vpc-00000000000000000"
+  timescale_vpc_id = timescale_vpcs.main.id
+}
+

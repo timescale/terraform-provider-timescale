@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     timescale = {
-      source  = "registry.terraform.io/providers/timescale"
+      source  = "timescale/timescale"
       version = "~> 2.0"
     }
   }

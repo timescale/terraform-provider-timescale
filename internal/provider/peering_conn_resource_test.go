@@ -1,69 +1,47 @@
 package provider
 
-//
-//import (
-//	"testing"
-//	"time"
-//
-//	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-//	"github.com/hashicorp/terraform-plugin-testing/terraform"
-//)
-//
-//var (
-//	pcConfig = &PeeringConnConfig{
-//		ResourceName:   "peering_conn",
-//		PeerRegionCode: "us-east-1",
-//		PeerVPCID:      "vpc-fake-test",
-//		PeerAccountID:  "000000000000",
-//	}
-//)
-//
-//func TestPeeringConnResource_Default_Success(t *testing.T) {
-//	// Test resource creation succeeds
-//	resource.ParallelTest(t, resource.TestCase{
-//		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-//		PreCheck:                 func() { testAccPreCheck(t) },
-//		Steps: []resource.TestStep{
-//			// Create the VPC
-//			{
-//				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-//				Check: func(_ *terraform.State) error {
-//					time.Sleep(10 * time.Second)
-//					return nil
-//				},
-//			},
-//			// create the peering connection
-//			{
-//				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")) + getPeeringConnConfig(t, pcConfig.WithVpcResourceName(config.ResourceName)),
-//				Check: resource.ComposeAggregateTestCheckFunc(
-//					func(_ *terraform.State) error {
-//						time.Sleep(10 * time.Second)
-//						return nil
-//					},
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
-//					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-for-pc"),
-//					resource.TestCheckResourceAttr("timescale_peering_connection.peering_conn", "peer_region_code", "us-east-1"),
-//					resource.TestCheckResourceAttr("timescale_peering_connection.peering_conn", "peer_vpc_id", "vpc-fake-test"),
-//				),
-//			},
-//			// delete the peering conn because it must be deleted before the vpc
-//			{
-//				Config: getVPCConfig(t, config.WithName("vpc-for-pc").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-//				Check: resource.ComposeAggregateTestCheckFunc(
-//					func(_ *terraform.State) error {
-//						time.Sleep(10 * time.Second)
-//						return nil
-//					},
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
-//					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
-//					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-for-pc"),
-//				),
-//			},
-//		},
-//	})
-//}
+import (
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
+func TestPeeringConnResource_basic(t *testing.T) {
+	resourceName := "timescale_peering_connection.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + vpcPeeringConnectionConfig(),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "timescale_vpc_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpc_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "status"),
+					resource.TestCheckResourceAttr(resourceName, "peer_account_id", "000000000000"),
+					resource.TestCheckResourceAttr(resourceName, "peer_region_code", "us-west-2"),
+					resource.TestCheckResourceAttr(resourceName, "peer_vpc_id", "vpc-12345678"),
+				),
+			},
+		},
+	})
+}
+
+func vpcPeeringConnectionConfig() string {
+	return `
+resource "timescale_vpcs" "test" {
+  name      = "test-vpc-for-pc"
+  cidr        = "10.0.0.0/16"
+  region_code = "us-east-1"
+}
+
+resource "timescale_peering_connection" "test" {
+  timescale_vpc_id = timescale_vpcs.test.id
+  peer_account_id  = "000000000000"
+  peer_region_code = "us-west-2"
+  peer_vpc_id      = "vpc-12345678"
+}
+`
+}

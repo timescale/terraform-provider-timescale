@@ -21,7 +21,7 @@ The change has been taken into account but must still be propagated. You can run
 terraform {
   required_providers {
     timescale = {
-      source  = "registry.terraform.io/providers/timescale"
+      source  = "timescale/timescale"
       version = "~> 2.0"
     }
   }
@@ -45,6 +45,7 @@ provider "timescale" {
   secret_key = var.ts_secret_key
   project_id = var.ts_project_id
 }
+
 
 resource "timescale_service" "test" {
   name        = ""

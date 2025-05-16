@@ -5,5 +5,7 @@ mutation OpenPeerRequest($projectId: ID!, $vpcId: ID!, $externalVpcId: ID!, $acc
         projectId: $projectId,
         peerVpc: {id: $externalVpcId, accountId: $accountId, regionCode: $regionCode, cidr: ""},
         cloudProvider: AWS
-    })
+    }){
+        id
+    }
 }

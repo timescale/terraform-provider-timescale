@@ -66,46 +66,46 @@ variable "ts_secret_key" {
   sensitive = true
 }
 
-resource "timescale_service" "test" {
-     name                      = "tf-test"
-     milli_cpu                 = 500
-     memory_gb                 = 2
-     region_code               = "us-west-2"
-     connection_pooler_enabled = true
-     enable_ha_replica         = true
+resource "timescale_service" "tf-test" {
+  name                      = "tf-test"
+  milli_cpu                 = 500
+  memory_gb                 = 2
+  region_code               = "us-west-2"
+  connection_pooler_enabled = true
+  enable_ha_replica         = true
 }
 
 ## host connection info
 output "host_addr" {
-     value       = timescale_service.tf-test.hostname
-     description = "Service Host Address"
+  value       = timescale_service.tf-test.hostname
+  description = "Service Host Address"
 }
 
 output "host_port" {
-     value       = timescale_service.tf-test.port
-     description = "Service Host port"
+  value       = timescale_service.tf-test.port
+  description = "Service Host port"
 }
 
 ## ha-replica connection info
 output "replica_addr" {
-     value       = timescale_service.tf-test.replica_hostname
-     description = "Service Replica Host Address"
+  value       = timescale_service.tf-test.replica_hostname
+  description = "Service Replica Host Address"
 }
 
 output "replica_port" {
-     value       = timescale_service.tf-test.replica_port
-     description = "Service Replica Host port"
+  value       = timescale_service.tf-test.replica_port
+  description = "Service Replica Host port"
 }
 
 ## pooler connection info
 output "pooler_addr" {
-     value       = timescale_service.tf-test.pooler_hostname
-     description = "Service Pooler Host Address"
+  value       = timescale_service.tf-test.pooler_hostname
+  description = "Service Pooler Host Address"
 }
 
 output "pooler_port" {
-     value       = timescale_service.tf-test.pooler_port
-     description = "Service Pooler Host port"
+  value       = timescale_service.tf-test.pooler_port
+  description = "Service Pooler Host port"
 }
 ```
 
@@ -129,92 +129,44 @@ terraform plan --var-file=secrets.tfvars
 
 > [!NOTE]  
 > The example file creates:
->  * A VPC with name `tf-test` in `us-east-1`
->  * A peering connection
+>  * Timescale VPC with name `tf-test` in `us-east-1`
+>  * AWS VPC in eu-central-1
+>  * Peering connection between them (request and accept automatically)
 
 Create a `main.tf` configuration file with the following content.
 
 ```hcl
-terraform {
-     required_providers {
-          timescale = {
-               source  = "timescale/timescale"
-               version = "~> 2.0"
-          }
-     }
-}
-
-variable "ts_access_key" {
-     type = string
-}
-
-variable "ts_secret_key" {
-     type      = string
-     sensitive = true
-}
-
-variable "ts_project_id" {
-     type = string
-}
-
-provider "timescale" {
-     access_key = var.ts_access_key
-     secret_key = var.ts_secret_key
-     project_id = var.ts_project_id
-}
-
-
-variable "ts_region" {
-     type    = string
-     default = "us-east-1"
+resource "timescale_vpcs" "ts-test" {
+  cidr        = "10.0.0.0/24"
+  name        = "tf-test"
+  region_code = "us-east-1"
 }
 
 # If you have multiple regions, you’ll need to use multiple `provider` configurations.
 provider "aws" {
-     region = var.aws_region
+  region = "eu-central-1"
 }
 
-variable "aws_account_id" {
-     type = string
-}
-
-variable "aws_region" {
-     type    = string
-     default = "us-east-1"
-}
-
-resource "timescale_vpcs" "main" {
-     cidr        = "10.10.0.0/16"
-     name        = "tf-test"
-     region_code = var.ts_region
-}
-
+# Creating a test VPC. Change to your VPC if you already have one in your AWS account.
 resource "aws_vpc" "main" {
-     cidr_block = "10.0.1.0/24"
+  cidr_block = "11.0.0.0/24"
 }
 
-# Requester's side of the peering connection.
+# Requester's side of the peering connection (Timescale).
 resource "timescale_peering_connection" "peer" {
-     peer_account_id  = var.aws_account_id
-     peer_region_code = var.aws_region
-     peer_vpc_id      = aws_vpc.main.id
-     timescale_vpc_id = timescale_vpcs.main.id
+  peer_account_id  = "000000000000"
+  peer_region_code = "eu-central-1"
+  peer_vpc_id      = aws_vpc.main.id
+  timescale_vpc_id = timescale_vpcs.ts-test.id
 }
 
-# Accepter's side of the peering connection.
+# Acceptor's side of the peering connection (AWS).
 resource "aws_vpc_peering_connection_accepter" "peer" {
-     vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
-     auto_accept               = true
-
-     depends_on = [timescale_peering_connection.peer]
+  vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
+  auto_accept               = true
+  depends_on = [timescale_peering_connection.peer]
 }
 ```
-
-Note that this configuration may fail on first apply, as the value of
-`timescale_peering_connection.peer.provisioned_id` (starting with `pcx-`) may
-not be immediately available. This typically happens due to the asynchronous
-nature of the VPC peering request and its acceptance process. In this case, a
-second `terraform apply` can be run to ensure everything is applied.
 
 ## Supported Service Configurations
 ### Compute

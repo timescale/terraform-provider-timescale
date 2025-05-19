@@ -13,4 +13,4 @@ DEPRECATED:
 - N/A
 
 FEATURES:
-- N/A
+- Now a peering connection can be requested and accepted in a single `terraform apply`.

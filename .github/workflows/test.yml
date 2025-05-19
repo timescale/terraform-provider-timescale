@@ -102,4 +102,3 @@ jobs:
           PEER_REGION: ${{ secrets.PEER_REGION }}
         run: go test ./internal/provider/ -v -cover
         timeout-minutes: 10
-        

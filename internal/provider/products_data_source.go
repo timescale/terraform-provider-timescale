@@ -111,7 +111,7 @@ func (d *productsDataSource) Configure(_ context.Context, req datasource.Configu
 		return
 	}
 
-	d.client = req.ProviderData.(*tsClient.Client)
+	d.client, _ = req.ProviderData.(*tsClient.Client)
 }
 
 // Schema defines the schema for the data source.

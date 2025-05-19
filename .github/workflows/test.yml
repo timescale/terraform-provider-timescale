@@ -4,11 +4,16 @@ name: Tests
 # This GitHub action runs your tests for each pull request and push.
 # Optionally, you can turn it on using a schedule for regular testing.
 on:
+  pull_request:
+    paths-ignore:
+      - 'README.md'
   push:
     paths-ignore:
       - 'README.md'
-      - '.github/workflows/**'
-      - '.goreleaser.yml'
+
+# Don't run multiple acceptance tests actions simultaneously to avoid conflicts (f.e. VPCs).
+concurrency:
+  group: ${{ github.workflow }}
 
 # Testing only needs permissions to read the repository contents.
 permissions:
@@ -18,48 +23,54 @@ jobs:
   # Ensure project builds before running testing matrix
   build:
     name: Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
       - run: go mod download
       - run: go build -v .
+      - name: Run linters
+        uses: golangci/golangci-lint-action@1481404843c368bc19ca9406f87d6e0fc97bdcfd # v7.0.0
+        with:
+          version: latest
 
   generate:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
-      - run: go generate ./...
+      # We need the latest version of Terraform for our documentation generation to use
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_wrapper: false
+      - run: make generate
       - name: git diff
         run: |
           git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'go generate ./...' command and commit."; exit 1)
+            (echo; echo "Unexpected difference in directories after code generation. Run 'make generate' command and commit."; exit 1)
 
   # Run acceptance tests in a matrix with Terraform CLI versions
   test:
     name: Terraform Provider Acceptance Tests
     needs: build
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         # list whatever Terraform versions here you would like to support
         terraform:
-          # - '1.0.*'
-          # - '1.1.*'
-          - '1.2.*'
+          - '1.*.*'
     steps:
-      - uses: actions/checkout@v4 # v3.3.0
-      - uses: actions/setup-go@v5 # v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -68,12 +79,24 @@ jobs:
           terraform_version: ${{ matrix.terraform }}
           terraform_wrapper: false
       - run: go mod download
+      # Sweepers
       - env:
           TF_ACC: "1"
           TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
           TF_VAR_ts_secret_key: ${{ secrets.TF_VAR_TS_SECRET_KEY }}
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
-          TF_VAR_ts_aws_acc_id: ${{ secrets.TF_VAR_TS_AWS_ACC_ID }}
-          # point to API
-          TIMESCALE_DEV_URL: ${{ secrets.TIMESCALE_DEV_URL }}
-        run: go test -timeout 120m -v -cover ./internal/provider/
+          PEER_ACCOUNT_ID: ${{ secrets.PEER_ACCOUNT_ID }}
+          PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
+          PEER_REGION: ${{ secrets.PEER_REGION }}
+        run: go test ./internal/provider/ -v -sweep=all
+        timeout-minutes: 30
+      - env:
+          TF_ACC: "1"
+          TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
+          TF_VAR_ts_secret_key: ${{ secrets.TF_VAR_TS_SECRET_KEY }}
+          TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
+          PEER_ACCOUNT_ID: ${{ secrets.PEER_ACCOUNT_ID }}
+          PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
+          PEER_REGION: ${{ secrets.PEER_REGION }}
+        run: go test ./internal/provider/ -v -cover
+        timeout-minutes: 10

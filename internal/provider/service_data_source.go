@@ -18,32 +18,32 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ datasource.DataSource = &ServiceDataSource{}
-var _ datasource.DataSourceWithConfigure = &ServiceDataSource{}
+var _ datasource.DataSource = &serviceDataSource{}
+var _ datasource.DataSourceWithConfigure = &serviceDataSource{}
 
 func NewServiceDataSource() datasource.DataSource {
-	return &ServiceDataSource{}
+	return &serviceDataSource{}
 }
 
-// ServiceDataSource defines the data source implementation.
-type ServiceDataSource struct {
+// serviceDataSource defines the data source implementation.
+type serviceDataSource struct {
 	client *tsClient.Client
 }
 
-// ServiceDataSourceModel describes the data source data model.
-type ServiceDataSourceModel struct {
+// serviceDataSourceModel describes the data source data model.
+type serviceDataSourceModel struct {
 	ID         types.String    `tfsdk:"id"`
 	Name       types.String    `tfsdk:"name"`
 	RegionCode types.String    `tfsdk:"region_code"`
-	Spec       SpecModel       `tfsdk:"spec"`
-	Resources  []ResourceModel `tfsdk:"resources"`
+	Spec       specModel       `tfsdk:"spec"`
+	Resources  []resourceModel `tfsdk:"resources"`
 	Created    types.String    `tfsdk:"created"`
 	VpcID      types.Int64     `tfsdk:"vpc_id"`
 
 	EnvironmentTag types.String `tfsdk:"environment_tag"`
 }
 
-type SpecModel struct {
+type specModel struct {
 	Username        types.String `tfsdk:"username"`
 	Hostname        types.String `tfsdk:"hostname"`
 	Port            types.Int64  `tfsdk:"port"`
@@ -53,22 +53,22 @@ type SpecModel struct {
 	PoolerPort      types.Int64  `tfsdk:"pooler_port"`
 }
 
-type ResourceModel struct {
+type resourceModel struct {
 	ID   types.String      `tfsdk:"id"`
-	Spec ResourceSpecModel `tfsdk:"spec"`
+	Spec resourceSpecModel `tfsdk:"spec"`
 }
 
-type ResourceSpecModel struct {
+type resourceSpecModel struct {
 	MilliCPU        types.Int64 `tfsdk:"milli_cpu"`
 	MemoryGB        types.Int64 `tfsdk:"memory_gb"`
 	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
 }
 
-func (d *ServiceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+func (d *serviceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_service"
 }
 
-func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+func (d *serviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "Service data source",
@@ -180,7 +180,7 @@ func (d *ServiceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 	}
 }
 
-func (d *ServiceDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+func (d *serviceDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
 	tflog.Trace(ctx, "ServiceDataSource.Configure")
 
 	if req.ProviderData == nil {
@@ -199,7 +199,7 @@ func (d *ServiceDataSource) Configure(ctx context.Context, req datasource.Config
 	d.client = client
 }
 
-func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+func (d *serviceDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	tflog.Trace(ctx, "ServiceDataSource.Read")
 
 	var id string
@@ -224,15 +224,15 @@ func (d *ServiceDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 }
 
-func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataSourceModel {
-	hasHaReplica := (s.ReplicaStatus != "")
+func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) serviceDataSourceModel {
+	hasHaReplica := s.ReplicaStatus != ""
 	hasPooler := s.ServiceSpec.PoolerEnabled
 
-	serviceModel := ServiceDataSourceModel{
+	serviceModel := serviceDataSourceModel{
 		ID:         types.StringValue(s.ID),
 		Name:       types.StringValue(s.Name),
 		RegionCode: types.StringValue(s.RegionCode),
-		Spec: SpecModel{
+		Spec: specModel{
 			Username: types.StringValue(s.ServiceSpec.Username),
 		},
 		Created: types.StringValue(s.Created),
@@ -245,9 +245,9 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) ServiceDataS
 		}
 	}
 	for _, resource := range s.Resources {
-		serviceModel.Resources = append(serviceModel.Resources, ResourceModel{
+		serviceModel.Resources = append(serviceModel.Resources, resourceModel{
 			ID: types.StringValue(resource.ID),
-			Spec: ResourceSpecModel{
+			Spec: resourceSpecModel{
 				MilliCPU:        types.Int64Value(resource.Spec.MilliCPU),
 				MemoryGB:        types.Int64Value(resource.Spec.MemoryGB),
 				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),

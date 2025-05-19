@@ -148,7 +148,7 @@ func (d *vpcsDataSource) Configure(_ context.Context, req datasource.ConfigureRe
 		return
 	}
 
-	d.client = req.ProviderData.(*tsClient.Client)
+	d.client, _ = req.ProviderData.(*tsClient.Client)
 }
 
 // Schema defines the schema for the data source.

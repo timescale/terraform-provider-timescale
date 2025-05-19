@@ -1,82 +1,91 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
-	"time"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
-var (
-	config = &VPCConfig{
-		ResourceName: "resource",
-	}
-)
+func TestAccVPCResource_basic(t *testing.T) {
+	resourceName := "timescale_vpcs.test"
+	vpcName := fmt.Sprintf("test-vpc-%s", acctest.RandString(8))
+	vpcRenamed := fmt.Sprintf("test-vpc-renamed-%s", acctest.RandString(8))
+	cidr := "10.0.0.0/16"
 
-func TestVPCResource_Default_Success(t *testing.T) {
-	// Test resource creation succeeds
-	resource.ParallelTest(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create the VPC
 			{
-				Config: getVPCConfig(t, config.WithName("vpc-1").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					func(_ *terraform.State) error {
-						time.Sleep(10 * time.Second)
-						return nil
-					},
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
-					resource.TestCheckResourceAttr("timescale_vpcs.resource", "status", "CREATED"),
-					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-1"),
-					// resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "updated"),
-					// resource.TestCheckNoResourceAttr("timescale_vpcs.resource", "created"),
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", vpcName),
+					resource.TestCheckResourceAttr(resourceName, "cidr", cidr),
+					resource.TestCheckResourceAttr(resourceName, "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr(resourceName, "status", "CREATED"),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "created"),
 				),
 			},
 			// Rename
 			{
-				Config: getVPCConfig(t, config.WithName("vpc-renamed").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "project_id"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "cidr"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "created"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "id"),
-					resource.TestCheckResourceAttrSet("timescale_vpcs.resource", "status"),
-					resource.TestCheckResourceAttr("timescale_vpcs.resource", "name", "vpc-renamed"),
-					// resource.TestCheckNoResourceAttr("timescale_vpcs.resource", "updated"), // rename returns a success and not a vpc so we only get this at refresh
+				Config: providerConfig + vpcResourceConfig(vpcRenamed, cidr),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", vpcRenamed),
+					resource.TestCheckResourceAttr(resourceName, "cidr", cidr),
+					resource.TestCheckResourceAttr(resourceName, "region_code", "us-east-1"),
+					resource.TestCheckResourceAttr(resourceName, "status", "CREATED"),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "created"),
 				),
 			},
 		},
 	})
 }
 
-func TestVPCResource_Import(t *testing.T) {
+func TestAccVPCResource_import(t *testing.T) {
+	resourceName := "timescale_vpcs.test"
+	vpcName := fmt.Sprintf("test-import-%s", acctest.RandString(8))
+	cidr := "11.0.0.0/16"
+
 	resource.Test(t, resource.TestCase{
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create the VPC to import
 			{
-				Config: getVPCConfig(t, config.WithName("import-test").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")),
-				Check: func(_ *terraform.State) error {
-					time.Sleep(10 * time.Second)
-					return nil
-				},
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr(resourceName, "name", vpcName),
+				),
 			},
 			{
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"created", "status", "provisioned_id"},
-				ImportStateId:           "import-test",
+				ImportStateId:           vpcName,
 				ResourceName:            "timescale_vpcs.resource_import",
-				Config: getVPCConfig(t, config.WithName("import-test").WithCIDR("10.0.0.0/21").WithRegionCode("us-east-1")) + `
+				Config: providerConfig + vpcResourceConfig(vpcName, cidr) + `
 				resource "timescale_vpcs" "resource_import" {}
 				`,
 			},
 		},
 	})
+}
+
+func vpcResourceConfig(name, cidr string) string {
+	return fmt.Sprintf(`
+resource "timescale_vpcs" "test" {
+  name        = %q
+  cidr        = %q
+  region_code = "us-east-1"
+}
+`, name, cidr)
 }

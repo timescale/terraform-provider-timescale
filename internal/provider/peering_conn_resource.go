@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -153,6 +155,23 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 	}
 }
 
+func pcToResource(s *tsClient.PeeringConnection, state peeringConnectionResourceModel) peeringConnectionResourceModel {
+	model := peeringConnectionResourceModel{
+		ID:             state.ID,
+		PeerVPCID:      state.PeerVPCID,
+		PeerAccountID:  state.PeerAccountID,
+		PeerRegionCode: state.PeerRegionCode,
+		TimescaleVPCID: state.TimescaleVPCID,
+		VpcID:          types.StringValue(s.VPCID),
+		ProvisionedID:  types.StringValue(s.ProvisionedID),
+		Status:         types.StringValue(s.Status),
+		ErrorMessage:   types.StringValue(s.ErrorMessage),
+		PeerCIDR:       types.StringValue("deprecated"),
+	}
+
+	return model
+}
+
 func (r *peeringConnectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "VpcResource.Create")
 	var plan peeringConnectionResourceModel
@@ -173,32 +192,79 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	err := r.client.OpenPeerRequest(ctx, plan.TimescaleVPCID.ValueInt64(), plan.PeerVPCID.ValueString(), plan.PeerAccountID.ValueString(), plan.PeerRegionCode.ValueString())
+	pcIDStr, err := r.client.OpenPeerRequest(ctx, plan.TimescaleVPCID.ValueInt64(), plan.PeerVPCID.ValueString(), plan.PeerAccountID.ValueString(), plan.PeerRegionCode.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError(ErrPeeringConnCreate, err.Error())
 		return
 	}
+	pcID, err := strconv.ParseInt(pcIDStr, 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Parse Error", "could not parse peering connection ID")
+		return
+	}
 
-	var pcm peeringConnectionResourceModel
-	pcm.PeerRegionCode = plan.PeerRegionCode
-	pcm.PeerVPCID = plan.PeerVPCID
-	pcm.PeerAccountID = plan.PeerAccountID
-	pcm.TimescaleVPCID = plan.TimescaleVPCID
-	pcm.ErrorMessage = types.StringNull()
-	pcm.ID = types.Int64Null()
-	pcm.PeerCIDR = types.StringNull()
-	pcm.Status = types.StringNull()
-	pcm.VpcID = types.StringNull()
+	pc, err := r.waitForPCReadiness(ctx, plan.TimescaleVPCID.ValueInt64(), pcID)
+	if err != nil {
+		resp.Diagnostics.AddError("Create PC Error", "error waiting for PC readiness: "+err.Error())
+		return
+	}
+
+	plan.ID = types.Int64Value(pcID)
+	plan.Status = types.StringValue(pc.Status)
+	plan.ErrorMessage = types.StringValue(pc.ErrorMessage)
+	plan.ProvisionedID = types.StringValue(pc.ProvisionedID)
+
+	model := pcToResource(pc, plan)
 
 	// Set state
-	resp.Diagnostics.Append(resp.State.Set(ctx, pcm)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 }
 
+func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcID int64, pcID int64) (*tsClient.PeeringConnection, error) {
+	tflog.Trace(ctx, "VpcResource.waitForPCReadiness")
+
+	conf := retry.StateChangeConf{
+		Target:                    []string{"PENDING"},
+		Delay:                     5 * time.Second,
+		Timeout:                   5 * time.Minute,
+		PollInterval:              5 * time.Second,
+		ContinuousTargetOccurence: 1,
+		Refresh: func() (result interface{}, state string, err error) {
+			vpc, err := r.client.GetVPCByID(ctx, vpcID)
+			if err != nil {
+				return nil, "", err
+			}
+
+			for _, pc := range vpc.PeeringConnections {
+				if pc.ID == strconv.FormatInt(pcID, 10) {
+					if pc.ProvisionedID == "" {
+						// We also wait for a valid provisioned ID, so this resource can be used for the peering acceptance
+						return nil, "", err
+					}
+					return pc, pc.Status, nil
+				}
+			}
+			return nil, "", errors.New("peering connection not found in API response")
+		},
+	}
+	res, err := conf.WaitForStateContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pc, ok := res.(*tsClient.PeeringConnection)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type found, expected PeeringConnection but got %T", res)
+	}
+	return pc, nil
+}
+
 func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "PeeringConnectionResource.Delete")
+	// TODO: Workaround to avoid deadlocks when many resources try to delete at once
+	time.Sleep(10 * time.Second)
 	var state peeringConnectionResourceModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {

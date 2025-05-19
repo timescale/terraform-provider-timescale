@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     timescale = {
-      source  = "registry.terraform.io/providers/timescale"
-      version = "~> 1.0"
+      source  = "timescale/timescale"
+      version = "~> 2.0"
     }
   }
 }
@@ -25,6 +25,7 @@ provider "timescale" {
   secret_key = var.ts_secret_key
   project_id = var.ts_project_id
 }
+
 
 data "timescale_products" "products" {
 }

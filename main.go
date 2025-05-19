@@ -3,55 +3,31 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
-	"os"
-
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"log"
 
 	"github.com/timescale/terraform-provider-timescale/internal/provider"
 )
 
-//go:generate terraform fmt -recursive ./examples/
-//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs
 var (
-	Version = "dev"
-	debug   bool
-	version bool
+	// these will be set by the goreleaser configuration
+	// to appropriate values for the compiled binary.
+	version string = "dev"
 )
 
-func init() {
-	flag.BoolVar(
-		&debug,
-		"debug",
-		false,
-		"set to true to run the provider with support for debuggers like delve",
-	)
-	flag.BoolVar(
-		&version,
-		"version",
-		false,
-		"display the provider version",
-	)
+func main() {
+	var debug bool
+
+	flag.BoolVar(&debug, "debug", false, "set to true to run the provider with support for debuggers like delve")
 	flag.Parse()
 
-	if version {
-		displayVersion()
-		os.Exit(0)
-	}
-}
-
-func displayVersion() {
-	log.Printf("Timescale provider v%s\n", Version)
-}
-
-func main() {
 	opts := providerserver.ServeOpts{
 		Address: "registry.terraform.io/timescale/timescale",
 		Debug:   debug,
 	}
 
-	displayVersion()
-	err := providerserver.Serve(context.Background(), provider.New(Version), opts)
+	err := providerserver.Serve(context.Background(), provider.New(version), opts)
+
 	if err != nil {
 		log.Fatal(err.Error())
 	}

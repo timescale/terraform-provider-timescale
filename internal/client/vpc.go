@@ -55,6 +55,14 @@ type VPCNameResponse struct {
 	VPC *VPC `json:"getVPCByName"`
 }
 
+type OpenPeerRequestResponse struct {
+	PeeringConnectionID *PeeringConnectionID `json:"openPeerRequest"`
+}
+
+type PeeringConnectionID struct {
+	ID string `json:"id"`
+}
+
 func (c *Client) GetVPCs(ctx context.Context) ([]*VPC, error) {
 	tflog.Trace(ctx, "Client.GetVPCs")
 	req := map[string]interface{}{
@@ -249,7 +257,7 @@ func (c *Client) DeleteVPC(ctx context.Context, vpcID int64) error {
 	return nil
 }
 
-func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID, accountID, regionCode string) error {
+func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID, accountID, regionCode string) (pcID string, err error) {
 	tflog.Trace(ctx, "Client.OpenPeerRequest")
 
 	req := map[string]interface{}{
@@ -263,14 +271,17 @@ func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID
 			"regionCode":    regionCode,
 		},
 	}
-	var resp Response[any]
+	var resp Response[OpenPeerRequestResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
-		return err
+		return "", err
 	}
 	if len(resp.Errors) > 0 {
-		return resp.Errors[0]
+		return "", resp.Errors[0]
 	}
-	return nil
+	if resp.Data == nil {
+		return "", errors.New("no response found")
+	}
+	return resp.Data.PeeringConnectionID.ID, nil
 }
 
 func (c *Client) DeletePeeringConnection(ctx context.Context, vpcID, id int64) error {

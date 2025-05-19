@@ -23,9 +23,9 @@ website/node_modules
 .idea
 *.iml
 *.test
-*.iml
 .vscode/
 .terraform.lock.hcl
+.env
 
 website/vendor
 

@@ -1,12 +1,16 @@
-## 1.0.0 (September 11, 2023)
+## 2.0.0 (May 30, 2025)
+
+This major version increase is primarily due to substantial internal refactoring and architectural improvements.
+
+**Upgrade Guidance:**
+
+* **Expected Straightforward Upgrade:** For most users, upgrading from version 1.x.x to 2.0.0 is expected to be straightforward with no immediate configuration changes required in your Terraform files.
+* **Internal Changes:** While the external behavior and resource interfaces remain compatible, the underlying codebase has undergone significant enhancements. These changes aim to improve performance, maintainability, and prepare for future features.
+* **Recommendation for Testing:** We **strongly recommend** that all users first test this new version in a non-production (development or staging) environment. This will help ensure that the provider behaves as expected with your specific configurations and infrastructure before deploying to production.
+
 
 DEPRECATED:
-- resource/service: `storageGB`` is deprecated and ignored. With the new usage-based storage Timescale automatically allocates the disk space needed by your service and you only pay for the disk space you use.
+- N/A
 
 FEATURES:
-- resource/service: Create a service. `name`,`milliCPU`,`memoryGB`,`regionCode`,`replicaCount` and `vpcID` can be specified.
-- resource/service: Update a service. `name`, `milliCPU`,`memoryGB`,`vpcID` and `enableHAReplica` are modifiable.
-- resource/service: Delete a service.
-- data-source/service: Import a service already created on the console.
-- data-source/vpc: Import VPC already created on the console.
-- data-source/products: Import list of products (allowed `milliCPU` and `memoryGB` values).
+- Now a peering connection can be requested and accepted in a single `terraform apply`.

@@ -57,5 +57,5 @@ resource "timescale_peering_connection" "peer" {
 resource "aws_vpc_peering_connection_accepter" "peer" {
   vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
   auto_accept               = true
-  depends_on = [timescale_peering_connection.peer]
+  depends_on                = [timescale_peering_connection.peer]
 }

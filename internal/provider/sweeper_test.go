@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
@@ -61,15 +62,15 @@ func sweepVPCs(_ string) error {
 func createSweepClient() (*tsClient.Client, error) {
 	accessKey, ok := os.LookupEnv("TF_VAR_ts_access_key")
 	if !ok {
-		panic("environment variable TF_VAR_ts_access_key not set")
+		return nil, errors.New("environment variable TF_VAR_ts_access_key not set")
 	}
 	secretKey, ok := os.LookupEnv("TF_VAR_ts_secret_key")
 	if !ok {
-		panic("environment variable TF_VAR_ts_secret_key not set")
+		return nil, errors.New("environment variable TF_VAR_ts_secret_key not set")
 	}
 	projectID, ok := os.LookupEnv("TF_VAR_ts_project_id")
 	if !ok {
-		panic("environment variable TF_VAR_ts_project_id not set")
+		return nil, errors.New("environment variable TF_VAR_ts_project_id not set")
 	}
 
 	client := tsClient.NewClient("", projectID, "", "")

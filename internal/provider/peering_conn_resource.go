@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"strconv"
-	"strings"
 	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -28,8 +27,9 @@ var (
 	_ resource.Resource              = &peeringConnectionResource{}
 	_ resource.ResourceWithConfigure = &peeringConnectionResource{}
 
-	ErrPeeringConnRead   = "Error reading Peering Connection"
-	ErrPeeringConnCreate = "Error creating Peering Connection"
+	ErrPeeringConnRead         = "Error reading Peering Connection"
+	ErrPeeringConnCreate       = "Error creating Peering Connection"
+	ErrPeeringConnectionUpdate = "Error updating Peering Connection"
 )
 
 // NewPeeringConnectionResource is a helper function to simplify the provider implementation.
@@ -49,30 +49,12 @@ type peeringConnectionResourceModel struct {
 	Status         types.String `tfsdk:"status"`
 	ErrorMessage   types.String `tfsdk:"error_message"`
 	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
+	PeerCIDRBlocks types.List   `tfsdk:"peer_cidr_blocks"`
 	PeerCIDR       types.String `tfsdk:"peer_cidr"`
 	PeerAccountID  types.String `tfsdk:"peer_account_id"`
 	PeerRegionCode types.String `tfsdk:"peer_region_code"`
 	TimescaleVPCID types.Int64  `tfsdk:"timescale_vpc_id"`
 }
-
-var (
-	PeeringConnectionsType = types.ObjectType{
-		AttrTypes: PeeringConnectionType,
-	}
-
-	PeeringConnectionType = map[string]attr.Type{
-		"id":               types.Int64Type,
-		"vpc_id":           types.StringType,
-		"provisioned_id":   types.StringType,
-		"status":           types.StringType,
-		"error_message":    types.StringType,
-		"peer_vpc_id":      types.StringType,
-		"peer_cidr":        types.StringType,
-		"peer_account_id":  types.StringType,
-		"peer_region_code": types.StringType,
-		"timescale_vpc_id": types.Int64Type,
-	}
-)
 
 // Metadata returns the data source type name.
 func (r *peeringConnectionResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -81,42 +63,15 @@ func (r *peeringConnectionResource) Metadata(_ context.Context, req resource.Met
 
 // Read refreshes the Terraform state with the latest data.
 func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// Fetch these attributes, used in case of import.
-	var TimescaleVPCID int64
-	var PeerAccountID, PeerRegionCode, PeerVPCID string
-	resp.Diagnostics.Append(resp.State.GetAttribute(ctx, path.Root("timescale_vpc_id"), &TimescaleVPCID)...)
-	resp.Diagnostics.Append(resp.State.GetAttribute(ctx, path.Root("peer_account_id"), &PeerAccountID)...)
-	resp.Diagnostics.Append(resp.State.GetAttribute(ctx, path.Root("peer_region_code"), &PeerRegionCode)...)
-	resp.Diagnostics.Append(resp.State.GetAttribute(ctx, path.Root("peer_vpc_id"), &PeerVPCID)...)
-
-	// Read model
+	// Get current state
 	var state peeringConnectionResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// replace model with import attributes
-	if PeerAccountID != "" {
-		state.PeerAccountID = types.StringValue(PeerAccountID)
-	}
-	if TimescaleVPCID > 0 {
-		state.TimescaleVPCID = types.Int64Value(TimescaleVPCID)
-	}
-	if PeerRegionCode != "" {
-		state.PeerRegionCode = types.StringValue(PeerRegionCode)
-	}
-	if PeerVPCID != "" {
-		state.PeerVPCID = types.StringValue(PeerVPCID)
-	}
-	var vpc *tsClient.VPC
-	var err error
-
-	if state.TimescaleVPCID.IsNull() {
-		resp.Diagnostics.AddError(ErrPeeringConnRead, "error must provide TimescaleVpcID")
-		return
-	}
-	vpc, err = r.client.GetVPCByID(ctx, state.TimescaleVPCID.ValueInt64())
+	vpc, err := r.client.GetVPCByID(ctx, state.TimescaleVPCID.ValueInt64())
 	if err != nil {
 		resp.Diagnostics.AddError(ErrPeeringConnRead, err.Error())
 		return
@@ -124,11 +79,12 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 
 	var pcm peeringConnectionResourceModel
 	for _, pc := range vpc.PeeringConnections {
-		if state.PeerAccountID.ValueString() == pc.PeerVPC.AccountID && state.PeerRegionCode.ValueString() == pc.PeerVPC.RegionCode && state.PeerVPCID.ValueString() == pc.PeerVPC.ID {
-			peeringConnID, err := strconv.ParseInt(pc.ID, 10, 64)
-			if err != nil {
-				resp.Diagnostics.AddError("Parse Error", "could not parse peering connection ID")
-			}
+		peeringConnID, err := strconv.ParseInt(pc.ID, 10, 64)
+		if err != nil {
+			resp.Diagnostics.AddError("Parse Error", "could not parse peering connection ID")
+		}
+
+		if state.ID.ValueInt64() == peeringConnID {
 			pcm.ID = types.Int64Value(peeringConnID)
 			pcm.VpcID = types.StringValue(pc.VPCID)
 			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
@@ -137,14 +93,15 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 			pcm.PeerRegionCode = state.PeerRegionCode
 			pcm.PeerVPCID = state.PeerVPCID
 			pcm.TimescaleVPCID = state.TimescaleVPCID
-			if pc.ErrorMessage != "" {
-				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
+			pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
+			pcm.PeerCIDR = types.StringValue("deprecated")
+
+			peerCIDRBlocks, cidrDiags := types.ListValueFrom(ctx, types.StringType, pc.PeerVPC.CIDRBlocks)
+			resp.Diagnostics.Append(cidrDiags...)
+			if resp.Diagnostics.HasError() {
+				return
 			}
-			if pc.PeerVPC.CIDR != "" {
-				pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
-			} else {
-				pcm.PeerCIDR = types.StringNull()
-			}
+			pcm.PeerCIDRBlocks = peerCIDRBlocks
 		}
 	}
 
@@ -153,23 +110,6 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
 		return
 	}
-}
-
-func pcToResource(s *tsClient.PeeringConnection, state peeringConnectionResourceModel) peeringConnectionResourceModel {
-	model := peeringConnectionResourceModel{
-		ID:             state.ID,
-		PeerVPCID:      state.PeerVPCID,
-		PeerAccountID:  state.PeerAccountID,
-		PeerRegionCode: state.PeerRegionCode,
-		TimescaleVPCID: state.TimescaleVPCID,
-		VpcID:          types.StringValue(s.VPCID),
-		ProvisionedID:  types.StringValue(s.ProvisionedID),
-		Status:         types.StringValue(s.Status),
-		ErrorMessage:   types.StringValue(s.ErrorMessage),
-		PeerCIDR:       types.StringValue("deprecated"),
-	}
-
-	return model
 }
 
 func (r *peeringConnectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -192,7 +132,15 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	pcIDStr, err := r.client.OpenPeerRequest(ctx, plan.TimescaleVPCID.ValueInt64(), plan.PeerVPCID.ValueString(), plan.PeerAccountID.ValueString(), plan.PeerRegionCode.ValueString())
+	var peerCIDRBlocks []string
+	if !plan.PeerCIDRBlocks.IsNull() && !plan.PeerCIDRBlocks.IsUnknown() {
+		resp.Diagnostics.Append(plan.PeerCIDRBlocks.ElementsAs(ctx, &peerCIDRBlocks, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	pcIDStr, err := r.client.OpenPeerRequest(ctx, plan.TimescaleVPCID.ValueInt64(), plan.PeerVPCID.ValueString(), plan.PeerAccountID.ValueString(), plan.PeerRegionCode.ValueString(), peerCIDRBlocks)
 	if err != nil {
 		resp.Diagnostics.AddError(ErrPeeringConnCreate, err.Error())
 		return
@@ -210,14 +158,20 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	plan.ID = types.Int64Value(pcID)
+	plan.VpcID = types.StringValue(pc.VPCID)
 	plan.Status = types.StringValue(pc.Status)
 	plan.ErrorMessage = types.StringValue(pc.ErrorMessage)
 	plan.ProvisionedID = types.StringValue(pc.ProvisionedID)
+	plan.PeerCIDR = types.StringValue("deprecated")
 
-	model := pcToResource(pc, plan)
+	// If the API doesn't return CIDR blocks, means they will be populated asynchronously (once the peering is approved).
+	// The terraform state will be updated in future operations.
+	if len(pc.PeerVPC.CIDRBlocks) == 0 {
+		plan.PeerCIDRBlocks = types.ListNull(types.StringType)
+	}
 
 	// Set state
-	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -288,15 +242,35 @@ func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.Del
 
 func (r *peeringConnectionResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "PeeringConnectionResource.Update")
-	var plan, state peeringConnectionResourceModel
-	// Read Terraform plan data into the model
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
-	if plan != state {
-		resp.Diagnostics.AddError("Error updating Peering Connection", "Do not support peering connection updates")
+	// Retrieve values from plan
+	var plan peeringConnectionResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// Extract CIDR blocks from the plan
+	var peerCIDRBlocks []string
+	if !plan.PeerCIDRBlocks.IsNull() && !plan.PeerCIDRBlocks.IsUnknown() {
+		resp.Diagnostics.Append(plan.PeerCIDRBlocks.ElementsAs(ctx, &peerCIDRBlocks, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	if len(peerCIDRBlocks) == 0 {
+		resp.Diagnostics.AddError(ErrPeeringConnectionUpdate, "peer_cidr_blocks can not be empty")
+		return
+	}
+
+	if err := r.client.UpdatePeeringConnectionCIDRs(ctx, plan.TimescaleVPCID.ValueInt64(), plan.ID.ValueInt64(), peerCIDRBlocks); err != nil {
+		resp.Diagnostics.AddError(ErrPeeringConnectionUpdate, err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
 // Configure adds the provider configured client to the data source.
@@ -317,24 +291,7 @@ func (r *peeringConnectionResource) Configure(ctx context.Context, req resource.
 }
 
 func (r *peeringConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	idParts := strings.Split(req.ID, ",")
-
-	if len(idParts) != 4 || idParts[0] == "" || idParts[1] == "" || idParts[2] == "" || idParts[3] == "" {
-		resp.Diagnostics.AddError(
-			"Unexpected Import Identifier",
-			fmt.Sprintf("Expected import identifier with format: timescale_vpc_id,peer_account_id,peer_region_code,peer_vpc_id Got: %q", req.ID),
-		)
-		return
-	}
-
-	vpcID, err := strconv.ParseInt(idParts[0], 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Parse Error", "could not parse peering connection ID")
-	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("timescale_vpc_id"), vpcID)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("peer_account_id"), idParts[1])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("peer_region_code"), idParts[2])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("peer_vpc_id"), idParts[3])...)
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -389,9 +346,19 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"peer_cidr_blocks": schema.ListAttribute{
+				Description: "List of CIDR blocks for the VPC to be paired",
+				Optional:    true,
+				Computed:    true, // If CIDRs are not provided, we will ask the AWS SKD for them (default peer VPC CIDRs).
+				ElementType: types.StringType,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"peer_cidr": schema.StringAttribute{
-				Description: "CIDR for the VPC to be paired",
-				Computed:    true,
+				Description:        "CIDR for the VPC to be paired",
+				DeprecationMessage: "Use cidr_blocks instead. This field will be removed in a future version.",
+				Computed:           true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

@@ -64,6 +64,8 @@ var (
 	OpenPeerRequestMutation string
 	//go:embed queries/delete_peer_request.graphql
 	DeletePeeringConnectionMutation string
+	//go:embed queries/update_peering_connection_cidrs.graphql
+	UpdatePeeringConnectionCIDRsMutation string
 )
 
 type Client struct {

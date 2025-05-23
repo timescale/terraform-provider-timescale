@@ -34,10 +34,11 @@ type PeeringConnection struct {
 }
 
 type PeerVPC struct {
-	ID         string `json:"id"`
-	CIDR       string `json:"cidr"`
-	AccountID  string `json:"accountId"`
-	RegionCode string `json:"regionCode"`
+	ID         string   `json:"id"`
+	CIDRBlocks []string `json:"cidrBlocks"`
+	CIDR       string   `json:"cidr"`
+	AccountID  string   `json:"accountId"`
+	RegionCode string   `json:"regionCode"`
 }
 
 type VPCsResponse struct {
@@ -257,20 +258,28 @@ func (c *Client) DeleteVPC(ctx context.Context, vpcID int64) error {
 	return nil
 }
 
-func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID, accountID, regionCode string) (pcID string, err error) {
+func (c *Client) OpenPeerRequest(ctx context.Context, vpcID int64, externalVpcID, accountID, regionCode string, cidrBlocks []string) (pcID string, err error) {
 	tflog.Trace(ctx, "Client.OpenPeerRequest")
+
+	variables := map[string]any{
+		"projectId":     c.projectID,
+		"vpcId":         vpcID,
+		"externalVpcId": externalVpcID,
+		"accountId":     accountID,
+		"regionCode":    regionCode,
+	}
+
+	// cidrBlocks is optional for VPC peering.
+	if len(cidrBlocks) > 0 {
+		variables["cidrBlocks"] = cidrBlocks
+	}
 
 	req := map[string]interface{}{
 		"operationName": "OpenPeerRequest",
 		"query":         OpenPeerRequestMutation,
-		"variables": map[string]any{
-			"projectId":     c.projectID,
-			"vpcId":         vpcID,
-			"externalVpcId": externalVpcID,
-			"accountId":     accountID,
-			"regionCode":    regionCode,
-		},
+		"variables":     variables,
 	}
+
 	var resp Response[OpenPeerRequestResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return "", err
@@ -294,6 +303,29 @@ func (c *Client) DeletePeeringConnection(ctx context.Context, vpcID, id int64) e
 			"projectId": c.projectID,
 			"vpcId":     vpcID,
 			"id":        id,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}
+
+func (c *Client) UpdatePeeringConnectionCIDRs(ctx context.Context, vpcID, id int64, cidrBlocks []string) error {
+	tflog.Trace(ctx, "Client.UpdatePeeringConnectionCIDRs")
+
+	req := map[string]interface{}{
+		"operationName": "UpdatePeeringConnectionCIDRs",
+		"query":         UpdatePeeringConnectionCIDRsMutation,
+		"variables": map[string]any{
+			"projectId":  c.projectID,
+			"forgeVpcId": vpcID,
+			"id":         id,
+			"cidrBlocks": cidrBlocks,
 		},
 	}
 	var resp Response[any]

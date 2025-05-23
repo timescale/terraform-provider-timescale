@@ -45,6 +45,7 @@ Read-Only:
 - `error_message` (String)
 - `peer_account_id` (String)
 - `peer_cidr` (String)
+- `peer_cidr_blocks` (List of String)
 - `peer_region_code` (String)
 - `peer_vpc_id` (String)
 - `provisioned_id` (String)

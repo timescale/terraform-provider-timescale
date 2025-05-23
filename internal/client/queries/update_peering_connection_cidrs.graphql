@@ -1,0 +1,15 @@
+mutation UpdatePeeringConnectionCIDRs(
+    $projectId: ID!
+    $forgeVpcId: ID!
+    $id: ID!
+    $cidrBlocks: [String!]!
+) {
+    updatePeeringConnectionCIDRs(
+        data: {
+            projectId: $projectId
+            forgeVpcId: $forgeVpcId
+            id: $id
+            cidrBlocks: $cidrBlocks
+        }
+    )
+}

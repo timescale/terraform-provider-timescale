@@ -1,4 +1,13 @@
-## 2.0.0 (May 30, 2025)
+## 2.1.0 (May 26, 2025)
+
+DEPRECATED:
+- Deprecate unused cidr field from Peering Connection.
+
+FEATURES:
+- Add cidr_blocks support to Peering Connection.
+
+
+## 2.0.0 (May 19, 2025)
 
 This major version increase is primarily due to substantial internal refactoring and architectural improvements.
 

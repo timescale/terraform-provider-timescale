@@ -22,11 +22,15 @@ Schema for a peering connection. Import can be done with timescale_vpc_id,peer_a
 - `peer_vpc_id` (String) AWS ID for the VPC to be paired
 - `timescale_vpc_id` (Number) Timescale internal ID for a vpc
 
+### Optional
+
+- `peer_cidr_blocks` (List of String) List of CIDR blocks for the VPC to be paired
+
 ### Read-Only
 
 - `error_message` (String)
 - `id` (Number) Timescale internal ID for a peering connection
-- `peer_cidr` (String) CIDR for the VPC to be paired
+- `peer_cidr` (String, Deprecated) CIDR for the VPC to be paired
 - `provisioned_id` (String) AWS ID of the peering connection (starts with pcx-...)
 - `status` (String) Peering connection status
 - `vpc_id` (String) AWS VPC ID of the timescale instance VPC

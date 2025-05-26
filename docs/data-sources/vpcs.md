@@ -43,6 +43,7 @@ Read-Only:
 Read-Only:
 
 - `error_message` (String)
+- `id` (Number)
 - `peer_account_id` (String)
 - `peer_cidr` (String)
 - `peer_cidr_blocks` (List of String)

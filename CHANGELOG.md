@@ -1,10 +1,12 @@
-## 2.1.0 (May 26, 2025)
+## 2.1.0 (May 27, 2025)
 
 DEPRECATED:
-- Deprecate unused cidr field from Peering Connection.
+- Deprecate the unused peer_cidr field from the peering connection.
 
 FEATURES:
-- Add cidr_blocks support to Peering Connection.
+- Add cidr_blocks support for peering connection resource.
+- Populate peering connection ID in all resources and data sources.
+- Peering connection import now is done using `peering_connection_id,timescale_vpc_id` format.
 
 
 ## 2.0.0 (May 19, 2025)

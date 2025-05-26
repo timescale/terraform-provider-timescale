@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -63,6 +64,7 @@ func (r *peeringConnectionResource) Metadata(_ context.Context, req resource.Met
 
 // Read refreshes the Terraform state with the latest data.
 func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	tflog.Trace(ctx, "PeeringConnectionResource.Read")
 	// Get current state
 	var state peeringConnectionResourceModel
 	diags := req.State.Get(ctx, &state)
@@ -113,7 +115,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 }
 
 func (r *peeringConnectionResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	tflog.Trace(ctx, "VpcResource.Create")
+	tflog.Trace(ctx, "PeeringConnectionResource.Create")
 	var plan peeringConnectionResourceModel
 
 	// Read Terraform plan data into the model
@@ -178,7 +180,7 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 }
 
 func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcID int64, pcID int64) (*tsClient.PeeringConnection, error) {
-	tflog.Trace(ctx, "VpcResource.waitForPCReadiness")
+	tflog.Trace(ctx, "PeeringConnectionResource.waitForPCReadiness")
 
 	conf := retry.StateChangeConf{
 		Target:                    []string{"PENDING"},
@@ -291,12 +293,35 @@ func (r *peeringConnectionResource) Configure(ctx context.Context, req resource.
 }
 
 func (r *peeringConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	idParts := strings.Split(req.ID, ",")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: peering_connection_id,timescale_vpc_id. Got: %q", req.ID),
+		)
+		return
+	}
+
+	pcID, err := strconv.ParseInt(idParts[0], 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Convert pcID", err.Error())
+		return
+	}
+
+	vpcID, err := strconv.ParseInt(idParts[1], 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Convert vpcID", err.Error())
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), pcID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("timescale_vpc_id"), vpcID)...)
 }
 
 func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: `Schema for a peering connection. Import can be done with timescale_vpc_id,peer_account_id,peer_region_code,peer_vpc_id format`,
+		Description: "Schema for a peering connection. Import can be done with `peering_connection_id,timescale_vpc_id` format. Both internal IDs can be retrieved using the timescale_vpcs datasource.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Description: "Timescale internal ID for a peering connection",

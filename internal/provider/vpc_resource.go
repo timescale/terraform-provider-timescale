@@ -63,6 +63,7 @@ func (r *vpcResource) Metadata(_ context.Context, req resource.MetadataRequest, 
 
 // Read refreshes the Terraform state with the latest data.
 func (r *vpcResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	tflog.Trace(ctx, "VpcResource.Read")
 	var state vpcResourceModel
 
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)

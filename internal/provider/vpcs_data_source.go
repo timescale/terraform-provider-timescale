@@ -52,6 +52,7 @@ type vpcDSModel struct {
 }
 
 type peeringConnectionDSModel struct {
+	ID             types.Int64  `tfsdk:"id"`
 	VpcID          types.String `tfsdk:"vpc_id"`
 	ProvisionedID  types.String `tfsdk:"provisioned_id"`
 	Status         types.String `tfsdk:"status"`
@@ -106,6 +107,13 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			if pc.ErrorMessage != "" {
 				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
+
+			pcID, err := strconv.ParseInt(pc.ID, 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddError("Unable to convert pc ID", err.Error())
+				return
+			}
+			pcm.ID = types.Int64Value(pcID)
 			pcm.VpcID = types.StringValue(pc.VPCID)
 			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
@@ -190,6 +198,7 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 							ElementType: types.ObjectType{
 								AttrTypes: map[string]attr.Type{
+									"id":               types.Int64Type,
 									"vpc_id":           types.StringType,
 									"provisioned_id":   types.StringType,
 									"status":           types.StringType,

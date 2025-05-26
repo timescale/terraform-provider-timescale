@@ -3,12 +3,12 @@
 page_title: "timescale_peering_connection Resource - timescale"
 subcategory: ""
 description: |-
-  Schema for a peering connection. Import can be done with timescale_vpc_id,peer_account_id,peer_region_code,peer_vpc_id format
+  Schema for a peering connection. Import can be done with peering_connection_id,timescale_vpc_id format. Both internal IDs can be retrieved using the timescale_vpcs datasource.
 ---
 
 # timescale_peering_connection (Resource)
 
-Schema for a peering connection. Import can be done with timescale_vpc_id,peer_account_id,peer_region_code,peer_vpc_id format
+Schema for a peering connection. Import can be done with `peering_connection_id,timescale_vpc_id` format. Both internal IDs can be retrieved using the timescale_vpcs datasource.
 
 
 

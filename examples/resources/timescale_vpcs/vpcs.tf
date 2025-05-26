@@ -50,6 +50,7 @@ resource "timescale_peering_connection" "peer" {
   peer_account_id  = "000000000000"
   peer_region_code = "eu-central-1"
   peer_vpc_id      = aws_vpc.main.id
+  peer_cidr_blocks = ["14.0.0.0/24", "14.1.0.0/24"] # Optional. If not set, it will use all the CIDRs of the peered vpc.
   timescale_vpc_id = timescale_vpcs.ts-test.id
 }
 

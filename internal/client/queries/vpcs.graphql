@@ -16,6 +16,7 @@
           accountId
           regionCode
           cidr
+          cidrBlocks
         }
         errorMessage
         status

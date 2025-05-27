@@ -23,9 +23,14 @@ func TestPeeringConnResource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "timescale_vpc_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpc_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "status"),
+					resource.TestCheckResourceAttrSet(resourceName, "provisioned_id"),
 					resource.TestCheckResourceAttr(resourceName, "peer_account_id", "000000000000"),
 					resource.TestCheckResourceAttr(resourceName, "peer_region_code", "us-west-2"),
 					resource.TestCheckResourceAttr(resourceName, "peer_vpc_id", "vpc-12345678"),
+					resource.TestCheckResourceAttr(resourceName, "peer_cidr", "deprecated"),
+					resource.TestCheckResourceAttr(resourceName, "peer_cidr_blocks.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "peer_cidr_blocks.0", "10.1.0.0/16"),
+					resource.TestCheckResourceAttr(resourceName, "peer_cidr_blocks.1", "10.2.0.0/16"),
 				),
 			},
 		},
@@ -45,6 +50,7 @@ resource "timescale_peering_connection" "test" {
   peer_account_id  = "000000000000"
   peer_region_code = "us-west-2"
   peer_vpc_id      = "vpc-12345678"
+  peer_cidr_blocks = ["10.1.0.0/16", "10.2.0.0/16"]
 }
 `, vpcName)
 }

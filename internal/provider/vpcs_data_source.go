@@ -24,21 +24,6 @@ func NewVpcsDataSource() datasource.DataSource {
 	return &vpcsDataSource{}
 }
 
-var (
-	PeeringConnectionsDSType = types.ObjectType{
-		AttrTypes: map[string]attr.Type{
-			"vpc_id":           types.StringType,
-			"provisioned_id":   types.StringType,
-			"status":           types.StringType,
-			"error_message":    types.StringType,
-			"peer_vpc_id":      types.StringType,
-			"peer_cidr":        types.StringType,
-			"peer_account_id":  types.StringType,
-			"peer_region_code": types.StringType,
-		},
-	}
-)
-
 // vpcsDataSource is the data source implementation.
 type vpcsDataSource struct {
 	client *tsClient.Client
@@ -67,11 +52,13 @@ type vpcDSModel struct {
 }
 
 type peeringConnectionDSModel struct {
+	ID             types.Int64  `tfsdk:"id"`
 	VpcID          types.String `tfsdk:"vpc_id"`
 	ProvisionedID  types.String `tfsdk:"provisioned_id"`
 	Status         types.String `tfsdk:"status"`
 	ErrorMessage   types.String `tfsdk:"error_message"`
 	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
+	PeerCIDRBlocks types.List   `tfsdk:"peer_cidr_blocks"`
 	PeerCIDR       types.String `tfsdk:"peer_cidr"`
 	PeerAccountID  types.String `tfsdk:"peer_account_id"`
 	PeerRegionCode types.String `tfsdk:"peer_region_code"`
@@ -120,11 +107,26 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			if pc.ErrorMessage != "" {
 				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
+
+			pcID, err := strconv.ParseInt(pc.ID, 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddError("Unable to convert pc ID", err.Error())
+				return
+			}
+			pcm.ID = types.Int64Value(pcID)
 			pcm.VpcID = types.StringValue(pc.VPCID)
 			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
 			pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
+
+			peerCIDRBlocks, cidrDiags := types.ListValueFrom(ctx, types.StringType, pc.PeerVPC.CIDRBlocks)
+			resp.Diagnostics.Append(cidrDiags...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+			pcm.PeerCIDRBlocks = peerCIDRBlocks
+
 			pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
 			pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
 			pcms = append(pcms, pcm)
@@ -196,11 +198,13 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 							ElementType: types.ObjectType{
 								AttrTypes: map[string]attr.Type{
+									"id":               types.Int64Type,
 									"vpc_id":           types.StringType,
 									"provisioned_id":   types.StringType,
 									"status":           types.StringType,
 									"error_message":    types.StringType,
 									"peer_vpc_id":      types.StringType,
+									"peer_cidr_blocks": types.ListType{ElemType: types.StringType},
 									"peer_cidr":        types.StringType,
 									"peer_account_id":  types.StringType,
 									"peer_region_code": types.StringType,

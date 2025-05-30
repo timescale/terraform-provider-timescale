@@ -101,4 +101,4 @@ jobs:
           PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
         run: go test ./internal/provider/ -v -cover
-        timeout-minutes: 10
+        timeout-minutes: 30

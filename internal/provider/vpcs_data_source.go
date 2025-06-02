@@ -132,6 +132,7 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 					return
 				}
 			}
+
 			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
 
 			peerCIDRBlocks, cidrDiags := types.ListValueFrom(ctx, types.StringType, pc.PeerVPC.CIDRBlocks)

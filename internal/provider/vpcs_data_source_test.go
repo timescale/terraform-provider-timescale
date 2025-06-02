@@ -8,36 +8,38 @@ import (
 )
 
 func TestVPCDataSourceWithVPCPeering(t *testing.T) {
+	resourceName := "data.timescale_vpcs.data_source"
 	vpcName := fmt.Sprintf("test-vpc-for-data-source-%s", acctest.RandString(8))
 
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: providerConfig + testAccVPCDataSourceConfigWithVPCPeering(vpcName, peerAccountID, peerRegion, peerVPCID),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.provisioned_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.project_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.cidr"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.name"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.region_code"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.status"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.created"),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.project_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.cidr"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.region_code"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.status"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.created"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.name", vpcName),
 
 					// Check all peering connection fields
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.vpc_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.provisioned_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.status"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_region_code", peerRegion),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_vpc_id", peerVPCID),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peering_type", "vpc"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.#", "2"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.0", "10.1.0.0/16"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.1", "10.2.0.0/16"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.vpc_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.status"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_region_code", peerRegion),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_vpc_id", peerVPCID),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peering_type", "vpc"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.0", "10.1.0.0/16"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.1", "10.2.0.0/16"),
 				),
 			},
 		},
@@ -70,36 +72,38 @@ data "timescale_vpcs" "data_source" {
 }
 
 func TestVPCDataSourceWithTGWPeering(t *testing.T) {
+	resourceName := "data.timescale_vpcs.data_source"
 	vpcName := fmt.Sprintf("test-vpc-for-data-source-%s", acctest.RandString(8))
 
-	resource.ParallelTest(t, resource.TestCase{
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
 				Config: providerConfig + testAccVPCDataSourceConfigWithTGWPeering(vpcName, peerAccountID, peerRegion, peerTGWID),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.provisioned_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.project_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.cidr"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.name"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.region_code"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.status"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.created"),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.project_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.cidr"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.region_code"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.status"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.created"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.name", vpcName),
 
 					// Check all peering connection fields
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.vpc_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.provisioned_id"),
-					resource.TestCheckResourceAttrSet("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.status"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_region_code", peerRegion),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_tgw_id", peerTGWID),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peering_type", "tgw"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.#", "2"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.0", "10.1.0.0/16"),
-					resource.TestCheckResourceAttr("data.timescale_vpcs.data_source", "vpcs.0.peering_connections.0.peer_cidr_blocks.1", "10.2.0.0/16"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.vpc_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.status"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_region_code", peerRegion),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_tgw_id", peerTGWID),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peering_type", "tgw"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.#", "2"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.0", "10.1.0.0/16"),
+					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_cidr_blocks.1", "10.2.0.0/16"),
 				),
 			},
 		},

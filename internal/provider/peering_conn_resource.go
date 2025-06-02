@@ -108,7 +108,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 				tflog.Debug(ctx, "PeerVPC fields", map[string]interface{}{
 					"ID": pc.PeerVPC.ID,
 				})
-			
+
 				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
 					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("vpc")

@@ -105,16 +105,15 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 			pcm.Status = types.StringValue(pc.Status)
 			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			if pc.PeerVPC.ID != "" {
-				tflog.Debug(ctx, "PeerVPC fields", map[string]interface{}{
-					"ID": pc.PeerVPC.ID,
-				})
-
 				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
 					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("vpc")
-				} else {
+				} else if strings.HasPrefix(pc.PeerVPC.ID, "tgw-") {
 					pcm.PeerTGWID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("tgw")
+				} else {
+					resp.Diagnostics.AddError("Peering type error", "Received an invalid peering provisioned ID: "+pc.PeerVPC.ID)
+					return
 				}
 			}
 			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)

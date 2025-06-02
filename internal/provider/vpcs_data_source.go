@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 	"strconv"
 	"strings"
@@ -121,6 +122,10 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			pcm.Status = types.StringValue(pc.Status)
 			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
 			if pc.PeerVPC.ID != "" {
+				tflog.Debug(ctx, "PeerVPC fields", map[string]interface{}{
+					"ID": pc.PeerVPC.ID,
+				})
+
 				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
 					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("vpc")

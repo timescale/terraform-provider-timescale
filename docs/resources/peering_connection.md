@@ -88,16 +88,16 @@ resource "aws_vpc_peering_connection_accepter" "vpc_peer" {
   auto_accept               = true
 }
 
+# ========================================
+# Transit Gateway Peering Example
+# ========================================
+
 # Wait for VPC peering to be fully established before creating TGW peering
 resource "time_sleep" "wait_for_vpc_peering" {
   depends_on = [aws_vpc_peering_connection_accepter.vpc_peer]
 
-  create_duration = "30s"
+  create_duration = "120s"
 }
-
-# ========================================
-# Transit Gateway Peering Example
-# ========================================
 
 # Create a test Transit Gateway in eu-central-1
 resource "aws_ec2_transit_gateway" "tgw" {
@@ -124,7 +124,7 @@ resource "timescale_peering_connection" "tgw_peer" {
 resource "time_sleep" "wait_for_tgw_attachment" {
   depends_on = [timescale_peering_connection.tgw_peer]
 
-  create_duration = "60s"
+  create_duration = "120s"
 }
 
 # Accept the Transit Gateway attachment

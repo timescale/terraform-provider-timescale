@@ -1,4 +1,4 @@
-## 2.2.0 (June 3, 2025)
+## 2.2.0 (June 4, 2025)
 
 FEATURES:
 - Add Transit Gateway peering support

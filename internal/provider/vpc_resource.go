@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -229,54 +228,6 @@ func (r *vpcResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 		)
 		return
 	}
-
-	// VPC Deletion is an async operation, and we need to ensure that it has been completed.
-	// Otherwise, we would leave an inconsistent state if the deletion fails.
-	err = r.waitForVPCDeletion(ctx, state.ID.ValueInt64())
-	if err != nil {
-		resp.Diagnostics.AddError("Delete VPC error", "error waiting for VPC deletion: "+err.Error())
-		return
-	}
-}
-
-// waitForVPCDeletion polls the API until the VPC doesn't exist anymore.
-func (r *vpcResource) waitForVPCDeletion(ctx context.Context, vpcID int64) error {
-	tflog.Trace(ctx, "VpcsResource.waitForVPCDeletion", map[string]interface{}{
-		"vpcID": vpcID,
-	})
-
-	conf := &retry.StateChangeConf{
-		Pending:                   []string{"CREATED", "CREATING", "DELETING"},
-		Target:                    []string{"DELETED"},
-		Delay:                     10 * time.Second,
-		Timeout:                   10 * time.Minute,
-		PollInterval:              15 * time.Second,
-		ContinuousTargetOccurence: 1,
-		Refresh: func() (result interface{}, state string, err error) {
-			tflog.Debug(ctx, "Polling VPC status for deletion", map[string]interface{}{"vpcID": vpcID})
-
-			vpc, err := r.client.GetVPCByID(ctx, vpcID)
-			if err != nil {
-				if errors.Is(err, tsClient.ErrVPCNotFound) {
-					tflog.Info(ctx, "VPC not found, assuming deleted.", map[string]interface{}{"vpcID": vpcID})
-					return true, "DELETED", nil
-				}
-				tflog.Error(ctx, "Error polling VPC status during deletion wait", map[string]interface{}{"vpcID": vpcID, "error": err.Error()})
-				return nil, "", err
-			}
-
-			tflog.Debug(ctx, "VPC still exists", map[string]interface{}{"vpcID": vpcID, "status": vpc.Status})
-			return vpc, vpc.Status, nil
-		},
-	}
-
-	_, err := conf.WaitForStateContext(ctx)
-	if err != nil {
-		return fmt.Errorf("error waiting for VPC %d to be deleted: %w", vpcID, err)
-	}
-
-	tflog.Info(ctx, "VPC deletion confirmed", map[string]interface{}{"vpcID": vpcID})
-	return nil
 }
 
 // Update updates a VPC shell.
@@ -424,5 +375,3 @@ func timeoutSchema(ctx context.Context, opts timeouts.Opts) schema.SingleNestedA
 	)
 	return timeout
 }
-
-// Trigger 4

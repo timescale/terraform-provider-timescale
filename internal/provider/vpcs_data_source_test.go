@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"testing"
+	"time"
 )
 
 func TestVPCDataSourceWithVPCPeering(t *testing.T) {
@@ -80,6 +81,10 @@ func TestVPCDataSourceWithTGWPeering(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
+				PreConfig: func() {
+					// Workaround to give the previous test's VPC to completely delete (async).
+					time.Sleep(30 * time.Second)
+				},
 				Config: providerConfig + testAccVPCDataSourceConfigWithTGWPeering(vpcName, peerAccountID, peerRegion, peerTGWID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

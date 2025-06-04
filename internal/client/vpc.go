@@ -109,6 +109,8 @@ func (c *Client) GetVPCByName(ctx context.Context, name string) (*VPC, error) {
 	return resp.Data.VPC, nil
 }
 
+var ErrVPCNotFound = errors.New("no vpc found")
+
 func (c *Client) GetVPCByID(ctx context.Context, vpcID int64) (*VPC, error) {
 	tflog.Trace(ctx, "Client.GetVPCByID")
 	req := map[string]interface{}{
@@ -123,10 +125,13 @@ func (c *Client) GetVPCByID(ctx context.Context, vpcID int64) (*VPC, error) {
 		return nil, err
 	}
 	if len(resp.Errors) > 0 {
+		if resp.Errors[0].Message == "target VPC does not exist" {
+			return nil, ErrVPCNotFound
+		}
 		return nil, resp.Errors[0]
 	}
 	if resp.Data == nil {
-		return nil, errors.New("no vpc found")
+		return nil, ErrVPCNotFound
 	}
 	return resp.Data.VPC, nil
 }

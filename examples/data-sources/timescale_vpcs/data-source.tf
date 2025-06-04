@@ -2,7 +2,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.0"
+      version = "~> 2.2"
     }
   }
 }
@@ -27,9 +27,9 @@ provider "timescale" {
 }
 
 
-data "timescale_products" "products" {
+data "timescale_vpcs" "vpcs" {
 }
 
-output "products_list" {
-  value = data.timescale_products.products
+output "vpcs_list" {
+  value = data.timescale_vpcs.vpcs
 }

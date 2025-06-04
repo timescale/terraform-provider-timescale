@@ -3,14 +3,13 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
+	"strconv"
+	"strings"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -58,10 +57,13 @@ type peeringConnectionDSModel struct {
 	Status         types.String `tfsdk:"status"`
 	ErrorMessage   types.String `tfsdk:"error_message"`
 	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
+	PeerTGWID      types.String `tfsdk:"peer_tgw_id"`
 	PeerCIDRBlocks types.List   `tfsdk:"peer_cidr_blocks"`
 	PeerCIDR       types.String `tfsdk:"peer_cidr"`
 	PeerAccountID  types.String `tfsdk:"peer_account_id"`
 	PeerRegionCode types.String `tfsdk:"peer_region_code"`
+	TimescaleVPCID types.Int64  `tfsdk:"timescale_vpc_id"`
+	PeeringType    types.String `tfsdk:"peering_type"`
 }
 
 // Metadata returns the data source type name.
@@ -103,21 +105,34 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 
 		var pcms []peeringConnectionDSModel
 		for _, pc := range vpc.PeeringConnections {
+			pcID, err := strconv.ParseInt(pc.ID, 10, 64)
+			if err != nil {
+				resp.Diagnostics.AddError("Parse Error", "could not parse peering connection ID")
+				return
+			}
+
 			var pcm peeringConnectionDSModel
 			if pc.ErrorMessage != "" {
 				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
 
-			pcID, err := strconv.ParseInt(pc.ID, 10, 64)
-			if err != nil {
-				resp.Diagnostics.AddError("Unable to convert pc ID", err.Error())
-				return
-			}
 			pcm.ID = types.Int64Value(pcID)
-			pcm.VpcID = types.StringValue(pc.VPCID)
-			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
+			pcm.VpcID = types.StringValue(vpc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
-			pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
+			pcm.ProvisionedID = types.StringValue(pc.ProvisionedID)
+			if pc.PeerVPC.ID != "" {
+				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
+					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
+					pcm.PeeringType = types.StringValue("vpc")
+				} else if strings.HasPrefix(pc.PeerVPC.ID, "tgw-") {
+					pcm.PeerTGWID = types.StringValue(pc.PeerVPC.ID)
+					pcm.PeeringType = types.StringValue("tgw")
+				} else {
+					resp.Diagnostics.AddError("Peering type error", "Received an invalid peering provisioned ID: "+pc.PeerVPC.ID)
+					return
+				}
+			}
+
 			pcm.PeerAccountID = types.StringValue(pc.PeerVPC.AccountID)
 
 			peerCIDRBlocks, cidrDiags := types.ListValueFrom(ctx, types.StringType, pc.PeerVPC.CIDRBlocks)
@@ -127,8 +142,9 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 			}
 			pcm.PeerCIDRBlocks = peerCIDRBlocks
 
-			pcm.PeerCIDR = types.StringValue(pc.PeerVPC.CIDR)
 			pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
+			pcm.TimescaleVPCID = types.Int64Value(vpcID)
+			pcm.PeerCIDR = types.StringValue("deprecated")
 			pcms = append(pcms, pcm)
 		}
 		vpcState.PeeringConnections = pcms
@@ -204,10 +220,13 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 									"status":           types.StringType,
 									"error_message":    types.StringType,
 									"peer_vpc_id":      types.StringType,
+									"peer_tgw_id":      types.StringType,
 									"peer_cidr_blocks": types.ListType{ElemType: types.StringType},
 									"peer_cidr":        types.StringType,
 									"peer_account_id":  types.StringType,
 									"peer_region_code": types.StringType,
+									"timescale_vpc_id": types.Int64Type,
+									"peering_type":     types.StringType,
 								},
 							},
 						},

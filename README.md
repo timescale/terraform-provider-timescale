@@ -72,8 +72,9 @@ export TF_VAR_ts_project_id=<project_id>
 export TF_VAR_ts_access_key=<access_key>
 export TF_VAR_ts_secret_key=<secret_key>
 export PEER_ACCOUNT_ID=<peer_account_id>
-export PEER_VPC_ID=<peer_vpc_id>
 export PEER_REGION=<peer_region>
+export PEER_VPC_ID=<peer_vpc_id>
+export PEER_TGW_ID=<peer_tgw_id>
 export TIMESCALE_DEV_URL=<api_url> # Optional: to use different environment
 ```
 

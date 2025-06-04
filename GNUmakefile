@@ -16,7 +16,7 @@ fmt:
 	gofmt -s -w -e .
 
 test:
-	go test -v -cover -timeout=120s -parallel=10 ./...
+	go test -v -cover -timeout=30m -parallel=10 ./...
 
 sweep:
 	@echo "WARNING: This will destroy infrastructure. Use only in development accounts."

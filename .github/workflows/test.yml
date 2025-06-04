@@ -61,7 +61,7 @@ jobs:
     name: Terraform Provider Acceptance Tests
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -87,9 +87,9 @@ jobs:
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
           PEER_ACCOUNT_ID: ${{ secrets.PEER_ACCOUNT_ID }}
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
+          PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
-        run: go test ./internal/provider/ -v -sweep=all
-        timeout-minutes: 30
+        run: go test ./internal/provider/ -v -timeout=30m -sweep=all
       - env:
           TF_ACC: "1"
           TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
@@ -97,6 +97,6 @@ jobs:
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}
           PEER_ACCOUNT_ID: ${{ secrets.PEER_ACCOUNT_ID }}
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
+          PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
-        run: go test ./internal/provider/ -v -cover
-        timeout-minutes: 10
+        run: go test ./internal/provider/ -v -cover -timeout=30m

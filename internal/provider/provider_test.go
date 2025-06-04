@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"log"
 	"os"
 	"testing"
 
@@ -40,6 +41,33 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"timescale": providerserver.NewProtocol6WithError(New("test")()),
 }
 
+var (
+	peerAccountID string
+	peerVPCID     string
+	peerTGWID     string
+	peerRegion    string
+)
+
+func init() {
+	var ok bool
+	peerAccountID, ok = os.LookupEnv("PEER_ACCOUNT_ID")
+	if !ok {
+		log.Fatal("environment variable PEER_ACCOUNT_ID not set")
+	}
+	peerVPCID, ok = os.LookupEnv("PEER_VPC_ID")
+	if !ok {
+		log.Fatal("environment variable PEER_VPC_ID not set")
+	}
+	peerTGWID, ok = os.LookupEnv("PEER_TGW_ID")
+	if !ok {
+		log.Fatal("environment variable PEER_TGW_ID not set")
+	}
+	peerRegion, ok = os.LookupEnv("PEER_REGION")
+	if !ok {
+		log.Fatal("environment variable PEER_REGION not set")
+	}
+}
+
 func testAccPreCheck(t *testing.T) {
 	_, ok := os.LookupEnv("TF_VAR_ts_access_key")
 	if !ok {
@@ -52,17 +80,5 @@ func testAccPreCheck(t *testing.T) {
 	_, ok = os.LookupEnv("TF_VAR_ts_project_id")
 	if !ok {
 		t.Fatal("environment variable TF_VAR_ts_project_id not set")
-	}
-	_, ok = os.LookupEnv("PEER_ACCOUNT_ID")
-	if !ok {
-		t.Fatal("environment variable PEER_ACCOUNT_ID not set")
-	}
-	_, ok = os.LookupEnv("PEER_VPC_ID")
-	if !ok {
-		t.Fatal("environment variable PEER_VPC_ID not set")
-	}
-	_, ok = os.LookupEnv("PEER_REGION")
-	if !ok {
-		t.Fatal("environment variable PEER_REGION not set")
 	}
 }

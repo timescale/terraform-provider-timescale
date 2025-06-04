@@ -406,9 +406,10 @@ func (r *serviceResource) waitForServiceReadiness(ctx context.Context, id string
 	conf := retry.StateChangeConf{
 		Pending:                   []string{"QUEUED", "CONFIGURING", "UNSTABLE", "PAUSING", "RESUMING"},
 		Target:                    []string{"READY", "PAUSED"},
-		Delay:                     10 * time.Second,
+		Delay:                     30 * time.Second,
 		Timeout:                   timeout,
-		PollInterval:              5 * time.Second,
+		PollInterval:              15 * time.Second,
+		NotFoundChecks:            40,
 		ContinuousTargetOccurence: 1,
 		Refresh: func() (result interface{}, state string, err error) {
 			s, err := r.client.GetService(ctx, id)

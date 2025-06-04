@@ -186,6 +186,7 @@ func (r *vpcResource) waitForVPCReadiness(ctx context.Context, id int64, timeout
 		Delay:                     5 * time.Second,
 		Timeout:                   timeout,
 		PollInterval:              5 * time.Second,
+		NotFoundChecks:            40,
 		ContinuousTargetOccurence: 1,
 		Refresh: func() (result interface{}, state string, err error) {
 			vpc, err := r.client.GetVPCByID(ctx, id)

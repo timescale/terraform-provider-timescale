@@ -30,7 +30,7 @@ variable "ts_secret_key" {
 }
 
 resource "timescale_metrics_exporter" "my_datadog_exporter" {
-  name   = "Datadog Exporter"
+  name   = "Datadog Exporter from TF"
   region = "us-east-1"
 
   datadog = {

@@ -66,6 +66,10 @@ var (
 	DeletePeeringConnectionMutation string
 	//go:embed queries/update_peering_connection_cidrs.graphql
 	UpdatePeeringConnectionCIDRsMutation string
+
+	// Exporters
+	//go:embed queries/create_metrics_exporter.graphql
+	CreateMetricExporterMutation string
 )
 
 type Client struct {

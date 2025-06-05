@@ -29,7 +29,7 @@ variable "ts_secret_key" {
   sensitive = true
 }
 
-resource "timescale_metrics_exporter" "my_datadog_exporter" {
+resource "timescale_metric_exporter" "my_datadog_exporter" {
   name   = "Datadog Exporter from TF"
   region = "us-east-1"
 
@@ -39,7 +39,7 @@ resource "timescale_metrics_exporter" "my_datadog_exporter" {
   }
 }
 
-# resource "timescale_metrics_exporter" "my_prometheus_exporter" {
+# resource "timescale_metric_exporter" "my_prometheus_exporter" {
 #   name   = "Prometheus Exporter"
 #   region = "us-east-1"
 #
@@ -49,7 +49,7 @@ resource "timescale_metrics_exporter" "my_datadog_exporter" {
 #   }
 # }
 #
-# resource "timescale_metrics_exporter" "my_cloudwatch_exporter_with_role" {
+# resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_role" {
 #   name   = "CloudWatch Exporter via IAM Role"
 #   region = "us-east-1"
 #
@@ -62,7 +62,7 @@ resource "timescale_metrics_exporter" "my_datadog_exporter" {
 #   }
 # }
 #
-# resource "timescale_metrics_exporter" "my_cloudwatch_exporter_with_keys" {
+# resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_keys" {
 #   name   = "CloudWatch Exporter via Static Keys"
 #   region = "us-east-1"
 #

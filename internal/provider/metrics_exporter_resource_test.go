@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-func TestAccMetricsExporterResource_validations(t *testing.T) {
+func TestAccMetricExporterResource_validations(t *testing.T) {
 	testCases := []struct {
 		name        string
 		config      string
@@ -17,7 +17,7 @@ func TestAccMetricsExporterResource_validations(t *testing.T) {
 		{
 			name: "MissingExporterConfiguration",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "missing-exporter"
   region = "us-east-1"
   # No datadog, prometheus, or cloudwatch block
@@ -30,7 +30,7 @@ resource "timescale_metrics_exporter" "test" {
 		{
 			name: "ConflictingExporterTypes",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "conflicting-exporter"
   region = "us-east-1"
 
@@ -51,7 +51,7 @@ resource "timescale_metrics_exporter" "test" {
 		{
 			name: "CloudWatch_ConflictingAuthentication",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "cw-conflicting-auth"
   region = "eu-central-1"
 
@@ -71,7 +71,7 @@ resource "timescale_metrics_exporter" "test" {
 		{
 			name: "CloudWatch_IncompleteKeyAuth_AccessOnly",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "cw-incomplete-key-access"
   region = "ap-southeast-1"
 
@@ -89,7 +89,7 @@ resource "timescale_metrics_exporter" "test" {
 		{
 			name: "CloudWatch_IncompleteKeyAuth_SecretOnly",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "cw-incomplete-key-secret"
   region = "ca-central-1"
 
@@ -107,7 +107,7 @@ resource "timescale_metrics_exporter" "test" {
 		{
 			name: "CloudWatch_MissingAuthMethod",
 			config: `
-resource "timescale_metrics_exporter" "test" {
+resource "timescale_metric_exporter" "test" {
   name   = "cw-missing-auth"
   region = "sa-east-1"
 

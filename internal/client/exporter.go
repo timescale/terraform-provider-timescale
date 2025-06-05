@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-type DatadogMetricsExporter struct {
+type DatadogMetricExporter struct {
 	ID           string        `json:"id"`
 	ExporterUUID string        `json:"exporterUuid"`
 	ProjectID    string        `json:"projectId"`
@@ -22,16 +22,16 @@ type DatadogConfig struct {
 	Site   string `json:"site"`
 }
 
-type CreateDatadogMetricsExporterResponse struct {
-	DatadogMetricsExporter *DatadogMetricsExporter `json:"createMetricExporter"`
+type CreateDatadogMetricExporterResponse struct {
+	DatadogMetricExporter *DatadogMetricExporter `json:"createMetricExporter"`
 }
 
 type DatadogExporter struct {
 	ID string `json:"id"`
 }
 
-func (c *Client) CreateDatadogMetricsExporter(ctx context.Context, name, region, apiKey, site string) (*DatadogMetricsExporter, error) {
-	tflog.Trace(ctx, "Client.CreateDatadogMetricsExporter")
+func (c *Client) CreateDatadogMetricExporter(ctx context.Context, name, region, apiKey, site string) (*DatadogMetricExporter, error) {
+	tflog.Trace(ctx, "Client.CreateDatadogMetricExporter")
 
 	req := map[string]interface{}{
 		"operationName": "CreateMetricExporter",
@@ -49,7 +49,7 @@ func (c *Client) CreateDatadogMetricsExporter(ctx context.Context, name, region,
 		},
 	}
 
-	var resp Response[CreateDatadogMetricsExporterResponse]
+	var resp Response[CreateDatadogMetricExporterResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return nil, fmt.Errorf("error doing the request: %w", err)
 	}
@@ -59,5 +59,5 @@ func (c *Client) CreateDatadogMetricsExporter(ctx context.Context, name, region,
 	if resp.Data == nil {
 		return nil, errors.New("no response found")
 	}
-	return resp.Data.DatadogMetricsExporter, nil
+	return resp.Data.DatadogMetricExporter, nil
 }

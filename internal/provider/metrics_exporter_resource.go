@@ -20,8 +20,8 @@ var (
 	_ resource.ResourceWithConfigure = &metricExporterResource{}
 )
 
-// NewMetricsExporterResource is a helper function to simplify the provider implementation.
-func NewMetricsExporterResource() resource.Resource {
+// NewMetricExporterResource is a helper function to simplify the provider implementation.
+func NewMetricExporterResource() resource.Resource {
 	return &metricExporterResource{}
 }
 
@@ -65,7 +65,7 @@ type cloudwatchConfigModel struct {
 
 // Metadata returns the resource type name.
 func (r *metricExporterResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_metrics_exporter"
+	resp.TypeName = req.ProviderTypeName + "_metric_exporter"
 }
 
 // Read refreshes the Terraform state with the latest data.
@@ -73,7 +73,7 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 	tflog.Trace(ctx, "metricExporterResource.Read")
 }
 
-// Create creates a metrics exporter.
+// Create creates a metric exporter.
 func (r *metricExporterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Create")
 
@@ -131,7 +131,7 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 
 	// Everything is good. Proceed with resource creation
 	if plan.Datadog != nil {
-		exporter, err := r.client.CreateDatadogMetricsExporter(ctx, plan.Name.ValueString(), plan.Region.ValueString(), plan.Datadog.APIKey.ValueString(), plan.Datadog.Site.ValueString())
+		exporter, err := r.client.CreateDatadogMetricExporter(ctx, plan.Name.ValueString(), plan.Region.ValueString(), plan.Datadog.APIKey.ValueString(), plan.Datadog.Site.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError(
 				fmt.Sprintf("Unable to Create Datadog Exporter: %v", plan),
@@ -157,12 +157,12 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 	}
 }
 
-// Delete deletes a metrics exporter.
+// Delete deletes a metric exporter.
 func (r *metricExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Delete")
 }
 
-// Update updates a metrics exporter.
+// Update updates a metric exporter.
 func (r *metricExporterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Update")
 }
@@ -191,25 +191,25 @@ func (r *metricExporterResource) Configure(ctx context.Context, req resource.Con
 // Schema defines the schema for the resource.
 func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Schema for a metrics exporter.",
+		MarkdownDescription: "Schema for a metric exporter.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Metrics exporter internal ID",
+				MarkdownDescription: "Metric exporter internal ID",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"uuid": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Metrics exporter UUID to be used for service attachment.",
+				MarkdownDescription: "Metric exporter UUID to be used for service attachment.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
 			"name": schema.StringAttribute{
-				MarkdownDescription: "Metrics exporter name.",
+				MarkdownDescription: "Metric exporter name.",
 				Required:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -280,7 +280,7 @@ func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRe
 						Required:            true,
 					},
 					"namespace": schema.StringAttribute{
-						MarkdownDescription: "CloudWatch Metrics Namespace.",
+						MarkdownDescription: "CloudWatch Metric Namespace.",
 						Required:            true,
 					},
 					"region": schema.StringAttribute{

@@ -68,7 +68,7 @@ var (
 	UpdatePeeringConnectionCIDRsMutation string
 
 	// Exporters
-	//go:embed queries/create_metrics_exporter.graphql
+	//go:embed queries/create_metric_exporter.graphql
 	CreateMetricExporterMutation string
 )
 

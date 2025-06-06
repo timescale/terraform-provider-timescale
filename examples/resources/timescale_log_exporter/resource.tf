@@ -35,10 +35,9 @@ resource "timescale_log_exporter" "my_cloudwatch_exporter_with_role" {
 
   cloudwatch = {
     region          = "us-east-1"
-    role_arn        = "arn:aws:iam::123456789012:role/MyMetricsExporterRole"
-    log_group_name  = "/myapplication/metrics"
+    role_arn        = "arn:aws:iam::123456789012:role/MyLogsExporterRole"
+    log_group_name  = "/myapplication/logs"
     log_stream_name = "exporter-stream-role"
-    namespace       = "MyApplication/CustomMetrics"
   }
 }
 
@@ -48,10 +47,9 @@ resource "timescale_log_exporter" "my_cloudwatch_exporter_with_keys" {
 
   cloudwatch = {
     region          = "us-east-1"
-    access_key      = "your_access_key"
-    secret_key      = "your_secret_key"
-    log_group_name  = "/anotherapplication/metrics"
+    access_key      = "your_access_key_"
+    secret_key      = "your_secret_keyxxxxxxxxxxxxxxxxxxxxxxxxx"
+    log_group_name  = "/anotherapplication/logs"
     log_stream_name = "exporter-stream-keys"
-    namespace       = "AnotherApplication/CustomMetrics"
   }
 }

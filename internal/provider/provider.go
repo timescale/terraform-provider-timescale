@@ -144,5 +144,6 @@ func (p *timescaleProvider) Resources(ctx context.Context) []func() resource.Res
 		NewVpcsResource,
 		NewPeeringConnectionResource,
 		NewMetricExporterResource,
+		NewLogExporterResource,
 	}
 }

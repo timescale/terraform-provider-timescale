@@ -8,7 +8,7 @@ import (
 )
 
 type GenericExporter struct {
-	ID         string `json:"exporterUuid"`
+	ID         string `json:"id"`
 	Name       string `json:"name"`
 	Created    string `json:"created"`
 	Type       string `json:"type"`
@@ -40,7 +40,7 @@ type GetAllGenericExportersResponse struct {
 	GenericExporters []*GenericExporter `json:"getAllGenericExporters"`
 }
 
-func (c *Client) CreateGenericExporter(ctx context.Context, name, region string, config GenericExporterConfig) (*GenericExporter, error) {
+func (c *Client) CreateGenericExporter(ctx context.Context, name, region, typ, dataType string, config GenericExporterConfig) (*GenericExporter, error) {
 	tflog.Trace(ctx, "Client.CreateGenericExporter")
 
 	// Dynamically build the config
@@ -56,10 +56,12 @@ func (c *Client) CreateGenericExporter(ctx context.Context, name, region string,
 		"operationName": "CreateGenericExporter",
 		"query":         CreateGenericExporterMutation,
 		"variables": map[string]interface{}{
-			"projectId":  c.projectID,
-			"name":       name,
-			"regionCode": region,
-			"config":     exporterConfig,
+			"projectId": c.projectID,
+			"name":      name,
+			"region":    region,
+			"type":      typ,
+			"dataType":  dataType,
+			"config":    exporterConfig,
 		},
 	}
 
@@ -106,8 +108,8 @@ func (c *Client) DeleteGenericExporter(ctx context.Context, id string) error {
 		"operationName": "DeleteGenericExporter",
 		"query":         DeleteGenericExporterMutation,
 		"variables": map[string]any{
-			"projectId":    c.projectID,
-			"exporterUuid": id,
+			"projectId":  c.projectID,
+			"exporterId": id,
 		},
 	}
 	var resp Response[any]
@@ -136,10 +138,10 @@ func (c *Client) UpdateGenericExporter(ctx context.Context, id, name string, con
 		"operationName": "UpdateGenericExporter",
 		"query":         UpdateGenericExporterMutation,
 		"variables": map[string]interface{}{
-			"projectId":    c.projectID,
-			"exporterUuid": id,
-			"name":         name,
-			"config":       exporterConfig,
+			"projectId":  c.projectID,
+			"exporterId": id,
+			"name":       name,
+			"config":     exporterConfig,
 		},
 	}
 

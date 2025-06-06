@@ -68,8 +68,8 @@ resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_keys" {
 
   cloudwatch = {
     region          = "us-east-1"
-    access_key      = "your_access_key"
-    secret_key      = "your_secret_key"
+    access_key      = "your_access_key_"
+    secret_key      = "your_secret_keyxxxxxxxxxxxxxxxxxxxxxxxxx"
     log_group_name  = "/anotherapplication/metrics"
     log_stream_name = "exporter-stream-keys"
     namespace       = "AnotherApplication/CustomMetrics"

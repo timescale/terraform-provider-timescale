@@ -8,10 +8,9 @@ query GetAllGenericExporters($projectId: ID!) {
         type
         dataType
         cloudWatchConfig: config {
-            ... on CloudWatchMetricConfig {
+            ... on CloudWatchConfig {
                 logGroupName
                 logStreamName
-                namespace
                 awsRegion
                 awsRoleArn
                 awsAccessKey

@@ -37,22 +37,22 @@ type metricExporterResourceModel struct {
 	Created types.String `tfsdk:"created"`
 	Type    types.String `tfsdk:"type"`
 
-	Datadog    *datadogConfigModel    `tfsdk:"datadog"`
-	Prometheus *prometheusConfigModel `tfsdk:"prometheus"`
-	Cloudwatch *cloudwatchConfigModel `tfsdk:"cloudwatch"`
+	Datadog    *datadogMetricConfigModel    `tfsdk:"datadog"`
+	Prometheus *prometheusMetricConfigModel `tfsdk:"prometheus"`
+	Cloudwatch *cloudwatchMetricConfigModel `tfsdk:"cloudwatch"`
 }
 
-type datadogConfigModel struct {
+type datadogMetricConfigModel struct {
 	APIKey types.String `tfsdk:"api_key"`
 	Site   types.String `tfsdk:"site"`
 }
 
-type prometheusConfigModel struct {
+type prometheusMetricConfigModel struct {
 	Username types.String `tfsdk:"username"`
 	Password types.String `tfsdk:"password"`
 }
 
-type cloudwatchConfigModel struct {
+type cloudwatchMetricConfigModel struct {
 	Region        types.String `tfsdk:"region"`
 	RoleARN       types.String `tfsdk:"role_arn"`
 	AccessKey     types.String `tfsdk:"access_key"`
@@ -93,9 +93,6 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	if foundExporter != nil {
-
-		tflog.Debug(ctx, fmt.Sprintf("FOUND EXPORTER CONFIG: %+v", foundExporter.Cloudwatch))
-
 		r.mapExporterToModel(foundExporter, &state)
 
 		// Set the refreshed state
@@ -155,6 +152,13 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 			resp.Diagnostics.AddAttributeError(path.Root("cloudwatch"), "Incomplete Key Authentication", "Both `access_key` and `secret_key` must be provided.")
 		} else if !isRoleAuth && !isKeyAuthAccess {
 			resp.Diagnostics.AddAttributeError(path.Root("cloudwatch"), "Missing Authentication Method", "Either `role_arn` or both `access_key` and `secret_key` must be provided.")
+		}
+
+		if isKeyAuthAccess && len(cwConfig.AccessKey.ValueString()) < 16 || len(cwConfig.AccessKey.ValueString()) > 128 {
+			resp.Diagnostics.AddAttributeError(path.Root("cloudwatch"), "Invalid AccessKey", "Length must be between 16 and 128 characters.")
+		}
+		if isKeyAuthSecret && len(cwConfig.SecretKey.ValueString()) < 40 || len(cwConfig.SecretKey.ValueString()) > 128 {
+			resp.Diagnostics.AddAttributeError(path.Root("cloudwatch"), "Invalid SecretKey", "Length must be between 16 and 128 characters.")
 		}
 	}
 	// If there have been any validation errors, we don't continue.
@@ -424,7 +428,7 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 	case "DATADOG":
 		if exporter.Datadog != nil {
 			if model.Datadog == nil {
-				model.Datadog = &datadogConfigModel{}
+				model.Datadog = &datadogMetricConfigModel{}
 			}
 			// Sensitive values are not always returned from APIs
 			if exporter.Datadog.APIKey != "" {
@@ -437,7 +441,7 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 	case "PROMETHEUS":
 		if exporter.Prometheus != nil {
 			if model.Prometheus == nil {
-				model.Prometheus = &prometheusConfigModel{}
+				model.Prometheus = &prometheusMetricConfigModel{}
 			}
 
 			// Sensitive values are not always returned from APIs
@@ -454,7 +458,7 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 	case "CLOUDWATCH":
 		if exporter.Cloudwatch != nil {
 			if model.Cloudwatch == nil {
-				model.Cloudwatch = &cloudwatchConfigModel{}
+				model.Cloudwatch = &cloudwatchMetricConfigModel{}
 			}
 			model.Cloudwatch.Region = types.StringValue(exporter.Cloudwatch.Region)
 			model.Cloudwatch.LogGroupName = types.StringValue(exporter.Cloudwatch.LogGroupName)

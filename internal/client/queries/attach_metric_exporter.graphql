@@ -1,0 +1,5 @@
+mutation AttachServiceToMetricExporter($projectId: ID!, $serviceId: ID!, $exporterUuid: ID) {
+    attachServiceToMetricExporter(
+        data: {projectId: $projectId, serviceId: $serviceId, exporterUuid: $exporterUuid}
+    )
+}

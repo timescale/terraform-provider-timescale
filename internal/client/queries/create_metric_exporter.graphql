@@ -7,7 +7,22 @@ mutation CreateMetricExporter($projectId: ID!, $name: String!, $config: MetricEx
         created
         name
         type
-        config {
+        __typename
+        datadogConfig: config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+                __typename
+            }
+        }
+        prometheusConfig: config {
+            ... on PrometheusMetricConfig {
+                user
+                password
+                __typename
+            }
+        }
+        cloudWatchConfig: config {
             ... on CloudWatchMetricConfig {
                 logGroupName
                 logStreamName
@@ -18,18 +33,6 @@ mutation CreateMetricExporter($projectId: ID!, $name: String!, $config: MetricEx
                 awsSecretKey
                 __typename
             }
-            ... on DatadogMetricConfig {
-                apiKey
-                site
-                __typename
-            }
-            ... on PrometheusMetricConfig {
-                user
-                password
-                __typename
-            }
-            __typename
         }
-        __typename
     }
 }

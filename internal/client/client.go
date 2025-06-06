@@ -80,6 +80,12 @@ var (
 	// Generic Exporters (logs)
 	//go:embed queries/create_generic_exporter.graphql
 	CreateGenericExporterMutation string
+	//go:embed queries/get_all_generic_exporters.graphql
+	GetAllGeneticExportersQuery string
+	////go:embed queries/delete_generic_exporter.graphql
+	//DeleteGenericExporterMutation string
+	////go:embed queries/update_generic_exporter.graphql
+	//UpdateGenericExporterMutation string.
 )
 
 type Client struct {

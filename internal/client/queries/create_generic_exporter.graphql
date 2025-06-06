@@ -8,6 +8,7 @@ mutation CreateGenericExporter($projectId: ID!, $name: String!, $region: String!
         created
         name
         type
+        dataType
         __typename
     }
 }

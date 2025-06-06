@@ -93,6 +93,9 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	if foundExporter != nil {
+
+		tflog.Debug(ctx, fmt.Sprintf("FOUND EXPORTER CONFIG: %+v", foundExporter.Cloudwatch))
+
 		r.mapExporterToModel(foundExporter, &state)
 
 		// Set the refreshed state
@@ -424,7 +427,7 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 				model.Datadog = &datadogConfigModel{}
 			}
 			// Sensitive values are not always returned from APIs
-			if model.Datadog.APIKey.IsUnknown() && exporter.Datadog.APIKey != "" {
+			if exporter.Datadog.APIKey != "" {
 				model.Datadog.APIKey = types.StringValue(exporter.Datadog.APIKey)
 			}
 		}
@@ -438,10 +441,10 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 			}
 
 			// Sensitive values are not always returned from APIs
-			if model.Prometheus.Username.IsUnknown() && exporter.Prometheus.Username != "" {
+			if exporter.Prometheus.Username != "" {
 				model.Prometheus.Username = types.StringValue(exporter.Prometheus.Username)
 			}
-			if model.Prometheus.Password.IsUnknown() && exporter.Prometheus.Password != "" {
+			if exporter.Prometheus.Password != "" {
 				model.Prometheus.Password = types.StringValue(exporter.Prometheus.Password)
 			}
 		}
@@ -459,13 +462,13 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 			model.Cloudwatch.Namespace = types.StringValue(exporter.Cloudwatch.Namespace)
 
 			// Sensitive values are not always returned from APIs
-			if model.Cloudwatch.RoleARN.IsUnknown() && exporter.Cloudwatch.RoleARN != "" {
+			if exporter.Cloudwatch.RoleARN != "" {
 				model.Cloudwatch.RoleARN = types.StringValue(exporter.Cloudwatch.RoleARN)
 			}
-			if model.Cloudwatch.AccessKey.IsUnknown() && exporter.Cloudwatch.AccessKey != "" {
+			if exporter.Cloudwatch.AccessKey != "" {
 				model.Cloudwatch.AccessKey = types.StringValue(exporter.Cloudwatch.AccessKey)
 			}
-			if model.Cloudwatch.SecretKey.IsUnknown() && exporter.Cloudwatch.SecretKey != "" {
+			if exporter.Cloudwatch.SecretKey != "" {
 				model.Cloudwatch.SecretKey = types.StringValue(exporter.Cloudwatch.SecretKey)
 			}
 		}

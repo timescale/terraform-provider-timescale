@@ -6,7 +6,22 @@ query GetAllMetricExporters($projectId: ID!) {
         name
         type
         regionCode
-        config {
+        __typename
+        datadogConfig: config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+                __typename
+            }
+        }
+        prometheusConfig: config {
+            ... on PrometheusMetricConfig {
+                user
+                password
+                __typename
+            }
+        }
+        cloudWatchConfig: config {
             ... on CloudWatchMetricConfig {
                 logGroupName
                 logStreamName
@@ -17,18 +32,6 @@ query GetAllMetricExporters($projectId: ID!) {
                 awsSecretKey
                 __typename
             }
-            ... on DatadogMetricConfig {
-                apiKey
-                site
-                __typename
-            }
-            ... on PrometheusMetricConfig {
-                user
-                password
-                __typename
-            }
-            __typename
         }
-        __typename
     }
 }

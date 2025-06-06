@@ -2,11 +2,9 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"strings"
 )
 
 type MetricExporter struct {
@@ -17,59 +15,9 @@ type MetricExporter struct {
 	Type       string `json:"type"`
 	RegionCode string `json:"regionCode"`
 
-	// These will be populated by the custom UnmarshalJSON method because the API uses always the same 'config' key.
-	Datadog    *DatadogMetricConfig
-	Prometheus *PrometheusMetricConfig
-	Cloudwatch *CloudwatchMetricConfig
-}
-
-// UnmarshalJSON provides custom logic for parsing the polymorphic 'config' object.
-func (m *MetricExporter) UnmarshalJSON(data []byte) error {
-	var temp struct {
-		ID         string          `json:"exporterUuid"`
-		Name       string          `json:"name"`
-		Created    string          `json:"created"`
-		Type       string          `json:"type"`
-		RegionCode string          `json:"regionCode"`
-		Config     json.RawMessage `json:"config"`
-	}
-
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return fmt.Errorf("error in initial unmarshal: %w", err)
-	}
-
-	// Copy all the common fields from the temporary struct
-	m.ID = temp.ID
-	m.Name = temp.Name
-	m.Created = temp.Created
-	m.Type = temp.Type
-	m.RegionCode = temp.RegionCode
-
-	// Parse config depending on Type
-	switch strings.ToUpper(temp.Type) {
-	case "DATADOG":
-		var ddConfig DatadogMetricConfig
-		if err := json.Unmarshal(temp.Config, &ddConfig); err != nil {
-			return fmt.Errorf("error unmarshaling datadog config: %w", err)
-		}
-		m.Datadog = &ddConfig
-
-	case "PROMETHEUS":
-		var promConfig PrometheusMetricConfig
-		if err := json.Unmarshal(temp.Config, &promConfig); err != nil {
-			return fmt.Errorf("error unmarshaling prometheus config: %w", err)
-		}
-		m.Prometheus = &promConfig
-
-	case "CLOUDWATCH":
-		var cwConfig CloudwatchMetricConfig
-		if err := json.Unmarshal(temp.Config, &cwConfig); err != nil {
-			return fmt.Errorf("error unmarshaling cloudwatch config: %w", err)
-		}
-		m.Cloudwatch = &cwConfig
-	}
-
-	return nil
+	Datadog    *DatadogMetricConfig    `json:"datadogConfig"`
+	Prometheus *PrometheusMetricConfig `json:"prometheusConfig"`
+	Cloudwatch *CloudwatchMetricConfig `json:"cloudWatchConfig"`
 }
 
 // DatadogMetricConfig holds the specific configuration for a Datadog exporter.

@@ -10,5 +10,16 @@ mutation CreateGenericExporter($projectId: ID!, $name: String!, $region: String!
         type
         dataType
         __typename
+        cloudWatchConfig: config {
+            ... on CloudWatchConfig {
+                logGroupName
+                logStreamName
+                awsRegion
+                awsRoleArn
+                awsAccessKey
+                awsSecretKey
+                __typename
+            }
+        }
     }
 }

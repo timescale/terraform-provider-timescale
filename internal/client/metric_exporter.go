@@ -54,7 +54,7 @@ type CreateMetricExporterResponse struct {
 	MetricExporter *MetricExporter `json:"createMetricExporter"`
 }
 type GetAllMetricExportersResponse struct {
-	DatadogMetricExporters []*MetricExporter `json:"getAllMetricExporters"`
+	MetricExporters []*MetricExporter `json:"getAllMetricExporters"`
 }
 
 func (c *Client) CreateMetricExporter(ctx context.Context, name, region string, config MetricExporterConfig) (*MetricExporter, error) {
@@ -116,7 +116,7 @@ func (c *Client) GetAllMetricExporters(ctx context.Context) ([]*MetricExporter, 
 	if resp.Data == nil {
 		return nil, errors.New("no response found")
 	}
-	return resp.Data.DatadogMetricExporters, nil
+	return resp.Data.MetricExporters, nil
 }
 
 func (c *Client) DeleteMetricExporter(ctx context.Context, id string) error {

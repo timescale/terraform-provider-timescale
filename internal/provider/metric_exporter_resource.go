@@ -71,13 +71,44 @@ func (r *metricExporterResource) Metadata(_ context.Context, req resource.Metada
 // Read refreshes the Terraform state with the latest data.
 func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Read")
+
+	// Get current state
+	var state metricExporterResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	exporters, err := r.client.GetAllMetricExporters(ctx)
+	if err != nil {
+		resp.Diagnostics.AddError("Error getting all Metric Exporters", err.Error())
+		return
+	}
+
+	var foundExporter *tsClient.DatadogMetricExporter
+	for _, exporter := range exporters {
+		if exporter.ID == state.ID.ValueString() {
+			foundExporter = exporter
+			break
+		}
+	}
+
+	if foundExporter != nil {
+		r.mapExporterToModel(foundExporter, &state)
+		// Update state
+		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+	} else {
+		tflog.Warn(ctx, "Metric exporter not found, removing from state.", map[string]any{"id": state.ID.ValueString()})
+		resp.State.RemoveResource(ctx)
+	}
 }
 
 // Create creates a metric exporter.
 func (r *metricExporterResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Create")
 
-	// Read Terraform plan data into the model
+	// Get plan
 	var plan metricExporterResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 
@@ -140,31 +171,57 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 			return
 		}
 
-		// Map client model to tf schema
-		plan.ID = types.StringValue(exporter.ID)
-		plan.UUID = types.StringValue(exporter.ID)
-		plan.Name = types.StringValue(exporter.Name)
-		plan.Created = types.StringValue(exporter.Created)
-		plan.Type = types.StringValue(strings.ToLower(exporter.Type))
-		plan.Datadog.APIKey = types.StringValue(exporter.Config.APIKey)
-		plan.Datadog.Site = types.StringValue(exporter.Config.Site)
+		r.mapExporterToModel(exporter, &plan)
 
 		// Set state
-		resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 	}
 }
 
 // Delete deletes a metric exporter.
 func (r *metricExporterResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Delete")
+
+	// Get current state
+	var state metricExporterResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	err := r.client.DeleteMetricExporter(ctx, state.UUID.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error deleting Metric Exporter", err.Error())
+	}
 }
 
 // Update updates a metric exporter.
 func (r *metricExporterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Update")
+
+	// Get plan
+	var plan metricExporterResourceModel
+	diags := req.Plan.Get(ctx, &plan)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Get state
+	var state metricExporterResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	uuid := state.UUID.ValueString()
+
+	err := r.client.UpdateDatadogMetricExporter(ctx, uuid, plan.Name.ValueString(), plan.Datadog.APIKey.ValueString(), plan.Datadog.Site.ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating Metric Exporter", err.Error())
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 func (r *metricExporterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -305,4 +362,29 @@ func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRe
 				},
 			}},
 	}
+}
+
+// mapExporterToModel maps the API model to the terraform resource model.
+func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.DatadogMetricExporter, model *metricExporterResourceModel) {
+	model.ID = types.StringValue(exporter.ID)
+	model.UUID = types.StringValue(exporter.ExporterUUID)
+	model.Name = types.StringValue(exporter.Name)
+	model.Created = types.StringValue(exporter.Created)
+	model.Type = types.StringValue(strings.ToLower(exporter.Type))
+
+	// Initialize the nested block if it's nil
+	if model.Datadog == nil {
+		model.Datadog = &datadogConfigModel{}
+	}
+
+	model.Datadog.APIKey = types.StringValue(exporter.Config.APIKey)
+	model.Datadog.Site = types.StringValue(exporter.Config.Site)
+
+	// TODO
+	//if model.Prometheus != nil {
+	//	// handle prometheus mapping
+	//}
+	//if model.Cloudwatch != nil {
+	//	// handle cloudwatch mapping
+	//}
 }

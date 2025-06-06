@@ -70,6 +70,12 @@ var (
 	// Exporters
 	//go:embed queries/create_metric_exporter.graphql
 	CreateMetricExporterMutation string
+	//go:embed queries/get_all_metric_exporters.graphql
+	GetAllMetricExportersQuery string
+	//go:embed queries/delete_metric_exporter.graphql
+	DeleteMetricExporterMutation string
+	//go:embed queries/update_metric_exporter.graphql
+	UpdateMetricExporterMutation string
 )
 
 type Client struct {

@@ -2,7 +2,6 @@ mutation CreateMetricExporter($projectId: ID!, $name: String!, $config: MetricEx
     createMetricExporter(
         data: {projectId: $projectId, name: $name, config: $config, regionCode: $regionCode}
     ) {
-        id
         exporterUuid
         projectId
         created

@@ -109,9 +109,8 @@ resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_keys" {
 ### Read-Only
 
 - `created` (String) Timestamp of when the metric exporter was created (RFC3339 format).
-- `id` (String) Metric exporter internal ID
+- `id` (String) Metric exporter ID.
 - `type` (String) Type of the metric exporter. Possible values: datadog, prometheus, cloudwatch.
-- `uuid` (String) Metric exporter UUID to be used for service attachment.
 
 <a id="nestedatt--cloudwatch"></a>
 ### Nested Schema for `cloudwatch`

@@ -1,6 +1,5 @@
 query GetAllMetricExporters($projectId: ID!) {
     getAllMetricExporters(projectId: $projectId) {
-        id
         exporterUuid
         projectId
         created

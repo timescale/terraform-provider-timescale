@@ -10,12 +10,12 @@ import (
 )
 
 type MetricExporter struct {
-	ID           string `json:"id"`
-	ExporterUUID string `json:"exporterUuid"`
-	Name         string `json:"name"`
-	Created      string `json:"created"`
-	Type         string `json:"type"`
-	RegionCode   string `json:"regionCode"`
+	// Other exporters only have UUID. We will use it as ID, instead of the internal TS ID.
+	ID         string `json:"exporterUuid"`
+	Name       string `json:"name"`
+	Created    string `json:"created"`
+	Type       string `json:"type"`
+	RegionCode string `json:"regionCode"`
 
 	// These will be populated by the custom UnmarshalJSON method because the API uses always the same 'config' key.
 	Datadog    *DatadogMetricConfig
@@ -26,13 +26,12 @@ type MetricExporter struct {
 // UnmarshalJSON provides custom logic for parsing the polymorphic 'config' object.
 func (m *MetricExporter) UnmarshalJSON(data []byte) error {
 	var temp struct {
-		ID           string          `json:"id"`
-		ExporterUUID string          `json:"exporterUuid"`
-		Name         string          `json:"name"`
-		Created      string          `json:"created"`
-		Type         string          `json:"type"`
-		RegionCode   string          `json:"regionCode"`
-		Config       json.RawMessage `json:"config"`
+		ID         string          `json:"exporterUuid"`
+		Name       string          `json:"name"`
+		Created    string          `json:"created"`
+		Type       string          `json:"type"`
+		RegionCode string          `json:"regionCode"`
+		Config     json.RawMessage `json:"config"`
 	}
 
 	if err := json.Unmarshal(data, &temp); err != nil {
@@ -41,7 +40,6 @@ func (m *MetricExporter) UnmarshalJSON(data []byte) error {
 
 	// Copy all the common fields from the temporary struct
 	m.ID = temp.ID
-	m.ExporterUUID = temp.ExporterUUID
 	m.Name = temp.Name
 	m.Created = temp.Created
 	m.Type = temp.Type
@@ -173,7 +171,7 @@ func (c *Client) GetAllMetricExporters(ctx context.Context) ([]*MetricExporter, 
 	return resp.Data.DatadogMetricExporters, nil
 }
 
-func (c *Client) DeleteMetricExporter(ctx context.Context, uuid string) error {
+func (c *Client) DeleteMetricExporter(ctx context.Context, id string) error {
 	tflog.Trace(ctx, "Client.DeleteMetricExporter")
 
 	req := map[string]interface{}{
@@ -181,7 +179,7 @@ func (c *Client) DeleteMetricExporter(ctx context.Context, uuid string) error {
 		"query":         DeleteMetricExporterMutation,
 		"variables": map[string]any{
 			"projectId":    c.projectID,
-			"exporterUuid": uuid,
+			"exporterUuid": id,
 		},
 	}
 	var resp Response[any]
@@ -194,7 +192,7 @@ func (c *Client) DeleteMetricExporter(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (c *Client) UpdateMetricExporter(ctx context.Context, uuid, name string, config MetricExporterConfig) error {
+func (c *Client) UpdateMetricExporter(ctx context.Context, id, name string, config MetricExporterConfig) error {
 	tflog.Trace(ctx, "Client.UpdateMetricExporter")
 
 	// Dynamically build the config
@@ -214,7 +212,7 @@ func (c *Client) UpdateMetricExporter(ctx context.Context, uuid, name string, co
 		"query":         UpdateMetricExporterMutation,
 		"variables": map[string]interface{}{
 			"projectId":    c.projectID,
-			"exporterUuid": uuid,
+			"exporterUuid": id,
 			"name":         name,
 			"config":       exporterConfig,
 		},

@@ -32,7 +32,6 @@ type metricExporterResource struct {
 
 type metricExporterResourceModel struct {
 	ID      types.String `tfsdk:"id"`
-	UUID    types.String `tfsdk:"uuid"`
 	Name    types.String `tfsdk:"name"`
 	Region  types.String `tfsdk:"region"`
 	Created types.String `tfsdk:"created"`
@@ -214,7 +213,7 @@ func (r *metricExporterResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	err := r.client.DeleteMetricExporter(ctx, state.UUID.ValueString())
+	err := r.client.DeleteMetricExporter(ctx, state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting Metric Exporter", err.Error())
 	}
@@ -236,7 +235,7 @@ func (r *metricExporterResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	uuid := state.UUID.ValueString()
+	id := state.ID.ValueString()
 
 	// Populate the config struct based on which block is defined in the plan.
 	config := tsClient.MetricExporterConfig{}
@@ -264,7 +263,7 @@ func (r *metricExporterResource) Update(ctx context.Context, req resource.Update
 
 	err := r.client.UpdateMetricExporter(
 		ctx,
-		uuid,
+		id,
 		plan.Name.ValueString(),
 		config,
 	)
@@ -279,7 +278,7 @@ func (r *metricExporterResource) Update(ctx context.Context, req resource.Update
 }
 
 func (r *metricExporterResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
 // Configure adds the provider configured client to the resource.
@@ -300,21 +299,14 @@ func (r *metricExporterResource) Configure(ctx context.Context, req resource.Con
 }
 
 // Schema defines the schema for the resource.
-func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *metricExporterResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "Schema for a metric exporter.",
 
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Metric exporter internal ID",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"uuid": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Metric exporter UUID to be used for service attachment.",
+				MarkdownDescription: "Metric exporter ID.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -421,7 +413,6 @@ func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRe
 // mapExporterToModel maps the unified API model to the terraform resource model.
 func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExporter, model *metricExporterResourceModel) {
 	model.ID = types.StringValue(exporter.ID)
-	model.UUID = types.StringValue(exporter.ExporterUUID)
 	model.Name = types.StringValue(exporter.Name)
 	model.Created = types.StringValue(exporter.Created)
 	model.Type = types.StringValue(strings.ToLower(exporter.Type))

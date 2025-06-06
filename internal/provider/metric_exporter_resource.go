@@ -74,8 +74,7 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 
 	// Get current state
 	var state metricExporterResourceModel
-	diags := req.State.Get(ctx, &state)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -86,7 +85,7 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
-	var foundExporter *tsClient.DatadogMetricExporter
+	var foundExporter *tsClient.MetricExporter
 	for _, exporter := range exporters {
 		if exporter.ID == state.ID.ValueString() {
 			foundExporter = exporter
@@ -96,7 +95,8 @@ func (r *metricExporterResource) Read(ctx context.Context, req resource.ReadRequ
 
 	if foundExporter != nil {
 		r.mapExporterToModel(foundExporter, &state)
-		// Update state
+
+		// Set the refreshed state
 		resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 	} else {
 		tflog.Warn(ctx, "Metric exporter not found, removing from state.", map[string]any{"id": state.ID.ValueString()})
@@ -161,21 +161,46 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Everything is good. Proceed with resource creation
+	// Populate the config based on the plan
+	config := tsClient.ExporterConfig{}
 	if plan.Datadog != nil {
-		exporter, err := r.client.CreateDatadogMetricExporter(ctx, plan.Name.ValueString(), plan.Region.ValueString(), plan.Datadog.APIKey.ValueString(), plan.Datadog.Site.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError(
-				fmt.Sprintf("Unable to Create Datadog Exporter: %v", plan),
-				err.Error(),
-			)
-			return
+		config.Datadog = &tsClient.DatadogConfig{
+			APIKey: plan.Datadog.APIKey.ValueString(),
+			Site:   plan.Datadog.Site.ValueString(),
 		}
-
-		r.mapExporterToModel(exporter, &plan)
-
-		// Set state
-		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	} else if plan.Prometheus != nil {
+		config.Prometheus = &tsClient.PrometheusConfig{
+			Username: plan.Prometheus.Username.ValueString(),
+			Password: plan.Prometheus.Password.ValueString(),
+		}
+	} else if plan.Cloudwatch != nil {
+		config.Cloudwatch = &tsClient.CloudwatchConfig{
+			Region:        plan.Cloudwatch.Region.ValueString(),
+			RoleARN:       plan.Cloudwatch.RoleARN.ValueString(),
+			AccessKey:     plan.Cloudwatch.AccessKey.ValueString(),
+			SecretKey:     plan.Cloudwatch.SecretKey.ValueString(),
+			LogGroupName:  plan.Cloudwatch.LogGroupName.ValueString(),
+			LogStreamName: plan.Cloudwatch.LogStreamName.ValueString(),
+			Namespace:     plan.Cloudwatch.Namespace.ValueString(),
+		}
 	}
+
+	exporter, err := r.client.CreateMetricExporter(
+		ctx,
+		plan.Name.ValueString(),
+		plan.Region.ValueString(),
+		config,
+	)
+
+	if err != nil {
+		resp.Diagnostics.AddError("Unable to Create Metric Exporter", err.Error())
+		return
+	}
+
+	r.mapExporterToModel(exporter, &plan)
+
+	// Set the final state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
 // Delete deletes a metric exporter.
@@ -196,14 +221,12 @@ func (r *metricExporterResource) Delete(ctx context.Context, req resource.Delete
 	}
 }
 
-// Update updates a metric exporter.
 func (r *metricExporterResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	tflog.Trace(ctx, "metricExporterResource.Update")
 
 	// Get plan
 	var plan metricExporterResourceModel
-	diags := req.Plan.Get(ctx, &plan)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -216,11 +239,43 @@ func (r *metricExporterResource) Update(ctx context.Context, req resource.Update
 	}
 	uuid := state.UUID.ValueString()
 
-	err := r.client.UpdateDatadogMetricExporter(ctx, uuid, plan.Name.ValueString(), plan.Datadog.APIKey.ValueString(), plan.Datadog.Site.ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError("Error updating Metric Exporter", err.Error())
+	// Populate the config struct based on which block is defined in the plan.
+	config := tsClient.ExporterConfig{}
+	if plan.Datadog != nil {
+		config.Datadog = &tsClient.DatadogConfig{
+			APIKey: plan.Datadog.APIKey.ValueString(),
+			Site:   plan.Datadog.Site.ValueString(),
+		}
+	} else if plan.Prometheus != nil {
+		config.Prometheus = &tsClient.PrometheusConfig{
+			Username: plan.Prometheus.Username.ValueString(),
+			Password: plan.Prometheus.Password.ValueString(),
+		}
+	} else if plan.Cloudwatch != nil {
+		config.Cloudwatch = &tsClient.CloudwatchConfig{
+			Region:        plan.Cloudwatch.Region.ValueString(),
+			RoleARN:       plan.Cloudwatch.RoleARN.ValueString(),
+			AccessKey:     plan.Cloudwatch.AccessKey.ValueString(),
+			SecretKey:     plan.Cloudwatch.SecretKey.ValueString(),
+			LogGroupName:  plan.Cloudwatch.LogGroupName.ValueString(),
+			LogStreamName: plan.Cloudwatch.LogStreamName.ValueString(),
+			Namespace:     plan.Cloudwatch.Namespace.ValueString(),
+		}
 	}
 
+	err := r.client.UpdateMetricExporter(
+		ctx,
+		uuid,
+		plan.Name.ValueString(),
+		config,
+	)
+
+	if err != nil {
+		resp.Diagnostics.AddError("Error updating Metric Exporter", err.Error())
+		return
+	}
+
+	// Update state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -364,27 +419,51 @@ func (r *metricExporterResource) Schema(ctx context.Context, _ resource.SchemaRe
 	}
 }
 
-// mapExporterToModel maps the API model to the terraform resource model.
-func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.DatadogMetricExporter, model *metricExporterResourceModel) {
+// mapExporterToModel maps the unified API model to the terraform resource model.
+func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExporter, model *metricExporterResourceModel) {
 	model.ID = types.StringValue(exporter.ID)
 	model.UUID = types.StringValue(exporter.ExporterUUID)
 	model.Name = types.StringValue(exporter.Name)
 	model.Created = types.StringValue(exporter.Created)
 	model.Type = types.StringValue(strings.ToLower(exporter.Type))
 
-	// Initialize the nested block if it's nil
-	if model.Datadog == nil {
-		model.Datadog = &datadogConfigModel{}
+	switch strings.ToUpper(exporter.Type) {
+	case "DATADOG":
+		if exporter.Datadog != nil {
+			if model.Datadog == nil {
+				model.Datadog = &datadogConfigModel{}
+			}
+			model.Datadog.Site = types.StringValue(exporter.Datadog.Site)
+			model.Datadog.APIKey = types.StringValue(exporter.Datadog.APIKey)
+		}
+		model.Prometheus = nil
+		model.Cloudwatch = nil
+
+	case "PROMETHEUS":
+		if exporter.Prometheus != nil {
+			if model.Prometheus == nil {
+				model.Prometheus = &prometheusConfigModel{}
+			}
+			model.Prometheus.Username = types.StringValue(exporter.Prometheus.Username)
+			model.Prometheus.Password = types.StringValue(exporter.Prometheus.Password)
+		}
+		model.Datadog = nil
+		model.Cloudwatch = nil
+
+	case "CLOUDWATCH":
+		if exporter.Cloudwatch != nil {
+			if model.Cloudwatch == nil {
+				model.Cloudwatch = &cloudwatchConfigModel{}
+			}
+			model.Cloudwatch.Region = types.StringValue(exporter.Cloudwatch.Region)
+			model.Cloudwatch.RoleARN = types.StringValue(exporter.Cloudwatch.RoleARN)
+			model.Cloudwatch.AccessKey = types.StringValue(exporter.Cloudwatch.AccessKey)
+			model.Cloudwatch.LogGroupName = types.StringValue(exporter.Cloudwatch.LogGroupName)
+			model.Cloudwatch.LogStreamName = types.StringValue(exporter.Cloudwatch.LogStreamName)
+			model.Cloudwatch.Namespace = types.StringValue(exporter.Cloudwatch.Namespace)
+			model.Cloudwatch.SecretKey = types.StringValue(exporter.Cloudwatch.SecretKey)
+		}
+		model.Datadog = nil
+		model.Prometheus = nil
 	}
-
-	model.Datadog.APIKey = types.StringValue(exporter.Config.APIKey)
-	model.Datadog.Site = types.StringValue(exporter.Config.Site)
-
-	// TODO
-	//if model.Prometheus != nil {
-	//	// handle prometheus mapping
-	//}
-	//if model.Cloudwatch != nil {
-	//	// handle cloudwatch mapping
-	//}
 }

@@ -7,31 +7,69 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-type DatadogMetricExporter struct {
-	ID           string        `json:"id"`
-	ExporterUUID string        `json:"exporterUuid"`
-	ProjectID    string        `json:"projectId"`
-	Created      string        `json:"created"`
-	Name         string        `json:"name"`
-	Type         string        `json:"type"`
-	Config       DatadogConfig `json:"config"`
+type MetricExporter struct {
+	ID           string `json:"id"`
+	ExporterUUID string `json:"exporterUuid"`
+	Name         string `json:"name"`
+	Created      string `json:"created"`
+	Type         string `json:"type"`
+
+	Datadog    *DatadogConfig    `json:"datadogConfig,omitempty"`
+	Prometheus *PrometheusConfig `json:"prometheusConfig,omitempty"`
+	Cloudwatch *CloudwatchConfig `json:"cloudwatchConfig,omitempty"`
 }
 
+// DatadogConfig holds the specific configuration for a Datadog exporter.
 type DatadogConfig struct {
 	APIKey string `json:"apiKey"`
 	Site   string `json:"site"`
 }
 
-type CreateDatadogMetricExporterResponse struct {
-	DatadogMetricExporter *DatadogMetricExporter `json:"createMetricExporter"`
+// PrometheusConfig holds the specific configuration for a Prometheus exporter.
+type PrometheusConfig struct {
+	Username string `json:"user"`
+	Password string `json:"password"`
 }
 
+// CloudwatchConfig holds the specific configuration for an AWS CloudWatch exporter.
+type CloudwatchConfig struct {
+	LogGroupName  string `json:"logGroupName"`
+	LogStreamName string `json:"logStreamName"`
+	Namespace     string `json:"namespace"`
+	Region        string `json:"awsRegion"`
+	RoleARN       string `json:"awsRoleArn,omitempty"`
+	AccessKey     string `json:"awsAccessKey,omitempty"`
+	SecretKey     string `json:"awsSecretKey,omitempty"`
+}
+
+// ExporterConfig is a container for any type of exporter configuration.
+type ExporterConfig struct {
+	Datadog    *DatadogConfig
+	Prometheus *PrometheusConfig
+	Cloudwatch *CloudwatchConfig
+}
+
+type CreateMetricExporterResponse struct {
+	MetricExporter *MetricExporter `json:"createMetricExporter"`
+}
 type GetAllMetricExportersResponse struct {
-	DatadogMetricExporters []*DatadogMetricExporter `json:"getAllMetricExporters"`
+	DatadogMetricExporters []*MetricExporter `json:"getAllMetricExporters"`
 }
 
-func (c *Client) CreateDatadogMetricExporter(ctx context.Context, name, region, apiKey, site string) (*DatadogMetricExporter, error) {
-	tflog.Trace(ctx, "Client.CreateDatadogMetricExporter")
+func (c *Client) CreateMetricExporter(ctx context.Context, name, region string, config ExporterConfig) (*MetricExporter, error) {
+	tflog.Trace(ctx, "Client.CreateMetricExporter")
+
+	// Dynamically build the config
+	var exporterConfig map[string]interface{}
+	if config.Datadog != nil {
+		exporterConfig = map[string]interface{}{"configDatadog": config.Datadog}
+	} else if config.Prometheus != nil {
+		exporterConfig = map[string]interface{}{"configPrometheus": config.Prometheus}
+	} else if config.Cloudwatch != nil {
+		exporterConfig = map[string]interface{}{"configCloudWatch": config.Cloudwatch}
+	} else {
+		return nil, errors.New("exporter config cannot be empty")
+	}
 
 	req := map[string]interface{}{
 		"operationName": "CreateMetricExporter",
@@ -40,29 +78,25 @@ func (c *Client) CreateDatadogMetricExporter(ctx context.Context, name, region, 
 			"projectId":  c.projectID,
 			"name":       name,
 			"regionCode": region,
-			"config": map[string]interface{}{
-				"configDatadog": map[string]string{
-					"apiKey": apiKey,
-					"site":   site,
-				},
-			},
+			"config":     exporterConfig,
 		},
 	}
 
-	var resp Response[CreateDatadogMetricExporterResponse]
+	var resp Response[CreateMetricExporterResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
-		return nil, fmt.Errorf("error doing the request: %w", err)
+		return nil, fmt.Errorf("error executing API request: %w", err)
 	}
 	if len(resp.Errors) > 0 {
-		return nil, fmt.Errorf("error in the response: %w", resp.Errors[0])
+		return nil, fmt.Errorf("API returned an error: %w", resp.Errors[0])
 	}
-	if resp.Data == nil {
-		return nil, errors.New("no response found")
+	if resp.Data == nil || resp.Data.MetricExporter == nil {
+		return nil, errors.New("API response did not contain exporter data")
 	}
-	return resp.Data.DatadogMetricExporter, nil
+
+	return resp.Data.MetricExporter, nil
 }
 
-func (c *Client) GetAllMetricExporters(ctx context.Context) ([]*DatadogMetricExporter, error) {
+func (c *Client) GetAllMetricExporters(ctx context.Context) ([]*MetricExporter, error) {
 	tflog.Trace(ctx, "Client.GetAllMetricExporters")
 	req := map[string]interface{}{
 		"operationName": "GetAllMetricExporters",
@@ -105,8 +139,20 @@ func (c *Client) DeleteMetricExporter(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (c *Client) UpdateDatadogMetricExporter(ctx context.Context, uuid, name, apiKey, site string) error {
-	tflog.Trace(ctx, "Client.UpdateDatadogMetricExporter")
+func (c *Client) UpdateMetricExporter(ctx context.Context, uuid, name string, config ExporterConfig) error {
+	tflog.Trace(ctx, "Client.UpdateMetricExporter")
+
+	// Dynamically build the config
+	var exporterConfig map[string]interface{}
+	if config.Datadog != nil {
+		exporterConfig = map[string]interface{}{"configDatadog": config.Datadog}
+	} else if config.Prometheus != nil {
+		exporterConfig = map[string]interface{}{"configPrometheus": config.Prometheus}
+	} else if config.Cloudwatch != nil {
+		exporterConfig = map[string]interface{}{"configCloudWatch": config.Cloudwatch}
+	} else {
+		return errors.New("exporter config cannot be empty for an update")
+	}
 
 	req := map[string]interface{}{
 		"operationName": "UpdateMetricExporter",
@@ -115,21 +161,17 @@ func (c *Client) UpdateDatadogMetricExporter(ctx context.Context, uuid, name, ap
 			"projectId":    c.projectID,
 			"exporterUuid": uuid,
 			"name":         name,
-			"config": map[string]interface{}{
-				"configDatadog": map[string]string{
-					"apiKey": apiKey,
-					"site":   site,
-				},
-			},
+			"config":       exporterConfig,
 		},
 	}
 
 	var resp Response[any]
 	if err := c.do(ctx, req, &resp); err != nil {
-		return fmt.Errorf("error doing the request: %w", err)
+		return fmt.Errorf("error executing API request: %w", err)
 	}
 	if len(resp.Errors) > 0 {
-		return fmt.Errorf("error in the response: %w", resp.Errors[0])
+		return fmt.Errorf("API returned an error: %w", resp.Errors[0])
 	}
+
 	return nil
 }

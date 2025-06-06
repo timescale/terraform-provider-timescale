@@ -39,39 +39,39 @@ resource "timescale_metric_exporter" "my_datadog_exporter" {
   }
 }
 
-# resource "timescale_metric_exporter" "my_prometheus_exporter" {
-#   name   = "Prometheus Exporter"
-#   region = "us-east-1"
-#
-#   prometheus = {
-#     username = "prom_user"
-#     password = "a_very_secure_password"
-#   }
-# }
-#
-# resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_role" {
-#   name   = "CloudWatch Exporter via IAM Role"
-#   region = "us-east-1"
-#
-#   cloudwatch = {
-#     region          = "us-east-1"
-#     role_arn        = "arn:aws:iam::123456789012:role/MyMetricsExporterRole"
-#     log_group_name  = "/myapplication/metrics"
-#     log_stream_name = "exporter-stream-role"
-#     namespace       = "MyApplication/CustomMetrics"
-#   }
-# }
-#
-# resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_keys" {
-#   name   = "CloudWatch Exporter via Static Keys"
-#   region = "us-east-1"
-#
-#   cloudwatch = {
-#     region          = "us-east-1"
-#     access_key      = "your_access_key"
-#     secret_key      = "your_secret_key"
-#     log_group_name  = "/anotherapplication/metrics"
-#     log_stream_name = "exporter-stream-keys"
-#     namespace       = "AnotherApplication/CustomMetrics"
-#   }
-# }
+resource "timescale_metric_exporter" "my_prometheus_exporter" {
+  name   = "Prometheus Exporter from TF"
+  region = "us-east-1"
+
+  prometheus = {
+    username = "prom_user"
+    password = "a_very_secure_password"
+  }
+}
+
+resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_role" {
+  name   = "CloudWatch Exporter via IAM Role from TF"
+  region = "us-east-1"
+
+  cloudwatch = {
+    region          = "us-east-1"
+    role_arn        = "arn:aws:iam::123456789012:role/MyMetricsExporterRole"
+    log_group_name  = "/myapplication/metrics"
+    log_stream_name = "exporter-stream-role"
+    namespace       = "MyApplication/CustomMetrics"
+  }
+}
+
+resource "timescale_metric_exporter" "my_cloudwatch_exporter_with_keys" {
+  name   = "CloudWatch Exporter via Static Keys"
+  region = "us-east-1"
+
+  cloudwatch = {
+    region          = "us-east-1"
+    access_key      = "your_access_key"
+    secret_key      = "your_secret_key"
+    log_group_name  = "/anotherapplication/metrics"
+    log_stream_name = "exporter-stream-keys"
+    namespace       = "AnotherApplication/CustomMetrics"
+  }
+}

@@ -43,7 +43,7 @@ var (
 	//go:embed queries/change_service_password.graphql
 	ResetServicePassword string
 
-	// VCPs ///////////////////////////////
+	// VCPs
 	//go:embed queries/vpcs.graphql
 	GetVPCsQuery string
 	//go:embed queries/vpc_by_name.graphql
@@ -67,7 +67,7 @@ var (
 	//go:embed queries/update_peering_connection_cidrs.graphql
 	UpdatePeeringConnectionCIDRsMutation string
 
-	// Exporters
+	// Metric Exporters
 	//go:embed queries/create_metric_exporter.graphql
 	CreateMetricExporterMutation string
 	//go:embed queries/get_all_metric_exporters.graphql
@@ -76,6 +76,10 @@ var (
 	DeleteMetricExporterMutation string
 	//go:embed queries/update_metric_exporter.graphql
 	UpdateMetricExporterMutation string
+
+	// Generic Exporters (logs)
+	//go:embed queries/create_generic_exporter.graphql
+	CreateGenericExporterMutation string
 )
 
 type Client struct {

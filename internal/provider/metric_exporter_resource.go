@@ -191,7 +191,6 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 		plan.Region.ValueString(),
 		config,
 	)
-
 	if err != nil {
 		resp.Diagnostics.AddError("Unable to Create Metric Exporter", err.Error())
 		return
@@ -433,8 +432,10 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 			if model.Datadog == nil {
 				model.Datadog = &datadogConfigModel{}
 			}
-			model.Datadog.Site = types.StringValue(exporter.Datadog.Site)
-			model.Datadog.APIKey = types.StringValue(exporter.Datadog.APIKey)
+			// Sensitive values are not always returned from APIs
+			if model.Datadog.APIKey.IsUnknown() && exporter.Datadog.APIKey != "" {
+				model.Datadog.APIKey = types.StringValue(exporter.Datadog.APIKey)
+			}
 		}
 		model.Prometheus = nil
 		model.Cloudwatch = nil
@@ -444,8 +445,14 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 			if model.Prometheus == nil {
 				model.Prometheus = &prometheusConfigModel{}
 			}
-			model.Prometheus.Username = types.StringValue(exporter.Prometheus.Username)
-			model.Prometheus.Password = types.StringValue(exporter.Prometheus.Password)
+
+			// Sensitive values are not always returned from APIs
+			if model.Prometheus.Username.IsUnknown() && exporter.Prometheus.Username != "" {
+				model.Prometheus.Username = types.StringValue(exporter.Prometheus.Username)
+			}
+			if model.Prometheus.Password.IsUnknown() && exporter.Prometheus.Password != "" {
+				model.Prometheus.Password = types.StringValue(exporter.Prometheus.Password)
+			}
 		}
 		model.Datadog = nil
 		model.Cloudwatch = nil
@@ -456,12 +463,20 @@ func (r *metricExporterResource) mapExporterToModel(exporter *tsClient.MetricExp
 				model.Cloudwatch = &cloudwatchConfigModel{}
 			}
 			model.Cloudwatch.Region = types.StringValue(exporter.Cloudwatch.Region)
-			model.Cloudwatch.RoleARN = types.StringValue(exporter.Cloudwatch.RoleARN)
-			model.Cloudwatch.AccessKey = types.StringValue(exporter.Cloudwatch.AccessKey)
 			model.Cloudwatch.LogGroupName = types.StringValue(exporter.Cloudwatch.LogGroupName)
 			model.Cloudwatch.LogStreamName = types.StringValue(exporter.Cloudwatch.LogStreamName)
 			model.Cloudwatch.Namespace = types.StringValue(exporter.Cloudwatch.Namespace)
-			model.Cloudwatch.SecretKey = types.StringValue(exporter.Cloudwatch.SecretKey)
+
+			// Sensitive values are not always returned from APIs
+			if model.Cloudwatch.RoleARN.IsUnknown() && exporter.Cloudwatch.RoleARN != "" {
+				model.Cloudwatch.RoleARN = types.StringValue(exporter.Cloudwatch.RoleARN)
+			}
+			if model.Cloudwatch.AccessKey.IsUnknown() && exporter.Cloudwatch.AccessKey != "" {
+				model.Cloudwatch.AccessKey = types.StringValue(exporter.Cloudwatch.AccessKey)
+			}
+			if model.Cloudwatch.SecretKey.IsUnknown() && exporter.Cloudwatch.SecretKey != "" {
+				model.Cloudwatch.SecretKey = types.StringValue(exporter.Cloudwatch.SecretKey)
+			}
 		}
 		model.Datadog = nil
 		model.Prometheus = nil

@@ -18,9 +18,9 @@ type MetricExporter struct {
 	RegionCode   string `json:"regionCode"`
 
 	// These will be populated by the custom UnmarshalJSON method because the API uses always the same 'config' key.
-	Datadog    *DatadogConfig
-	Prometheus *PrometheusConfig
-	Cloudwatch *CloudwatchConfig
+	Datadog    *DatadogMetricConfig
+	Prometheus *PrometheusMetricConfig
+	Cloudwatch *CloudwatchMetricConfig
 }
 
 // UnmarshalJSON provides custom logic for parsing the polymorphic 'config' object.
@@ -50,21 +50,21 @@ func (m *MetricExporter) UnmarshalJSON(data []byte) error {
 	// Parse config depending on Type
 	switch strings.ToUpper(temp.Type) {
 	case "DATADOG":
-		var ddConfig DatadogConfig
+		var ddConfig DatadogMetricConfig
 		if err := json.Unmarshal(temp.Config, &ddConfig); err != nil {
 			return fmt.Errorf("error unmarshaling datadog config: %w", err)
 		}
 		m.Datadog = &ddConfig
 
 	case "PROMETHEUS":
-		var promConfig PrometheusConfig
+		var promConfig PrometheusMetricConfig
 		if err := json.Unmarshal(temp.Config, &promConfig); err != nil {
 			return fmt.Errorf("error unmarshaling prometheus config: %w", err)
 		}
 		m.Prometheus = &promConfig
 
 	case "CLOUDWATCH":
-		var cwConfig CloudwatchConfig
+		var cwConfig CloudwatchMetricConfig
 		if err := json.Unmarshal(temp.Config, &cwConfig); err != nil {
 			return fmt.Errorf("error unmarshaling cloudwatch config: %w", err)
 		}
@@ -74,20 +74,20 @@ func (m *MetricExporter) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// DatadogConfig holds the specific configuration for a Datadog exporter.
-type DatadogConfig struct {
+// DatadogMetricConfig holds the specific configuration for a Datadog exporter.
+type DatadogMetricConfig struct {
 	APIKey string `json:"apiKey"`
 	Site   string `json:"site"`
 }
 
-// PrometheusConfig holds the specific configuration for a Prometheus exporter.
-type PrometheusConfig struct {
+// PrometheusMetricConfig holds the specific configuration for a Prometheus exporter.
+type PrometheusMetricConfig struct {
 	Username string `json:"user"`
 	Password string `json:"password"`
 }
 
-// CloudwatchConfig holds the specific configuration for an AWS CloudWatch exporter.
-type CloudwatchConfig struct {
+// CloudwatchMetricConfig holds the specific configuration for an AWS CloudWatch exporter.
+type CloudwatchMetricConfig struct {
 	LogGroupName  string `json:"logGroupName"`
 	LogStreamName string `json:"logStreamName"`
 	Namespace     string `json:"namespace"`
@@ -97,11 +97,11 @@ type CloudwatchConfig struct {
 	SecretKey     string `json:"awsSecretKey,omitempty"`
 }
 
-// ExporterConfig is a container for any type of exporter configuration.
-type ExporterConfig struct {
-	Datadog    *DatadogConfig
-	Prometheus *PrometheusConfig
-	Cloudwatch *CloudwatchConfig
+// MetricExporterConfig is a container for any type of exporter configuration.
+type MetricExporterConfig struct {
+	Datadog    *DatadogMetricConfig
+	Prometheus *PrometheusMetricConfig
+	Cloudwatch *CloudwatchMetricConfig
 }
 
 type CreateMetricExporterResponse struct {
@@ -111,7 +111,7 @@ type GetAllMetricExportersResponse struct {
 	DatadogMetricExporters []*MetricExporter `json:"getAllMetricExporters"`
 }
 
-func (c *Client) CreateMetricExporter(ctx context.Context, name, region string, config ExporterConfig) (*MetricExporter, error) {
+func (c *Client) CreateMetricExporter(ctx context.Context, name, region string, config MetricExporterConfig) (*MetricExporter, error) {
 	tflog.Trace(ctx, "Client.CreateMetricExporter")
 
 	// Dynamically build the config
@@ -194,7 +194,7 @@ func (c *Client) DeleteMetricExporter(ctx context.Context, uuid string) error {
 	return nil
 }
 
-func (c *Client) UpdateMetricExporter(ctx context.Context, uuid, name string, config ExporterConfig) error {
+func (c *Client) UpdateMetricExporter(ctx context.Context, uuid, name string, config MetricExporterConfig) error {
 	tflog.Trace(ctx, "Client.UpdateMetricExporter")
 
 	// Dynamically build the config

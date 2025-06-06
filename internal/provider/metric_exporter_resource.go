@@ -162,19 +162,19 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 
 	// Everything is good. Proceed with resource creation
 	// Populate the config based on the plan
-	config := tsClient.ExporterConfig{}
+	config := tsClient.MetricExporterConfig{}
 	if plan.Datadog != nil {
-		config.Datadog = &tsClient.DatadogConfig{
+		config.Datadog = &tsClient.DatadogMetricConfig{
 			APIKey: plan.Datadog.APIKey.ValueString(),
 			Site:   plan.Datadog.Site.ValueString(),
 		}
 	} else if plan.Prometheus != nil {
-		config.Prometheus = &tsClient.PrometheusConfig{
+		config.Prometheus = &tsClient.PrometheusMetricConfig{
 			Username: plan.Prometheus.Username.ValueString(),
 			Password: plan.Prometheus.Password.ValueString(),
 		}
 	} else if plan.Cloudwatch != nil {
-		config.Cloudwatch = &tsClient.CloudwatchConfig{
+		config.Cloudwatch = &tsClient.CloudwatchMetricConfig{
 			Region:        plan.Cloudwatch.Region.ValueString(),
 			RoleARN:       plan.Cloudwatch.RoleARN.ValueString(),
 			AccessKey:     plan.Cloudwatch.AccessKey.ValueString(),
@@ -239,19 +239,19 @@ func (r *metricExporterResource) Update(ctx context.Context, req resource.Update
 	uuid := state.UUID.ValueString()
 
 	// Populate the config struct based on which block is defined in the plan.
-	config := tsClient.ExporterConfig{}
+	config := tsClient.MetricExporterConfig{}
 	if plan.Datadog != nil {
-		config.Datadog = &tsClient.DatadogConfig{
+		config.Datadog = &tsClient.DatadogMetricConfig{
 			APIKey: plan.Datadog.APIKey.ValueString(),
 			Site:   plan.Datadog.Site.ValueString(),
 		}
 	} else if plan.Prometheus != nil {
-		config.Prometheus = &tsClient.PrometheusConfig{
+		config.Prometheus = &tsClient.PrometheusMetricConfig{
 			Username: plan.Prometheus.Username.ValueString(),
 			Password: plan.Prometheus.Password.ValueString(),
 		}
 	} else if plan.Cloudwatch != nil {
-		config.Cloudwatch = &tsClient.CloudwatchConfig{
+		config.Cloudwatch = &tsClient.CloudwatchMetricConfig{
 			Region:        plan.Cloudwatch.Region.ValueString(),
 			RoleARN:       plan.Cloudwatch.RoleARN.ValueString(),
 			AccessKey:     plan.Cloudwatch.AccessKey.ValueString(),

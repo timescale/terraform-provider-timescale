@@ -1,3 +1,11 @@
+## 2.3.0 (June 12, 2025)
+
+FEATURES:
+- Add metric exporters creation
+- Add logs exporters creation
+- Add exporter attachment support to services.
+
+
 ## 2.2.0 (June 4, 2025)
 
 FEATURES:

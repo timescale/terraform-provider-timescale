@@ -117,7 +117,8 @@ func (c *Client) GetVPCByID(ctx context.Context, vpcID int64) (*VPC, error) {
 		"operationName": "GetVPCByID",
 		"query":         GetVPCByIDQuery,
 		"variables": map[string]any{
-			"vpcId": vpcID,
+			"vpcId":     vpcID,
+			"projectId": c.projectID,
 		},
 	}
 	var resp Response[VPCResponse]

@@ -97,7 +97,7 @@ resource "timescale_service" "metric_exporter_test" {
   milli_cpu          = 1000
   memory_gb          = 4
   region_code        = "us-east-1"
-  metric_exporter_id = timescale_metric_exporter.my_datadog_exporter.id
+  metric_exporter_id = timescale_metric_exporter.my_cloudwatch_exporter_with_keys.id
 }
 ```
 

@@ -94,7 +94,7 @@ var (
 	DetachMetricExporterMutation string
 	//go:embed queries/attach_generic_exporter.graphql
 	AttachGenericExporterMutation string
-	//go:embed queries/detach_metric_exporter.graphql
+	//go:embed queries/detach_generic_exporter.graphql
 	DetachGenericExporterMutation string
 )
 

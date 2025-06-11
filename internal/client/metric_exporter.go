@@ -176,3 +176,51 @@ func (c *Client) UpdateMetricExporter(ctx context.Context, id, name string, conf
 
 	return nil
 }
+
+func (c *Client) AttachMetricExporter(ctx context.Context, serviceId, exporterId string) error {
+	tflog.Trace(ctx, "Client.AttachMetricExporter")
+
+	req := map[string]interface{}{
+		"operationName": "AttachServiceToMetricExporter",
+		"query":         AttachMetricExporterMutation,
+		"variables": map[string]interface{}{
+			"projectId":    c.projectID,
+			"serviceId":    serviceId,
+			"exporterUuid": exporterId,
+		},
+	}
+
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return fmt.Errorf("error executing API request: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return fmt.Errorf("API returned an error: %w", resp.Errors[0])
+	}
+
+	return nil
+}
+
+func (c *Client) DetachMetricExporter(ctx context.Context, serviceId, exporterId string) error {
+	tflog.Trace(ctx, "Client.DetachMetricExporter")
+
+	req := map[string]interface{}{
+		"operationName": "DetachServiceFromMetricExporter",
+		"query":         DetachMetricExporterMutation,
+		"variables": map[string]interface{}{
+			"projectId":    c.projectID,
+			"serviceId":    serviceId,
+			"exporterUuid": exporterId,
+		},
+	}
+
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return fmt.Errorf("error executing API request: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return fmt.Errorf("API returned an error: %w", resp.Errors[0])
+	}
+
+	return nil
+}

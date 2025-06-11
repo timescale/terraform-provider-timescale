@@ -40,6 +40,8 @@ const (
 	errReplicaFromFork     = "cannot create a read replica from a read replica or fork"
 	errReplicaWithHA       = "cannot create a read replica with HA enabled"
 	errUpdateReplicaSource = "cannot update read replica source"
+	errAttachExporter      = "error attaching exporter to service"
+	errDetachExporter      = "error detaching exporter form service"
 	DefaultMilliCPU        = 500
 	DefaultMemoryGB        = 2
 )
@@ -81,6 +83,8 @@ type serviceResourceModel struct {
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
+	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -253,6 +257,18 @@ The change has been taken into account but must still be propagated. You can run
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"metric_exporter_id": schema.StringAttribute{
+				Description:         "The Exporter ID attached to this service.",
+				MarkdownDescription: "The Exporter ID attached to this service.",
+				Optional:            true,
+			},
+			"log_exporter_id": schema.StringAttribute{
+				Description: `The Log Exporter ID attached to this service.
+				WARNING: To complete the logs exporter attachment, a service restart is required.`,
+				MarkdownDescription: `The Log Exporter ID attached to this service.
+				WARNING: To complete the logs exporter attachment, a service restart is required.`,
+				Optional: true,
+			},
 		},
 	}
 }
@@ -369,6 +385,33 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 			if deleteErr != nil {
 				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("Failed to delete service after password setting error; Remove orphaned resources from your account manually. Error: %s", deleteErr))
 			}
+			return
+		}
+	}
+
+	// Exporters
+	if !plan.MetricExporterID.IsNull() {
+		err := r.client.AttachMetricExporter(ctx, service.ID, plan.MetricExporterID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
+			return
+		}
+	}
+
+	if !plan.LogExporterID.IsNull() {
+		err := r.client.AttachGenericExporter(ctx, service.ID, plan.LogExporterID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
 			return
 		}
 	}
@@ -571,6 +614,43 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	// Exporters
+	if !plan.MetricExporterID.Equal(state.MetricExporterID) {
+		// Detach old and attach new
+		if !state.MetricExporterID.IsNull() && !state.MetricExporterID.IsUnknown() {
+			err := r.client.DetachMetricExporter(ctx, serviceID, state.MetricExporterID.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(errDetachExporter, err.Error())
+				return
+			}
+		}
+		if !plan.MetricExporterID.IsNull() && !plan.MetricExporterID.IsUnknown() {
+			err := r.client.AttachMetricExporter(ctx, serviceID, plan.MetricExporterID.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(errAttachExporter, err.Error())
+				return
+			}
+		}
+	}
+
+	if !plan.LogExporterID.Equal(state.LogExporterID) {
+		// Detach old and attach new
+		if !state.LogExporterID.IsNull() && !state.LogExporterID.IsUnknown() {
+			err := r.client.DetachGenericExporter(ctx, serviceID, state.LogExporterID.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(errDetachExporter, err.Error())
+				return
+			}
+		}
+		if !plan.LogExporterID.IsNull() && !plan.LogExporterID.IsUnknown() {
+			err := r.client.AttachGenericExporter(ctx, serviceID, plan.LogExporterID.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError(errAttachExporter, err.Error())
+				return
+			}
+		}
+	}
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -697,6 +777,13 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 			model.PoolerHostname = types.StringValue(s.Endpoints.Pooler.Host)
 			model.PoolerPort = types.Int64Value(int64(s.Endpoints.Pooler.Port))
 		}
+	}
+
+	if s.ServiceSpec.MetricExporterUUID != nil {
+		model.MetricExporterID = types.StringValue(*s.ServiceSpec.MetricExporterUUID)
+	}
+	if s.ServiceSpec.GenericExporterID != nil {
+		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
 	}
 
 	return model

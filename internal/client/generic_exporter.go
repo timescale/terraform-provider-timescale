@@ -155,3 +155,51 @@ func (c *Client) UpdateGenericExporter(ctx context.Context, id, name string, con
 
 	return nil
 }
+
+func (c *Client) AttachGenericExporter(ctx context.Context, serviceId, exporterId string) error {
+	tflog.Trace(ctx, "Client.AttachGenericExporter")
+
+	req := map[string]interface{}{
+		"operationName": "AttachServiceToGenericExporter",
+		"query":         AttachGenericExporterMutation,
+		"variables": map[string]interface{}{
+			"projectId":  c.projectID,
+			"serviceId":  serviceId,
+			"exporterId": exporterId,
+		},
+	}
+
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return fmt.Errorf("error executing API request: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return fmt.Errorf("API returned an error: %w", resp.Errors[0])
+	}
+
+	return nil
+}
+
+func (c *Client) DetachGenericExporter(ctx context.Context, serviceId, exporterId string) error {
+	tflog.Trace(ctx, "Client.DetachGenericExporter")
+
+	req := map[string]interface{}{
+		"operationName": "DetachServiceFromGenericExporter",
+		"query":         DetachGenericExporterMutation,
+		"variables": map[string]interface{}{
+			"projectId":  c.projectID,
+			"serviceId":  serviceId,
+			"exporterId": exporterId,
+		},
+	}
+
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return fmt.Errorf("error executing API request: %w", err)
+	}
+	if len(resp.Errors) > 0 {
+		return fmt.Errorf("API returned an error: %w", resp.Errors[0])
+	}
+
+	return nil
+}

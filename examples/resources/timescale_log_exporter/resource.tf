@@ -53,3 +53,12 @@ resource "timescale_log_exporter" "my_cloudwatch_exporter_with_keys" {
     log_stream_name = "exporter-stream-keys"
   }
 }
+
+# Create a service and attach one of the exporters (only 1 log exporter can be attached at the same time)
+resource "timescale_service" "log_exporter_test" {
+  name            = "log_exporter_test"
+  milli_cpu       = 1000
+  memory_gb       = 4
+  region_code     = "us-east-1"
+  log_exporter_id = timescale_log_exporter.my_cloudwatch_exporter_with_role.id
+}

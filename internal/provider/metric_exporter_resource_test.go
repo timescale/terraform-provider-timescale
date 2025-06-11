@@ -7,6 +7,161 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
+func TestAcc_MetricExporterResource_Datadog(t *testing.T) {
+	const datadogConfig = `
+resource "timescale_metric_exporter" "test_datadog" {
+  name   = "tf-acc-test-datadog"
+  region = "us-east-1"
+  datadog = {
+    api_key = "test"
+    site    = "datadoghq.com"
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + datadogConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_datadog", "name", "tf-acc-test-datadog"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_datadog", "region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_datadog", "type", "datadog"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_datadog", "datadog.site", "datadoghq.com"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_datadog", "datadog.api_key", "test"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_datadog", "id"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_datadog", "created"),
+				),
+			},
+			{
+				ResourceName:      "timescale_metric_exporter.test_datadog",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAcc_MetricExporterResource_Prometheus(t *testing.T) {
+	const prometheusConfig = `
+resource "timescale_metric_exporter" "test_prometheus" {
+  name   = "tf-acc-test-prometheus"
+  region = "us-east-1"
+  prometheus = {
+    username = "testuser"
+    password = "testpassword"
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + prometheusConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_prometheus", "name", "tf-acc-test-prometheus"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_prometheus", "region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_prometheus", "type", "prometheus"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_prometheus", "prometheus.username", "testuser"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_prometheus", "id"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_prometheus", "created"),
+				),
+			},
+			{
+				ResourceName:      "timescale_metric_exporter.test_prometheus",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAcc_MetricExporterResource_Cloudwatch_RoleAuth(t *testing.T) {
+	const cloudwatchRoleConfig = `
+resource "timescale_metric_exporter" "test_cloudwatch_role" {
+  name   = "tf-acc-test-cw-role"
+  region = "us-east-1"
+  cloudwatch = {
+    region          = "us-east-1"
+    log_group_name  = "test-log-group"
+    log_stream_name = "test-log-stream"
+    namespace       = "test-namespace"
+    role_arn        = "arn:aws:iam::123456789012:role/test-role"
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cloudwatchRoleConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "name", "tf-acc-test-cw-role"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "type", "cloudwatch"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "cloudwatch.region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "cloudwatch.log_group_name", "test-log-group"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "cloudwatch.log_stream_name", "test-log-stream"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "cloudwatch.namespace", "test-namespace"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_role", "cloudwatch.role_arn", "arn:aws:iam::123456789012:role/test-role"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_cloudwatch_role", "id"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_cloudwatch_role", "created"),
+				),
+			},
+			{
+				ResourceName:      "timescale_metric_exporter.test_cloudwatch_role",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAcc_MetricExporterResource_Cloudwatch_KeyAuth(t *testing.T) {
+	const cloudwatchKeyConfig = `
+resource "timescale_metric_exporter" "test_cloudwatch_key" {
+  name   = "tf-acc-test-cw-key"
+  region = "us-east-1"
+  cloudwatch = {
+    region          = "us-east-1"
+    log_group_name  = "key-log-group"
+    log_stream_name = "key-log-stream"
+    namespace       = "key-namespace"
+    access_key      = "XXXXXXXXXXXXXXXXXXXX"
+    secret_key      = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+  }
+}
+`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + cloudwatchKeyConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "name", "tf-acc-test-cw-key"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "type", "cloudwatch"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "cloudwatch.region", "us-east-1"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "cloudwatch.log_group_name", "key-log-group"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "cloudwatch.log_stream_name", "key-log-stream"),
+					resource.TestCheckResourceAttr("timescale_metric_exporter.test_cloudwatch_key", "cloudwatch.namespace", "key-namespace"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_cloudwatch_key", "id"),
+					resource.TestCheckResourceAttrSet("timescale_metric_exporter.test_cloudwatch_key", "created"),
+				),
+			},
+			{
+				ResourceName:      "timescale_metric_exporter.test_cloudwatch_key",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 func TestAccMetricExporterResource_validations(t *testing.T) {
 	testCases := []struct {
 		name        string

@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 	"strings"
+	"time"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -332,6 +333,18 @@ func (r *logExporterResource) mapExporterToModel(exporter *tsClient.GenericExpor
 	model.Name = types.StringValue(exporter.Name)
 	model.Created = types.StringValue(exporter.Created)
 	model.Type = types.StringValue(strings.ToLower(exporter.Type))
+
+	if exporter.RegionCode != "" {
+		model.Region = types.StringValue(exporter.RegionCode)
+	}
+
+	createdTime, err := time.Parse(time.RFC3339Nano, exporter.Created)
+	if err == nil {
+		// Format to a consistent, lower precision that matches the Read API response.
+		model.Created = types.StringValue(createdTime.Format("2006-01-02T15:04:05.999999Z07:00"))
+	} else {
+		model.Created = types.StringValue(exporter.Created)
+	}
 
 	switch strings.ToUpper(exporter.Type) {
 	case "CLOUDWATCH":

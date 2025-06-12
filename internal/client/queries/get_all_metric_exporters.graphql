@@ -1,0 +1,37 @@
+query GetAllMetricExporters($projectId: ID!) {
+    getAllMetricExporters(projectId: $projectId) {
+        exporterUuid
+        projectId
+        created
+        name
+        type
+        regionCode
+        __typename
+        datadogConfig: config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+                __typename
+            }
+        }
+        prometheusConfig: config {
+            ... on PrometheusMetricConfig {
+                user
+                password
+                __typename
+            }
+        }
+        cloudWatchConfig: config {
+            ... on CloudWatchMetricConfig {
+                logGroupName
+                logStreamName
+                namespace
+                awsRegion
+                awsRoleArn
+                awsAccessKey
+                awsSecretKey
+                __typename
+            }
+        }
+    }
+}

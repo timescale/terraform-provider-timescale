@@ -1,0 +1,23 @@
+query GetAllGenericExporters($projectId: ID!) {
+    getAllGenericExporters(projectId: $projectId) {
+        id
+        projectId
+        regionCode
+        created
+        name
+        type
+        dataType
+        cloudWatchConfig: config {
+            ... on CloudWatchConfig {
+                logGroupName
+                logStreamName
+                awsRegion
+                awsRoleArn
+                awsAccessKey
+                awsSecretKey
+                __typename
+            }
+        }
+        __typename
+    }
+}

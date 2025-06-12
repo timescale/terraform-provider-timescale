@@ -1,0 +1,5 @@
+mutation UpdateGenericExporter($projectId: ID!, $exporterId: String!, $name: String!, $config: GenericExporterConfigInput!) {
+    updateGenericExporter(
+        data: {projectId: $projectId, name: $name, exporterId: $exporterId, config: $config}
+    )
+}

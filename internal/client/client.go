@@ -43,7 +43,7 @@ var (
 	//go:embed queries/change_service_password.graphql
 	ResetServicePassword string
 
-	// VCPs ///////////////////////////////
+	// VCPs
 	//go:embed queries/vpcs.graphql
 	GetVPCsQuery string
 	//go:embed queries/vpc_by_name.graphql
@@ -66,6 +66,36 @@ var (
 	DeletePeeringConnectionMutation string
 	//go:embed queries/update_peering_connection_cidrs.graphql
 	UpdatePeeringConnectionCIDRsMutation string
+
+	// Metric Exporters
+	//go:embed queries/create_metric_exporter.graphql
+	CreateMetricExporterMutation string
+	//go:embed queries/get_all_metric_exporters.graphql
+	GetAllMetricExportersQuery string
+	//go:embed queries/delete_metric_exporter.graphql
+	DeleteMetricExporterMutation string
+	//go:embed queries/update_metric_exporter.graphql
+	UpdateMetricExporterMutation string
+
+	// Generic Exporters (logs)
+	//go:embed queries/create_generic_exporter.graphql
+	CreateGenericExporterMutation string
+	//go:embed queries/get_all_generic_exporters.graphql
+	GetAllGenericExportersQuery string
+	//go:embed queries/delete_generic_exporter.graphql
+	DeleteGenericExporterMutation string
+	//go:embed queries/update_generic_exporter.graphql
+	UpdateGenericExporterMutation string
+
+	// Exporters attachment
+	//go:embed queries/attach_metric_exporter.graphql
+	AttachMetricExporterMutation string
+	//go:embed queries/detach_metric_exporter.graphql
+	DetachMetricExporterMutation string
+	//go:embed queries/attach_generic_exporter.graphql
+	AttachGenericExporterMutation string
+	//go:embed queries/detach_generic_exporter.graphql
+	DetachGenericExporterMutation string
 )
 
 type Client struct {

@@ -1,0 +1,25 @@
+mutation CreateGenericExporter($projectId: ID!, $name: String!, $region: String!, $type: GenericExporterType!, $dataType: GenericExporterDataType!, $config: GenericExporterConfigInput!) {
+    createGenericExporter(
+        data: {projectId: $projectId, name: $name, config: $config, type: $type, dataType: $dataType, region: $region}
+    ) {
+        id
+        projectId
+        regionCode
+        created
+        name
+        type
+        dataType
+        __typename
+        cloudWatchConfig: config {
+            ... on CloudWatchConfig {
+                logGroupName
+                logStreamName
+                awsRegion
+                awsRoleArn
+                awsAccessKey
+                awsSecretKey
+                __typename
+            }
+        }
+    }
+}

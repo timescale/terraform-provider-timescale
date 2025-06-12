@@ -216,6 +216,39 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 	})
 }
 
+func TestServiceResource_With_Exporter(t *testing.T) {
+	const serviceConfig = `
+resource "timescale_metric_exporter" "test_datadog" {
+  name   = "test-datadog"
+  region = "us-east-1"
+  datadog = {
+    api_key = "test"
+    site    = "datadoghq.com"
+  }
+}
+resource "timescale_service" "resource" {
+  name               = "test-metric-exporter"
+  milli_cpu          = 1000
+  memory_gb          = 4
+  region_code        = "us-east-1"
+  metric_exporter_id = timescale_metric_exporter.test_datadog.id
+}
+`
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + serviceConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "id"),
+					resource.TestCheckResourceAttrSet("timescale_service.resource", "metric_exporter_id"),
+				),
+			},
+		},
+	})
+}
+
 func TestServiceResource_Timeout(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -406,6 +439,8 @@ type ServiceConfig struct {
 	Pooler            bool
 	Environment       string
 	Password          string
+	MetricExporterID  string
+	LogExporterID     string
 }
 
 type Timeouts struct {
@@ -414,6 +449,16 @@ type Timeouts struct {
 
 func (c *ServiceConfig) WithName(name string) *ServiceConfig {
 	c.Name = name
+	return c
+}
+
+func (c *ServiceConfig) WithMetricExporterID(id string) *ServiceConfig {
+	c.MetricExporterID = id
+	return c
+}
+
+func (c *ServiceConfig) WithLogExporterID(id string) *ServiceConfig {
+	c.LogExporterID = id
 	return c
 }
 
@@ -476,6 +521,12 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.VpcID != 0 {
 		write("vpc_id = %d \n", c.VpcID)
+	}
+	if c.MetricExporterID != "" {
+		write("metric_exporter_id = %s \n", c.MetricExporterID)
+	}
+	if c.LogExporterID != "" {
+		write("log_exporter_id = %s \n", c.LogExporterID)
 	}
 	write(`
 			milli_cpu  = %d

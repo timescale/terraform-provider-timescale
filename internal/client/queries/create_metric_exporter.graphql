@@ -1,0 +1,38 @@
+mutation CreateMetricExporter($projectId: ID!, $name: String!, $config: MetricExporterConfigInput!, $regionCode: String!) {
+    createMetricExporter(
+        data: {projectId: $projectId, name: $name, config: $config, regionCode: $regionCode}
+    ) {
+        exporterUuid
+        projectId
+        created
+        name
+        type
+        __typename
+        datadogConfig: config {
+            ... on DatadogMetricConfig {
+                apiKey
+                site
+                __typename
+            }
+        }
+        prometheusConfig: config {
+            ... on PrometheusMetricConfig {
+                user
+                password
+                __typename
+            }
+        }
+        cloudWatchConfig: config {
+            ... on CloudWatchMetricConfig {
+                logGroupName
+                logStreamName
+                namespace
+                awsRegion
+                awsRoleArn
+                awsAccessKey
+                awsSecretKey
+                __typename
+            }
+        }
+    }
+}

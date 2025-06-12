@@ -236,6 +236,7 @@ func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcI
 		Delay:                     30 * time.Second,
 		Timeout:                   10 * time.Minute,
 		PollInterval:              15 * time.Second,
+		NotFoundChecks:            40,
 		ContinuousTargetOccurence: 1,
 		Refresh: func() (result interface{}, state string, err error) {
 			tflog.Debug(ctx, "Checking peering connection status", map[string]interface{}{

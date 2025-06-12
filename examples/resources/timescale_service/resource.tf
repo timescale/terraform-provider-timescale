@@ -28,10 +28,10 @@ provider "timescale" {
 
 
 resource "timescale_service" "test" {
-  name        = ""
+  name        = "test"
   milli_cpu   = 1000
   memory_gb   = 4
-  region_code = ""
+  region_code = "us-east-1"
 }
 
 # Read replica

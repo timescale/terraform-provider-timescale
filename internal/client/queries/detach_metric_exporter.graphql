@@ -1,0 +1,5 @@
+mutation DetachServiceFromMetricExporter($projectId: ID!, $serviceId: ID!, $exporterUuid: ID) {
+    detachServiceFromMetricExporter(
+        data: {projectId: $projectId, serviceId: $serviceId, exporterUuid: $exporterUuid}
+    )
+}

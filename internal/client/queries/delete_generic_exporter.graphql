@@ -1,0 +1,3 @@
+mutation DeleteGenericExporter($projectId: ID!, $exporterId: String!) {
+    deleteGenericExporter(data: {projectId: $projectId, exporterId: $exporterId})
+}

@@ -17,6 +17,8 @@ query GetAllServices($projectId: ID!) {
                 poolerHostName
                 poolerPort
                 connectionPoolerEnabled
+                metricExporterUuid
+                genericExporterID
             }
         }
         resources {

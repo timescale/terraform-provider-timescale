@@ -1,5 +1,5 @@
- query GetVPCByID($vpcId: ID!) {
-    getVpc(vpcId: $vpcId) {
+ query GetVPCByID($vpcId: ID!, $projectId: ID!) {
+    getVpc(vpcId: $vpcId, projectId: $projectId) {
         id
         provisionedId
         projectId

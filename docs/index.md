@@ -228,7 +228,10 @@ Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regi
 ✅ Enable High Availability replicas <br />
 ✅ Enable read replicas <br />
 ✅ VPC peering <br />
+✅ AWS Transit Gateway peering <br />
 ✅ Connection pooling <br />
+✅ Metric exporters <br />
+✅ Log exporters <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,

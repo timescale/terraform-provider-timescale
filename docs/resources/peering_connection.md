@@ -129,7 +129,7 @@ resource "time_sleep" "wait_for_tgw_attachment" {
 
 # Accept the Transit Gateway attachment
 resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
-  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.provisioned_id
+  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.accepter_provisioned_id
 
   depends_on = [time_sleep.wait_for_tgw_attachment]
 }

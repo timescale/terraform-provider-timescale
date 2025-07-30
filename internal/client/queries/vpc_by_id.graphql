@@ -11,6 +11,7 @@
           id
           vpcId
           provisionedId
+          accepterProvisionedId
           peerVpc {
             id
             accountId

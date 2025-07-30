@@ -2,7 +2,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.2"
+      version = "~> 2.4"
     }
     aws = {
       source  = "hashicorp/aws"
@@ -69,7 +69,7 @@ resource "timescale_peering_connection" "vpc_peer" {
 
 # Acceptor's side of the VPC peering connection (AWS).
 resource "aws_vpc_peering_connection_accepter" "vpc_peer" {
-  vpc_peering_connection_id = timescale_peering_connection.vpc_peer.provisioned_id
+  vpc_peering_connection_id = timescale_peering_connection.vpc_peer.accepter_provisioned_id
   auto_accept               = true
 }
 
@@ -114,7 +114,7 @@ resource "time_sleep" "wait_for_tgw_attachment" {
 
 # Accept the Transit Gateway attachment
 resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
-  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.provisioned_id
+  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.accepter_provisioned_id
 
   depends_on = [time_sleep.wait_for_tgw_attachment]
 }

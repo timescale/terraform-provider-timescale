@@ -17,7 +17,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.2"
+      version = "~> 2.4"
     }
   }
 }
@@ -80,6 +80,7 @@ Read-Only:
 
 Read-Only:
 
+- `accepter_provisioned_id` (String)
 - `error_message` (String)
 - `id` (Number)
 - `peer_account_id` (String)

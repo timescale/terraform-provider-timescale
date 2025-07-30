@@ -1,15 +1,21 @@
+## 2.4.0 (July 30, 2025)
+
+FEATURES:
+- Add accepter_provisioned_id to peering connections.
+
+
 ## 2.3.0 (June 12, 2025)
 
 FEATURES:
-- Add metric exporters creation
-- Add logs exporters creation
+- Add metric exporters creation.
+- Add logs exporters creation.
 - Add exporter attachment support to services.
 
 
 ## 2.2.0 (June 4, 2025)
 
 FEATURES:
-- Add Transit Gateway peering support
+- Add Transit Gateway peering support.
 
 
 ## 2.1.0 (May 27, 2025)

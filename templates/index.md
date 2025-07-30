@@ -195,7 +195,7 @@ resource "timescale_peering_connection" "peer" {
 
 # Acceptor's side of the peering connection (AWS).
 resource "aws_vpc_peering_connection_accepter" "peer" {
-  vpc_peering_connection_id = timescale_peering_connection.peer.provisioned_id
+  vpc_peering_connection_id = timescale_peering_connection.peer.accepter_provisioned_id
   auto_accept               = true
   depends_on = [timescale_peering_connection.peer]
 }

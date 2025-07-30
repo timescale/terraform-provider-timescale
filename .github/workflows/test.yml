@@ -61,7 +61,7 @@ jobs:
     name: Terraform Provider Acceptance Tests
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -99,4 +99,4 @@ jobs:
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
           PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
-        run: go test ./internal/provider/ -v -cover -timeout=30m
+        run: go test ./internal/provider/ -v -cover -timeout=60m

@@ -14,6 +14,7 @@ query GetVPCByName($projectId: ID!, $name: String!) {
           id
           vpcId
           provisionedId
+          accepterProvisionedId
           peerVpc {
             id
             accountId

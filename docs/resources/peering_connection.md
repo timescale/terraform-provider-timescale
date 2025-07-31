@@ -17,7 +17,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.2"
+      version = "~> 2.4"
     }
     aws = {
       source  = "hashicorp/aws"
@@ -84,7 +84,7 @@ resource "timescale_peering_connection" "vpc_peer" {
 
 # Acceptor's side of the VPC peering connection (AWS).
 resource "aws_vpc_peering_connection_accepter" "vpc_peer" {
-  vpc_peering_connection_id = timescale_peering_connection.vpc_peer.provisioned_id
+  vpc_peering_connection_id = timescale_peering_connection.vpc_peer.accepter_provisioned_id
   auto_accept               = true
 }
 
@@ -129,7 +129,7 @@ resource "time_sleep" "wait_for_tgw_attachment" {
 
 # Accept the Transit Gateway attachment
 resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
-  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.provisioned_id
+  transit_gateway_attachment_id = timescale_peering_connection.tgw_peer.accepter_provisioned_id
 
   depends_on = [time_sleep.wait_for_tgw_attachment]
 }
@@ -152,10 +152,11 @@ resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
 
 ### Read-Only
 
+- `accepter_provisioned_id` (String) AWS ID of the peering connection accepter (starts with pcx-... for VPC peering or tgw-attach-... for TGW.)
 - `error_message` (String)
 - `id` (Number) Timescale internal ID for a peering connection
 - `peer_cidr` (String, Deprecated) CIDR for the VPC to be paired
 - `peering_type` (String) Type of peering connection (vpc or tgw)
-- `provisioned_id` (String) AWS ID of the peering connection (starts with pcx-... for VPC peering or tgw-... for TGW.)
+- `provisioned_id` (String) AWS ID of the peering connection requester (starts with pcx-... for VPC peering or tgw-... for TGW.)
 - `status` (String) Peering connection status
 - `vpc_id` (String) AWS VPC ID of the timescale instance VPC

@@ -2,7 +2,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.2"
+      version = "~> 2.4"
     }
   }
 }

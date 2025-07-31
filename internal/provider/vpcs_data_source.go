@@ -3,13 +3,14 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
-	"strconv"
-	"strings"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -51,19 +52,20 @@ type vpcDSModel struct {
 }
 
 type peeringConnectionDSModel struct {
-	ID             types.Int64  `tfsdk:"id"`
-	VpcID          types.String `tfsdk:"vpc_id"`
-	ProvisionedID  types.String `tfsdk:"provisioned_id"`
-	Status         types.String `tfsdk:"status"`
-	ErrorMessage   types.String `tfsdk:"error_message"`
-	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
-	PeerTGWID      types.String `tfsdk:"peer_tgw_id"`
-	PeerCIDRBlocks types.List   `tfsdk:"peer_cidr_blocks"`
-	PeerCIDR       types.String `tfsdk:"peer_cidr"`
-	PeerAccountID  types.String `tfsdk:"peer_account_id"`
-	PeerRegionCode types.String `tfsdk:"peer_region_code"`
-	TimescaleVPCID types.Int64  `tfsdk:"timescale_vpc_id"`
-	PeeringType    types.String `tfsdk:"peering_type"`
+	ID                    types.Int64  `tfsdk:"id"`
+	VpcID                 types.String `tfsdk:"vpc_id"`
+	ProvisionedID         types.String `tfsdk:"provisioned_id"`
+	AccepterProvisionedID types.String `tfsdk:"accepter_provisioned_id"`
+	Status                types.String `tfsdk:"status"`
+	ErrorMessage          types.String `tfsdk:"error_message"`
+	PeerVPCID             types.String `tfsdk:"peer_vpc_id"`
+	PeerTGWID             types.String `tfsdk:"peer_tgw_id"`
+	PeerCIDRBlocks        types.List   `tfsdk:"peer_cidr_blocks"`
+	PeerCIDR              types.String `tfsdk:"peer_cidr"`
+	PeerAccountID         types.String `tfsdk:"peer_account_id"`
+	PeerRegionCode        types.String `tfsdk:"peer_region_code"`
+	TimescaleVPCID        types.Int64  `tfsdk:"timescale_vpc_id"`
+	PeeringType           types.String `tfsdk:"peering_type"`
 }
 
 // Metadata returns the data source type name.
@@ -124,9 +126,11 @@ func (d *vpcsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, res
 				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
 					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("vpc")
+					pcm.AccepterProvisionedID = types.StringValue(pc.ProvisionedID)
 				} else if strings.HasPrefix(pc.PeerVPC.ID, "tgw-") {
 					pcm.PeerTGWID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("tgw")
+					pcm.AccepterProvisionedID = types.StringValue(pc.AccepterProvisionedID)
 				} else {
 					resp.Diagnostics.AddError("Peering type error", "Received an invalid peering provisioned ID: "+pc.PeerVPC.ID)
 					return
@@ -214,19 +218,20 @@ func (d *vpcsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 							ElementType: types.ObjectType{
 								AttrTypes: map[string]attr.Type{
-									"id":               types.Int64Type,
-									"vpc_id":           types.StringType,
-									"provisioned_id":   types.StringType,
-									"status":           types.StringType,
-									"error_message":    types.StringType,
-									"peer_vpc_id":      types.StringType,
-									"peer_tgw_id":      types.StringType,
-									"peer_cidr_blocks": types.ListType{ElemType: types.StringType},
-									"peer_cidr":        types.StringType,
-									"peer_account_id":  types.StringType,
-									"peer_region_code": types.StringType,
-									"timescale_vpc_id": types.Int64Type,
-									"peering_type":     types.StringType,
+									"id":                      types.Int64Type,
+									"vpc_id":                  types.StringType,
+									"provisioned_id":          types.StringType,
+									"accepter_provisioned_id": types.StringType,
+									"status":                  types.StringType,
+									"error_message":           types.StringType,
+									"peer_vpc_id":             types.StringType,
+									"peer_tgw_id":             types.StringType,
+									"peer_cidr_blocks":        types.ListType{ElemType: types.StringType},
+									"peer_cidr":               types.StringType,
+									"peer_account_id":         types.StringType,
+									"peer_region_code":        types.StringType,
+									"timescale_vpc_id":        types.Int64Type,
+									"peering_type":            types.StringType,
 								},
 							},
 						},

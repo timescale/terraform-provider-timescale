@@ -2,10 +2,11 @@ package provider
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 func TestVPCDataSourceWithVPCPeering(t *testing.T) {
@@ -33,6 +34,7 @@ func TestVPCDataSourceWithVPCPeering(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.vpc_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.accepter_provisioned_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.status"),
 					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
 					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_region_code", peerRegion),
@@ -101,6 +103,7 @@ func TestVPCDataSourceWithTGWPeering(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.vpc_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.provisioned_id"),
+					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.accepter_provisioned_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "vpcs.0.peering_connections.0.status"),
 					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_account_id", peerAccountID),
 					resource.TestCheckResourceAttr(resourceName, "vpcs.0.peering_connections.0.peer_region_code", peerRegion),

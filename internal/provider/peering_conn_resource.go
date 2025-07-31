@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -44,19 +45,20 @@ type peeringConnectionResource struct {
 }
 
 type peeringConnectionResourceModel struct {
-	ID             types.Int64  `tfsdk:"id"`
-	VpcID          types.String `tfsdk:"vpc_id"`
-	ProvisionedID  types.String `tfsdk:"provisioned_id"`
-	Status         types.String `tfsdk:"status"`
-	ErrorMessage   types.String `tfsdk:"error_message"`
-	PeerVPCID      types.String `tfsdk:"peer_vpc_id"`
-	PeerTGWID      types.String `tfsdk:"peer_tgw_id"`
-	PeerCIDRBlocks types.List   `tfsdk:"peer_cidr_blocks"`
-	PeerCIDR       types.String `tfsdk:"peer_cidr"`
-	PeerAccountID  types.String `tfsdk:"peer_account_id"`
-	PeerRegionCode types.String `tfsdk:"peer_region_code"`
-	TimescaleVPCID types.Int64  `tfsdk:"timescale_vpc_id"`
-	PeeringType    types.String `tfsdk:"peering_type"`
+	ID                    types.Int64  `tfsdk:"id"`
+	VpcID                 types.String `tfsdk:"vpc_id"`
+	ProvisionedID         types.String `tfsdk:"provisioned_id"`
+	AccepterProvisionedID types.String `tfsdk:"accepter_provisioned_id"`
+	Status                types.String `tfsdk:"status"`
+	ErrorMessage          types.String `tfsdk:"error_message"`
+	PeerVPCID             types.String `tfsdk:"peer_vpc_id"`
+	PeerTGWID             types.String `tfsdk:"peer_tgw_id"`
+	PeerCIDRBlocks        types.List   `tfsdk:"peer_cidr_blocks"`
+	PeerCIDR              types.String `tfsdk:"peer_cidr"`
+	PeerAccountID         types.String `tfsdk:"peer_account_id"`
+	PeerRegionCode        types.String `tfsdk:"peer_region_code"`
+	TimescaleVPCID        types.Int64  `tfsdk:"timescale_vpc_id"`
+	PeeringType           types.String `tfsdk:"peering_type"`
 }
 
 // Metadata returns the data source type name.
@@ -87,6 +89,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 		return
 	}
 
+	found := false
 	var pcm peeringConnectionResourceModel
 	for _, pc := range vpc.PeeringConnections {
 		pcID, err := strconv.ParseInt(pc.ID, 10, 64)
@@ -100,6 +103,8 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 			}
 
+			found = true
+
 			pcm.ID = types.Int64Value(pcID)
 			pcm.VpcID = types.StringValue(vpc.ProvisionedID)
 			pcm.Status = types.StringValue(pc.Status)
@@ -108,9 +113,12 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 				if strings.HasPrefix(pc.PeerVPC.ID, "vpc-") {
 					pcm.PeerVPCID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("vpc")
+					// VPC peerings always share the same ID between accounts
+					pcm.AccepterProvisionedID = types.StringValue(pc.ProvisionedID)
 				} else if strings.HasPrefix(pc.PeerVPC.ID, "tgw-") {
 					pcm.PeerTGWID = types.StringValue(pc.PeerVPC.ID)
 					pcm.PeeringType = types.StringValue("tgw")
+					pcm.AccepterProvisionedID = types.StringValue(pc.AccepterProvisionedID)
 				} else {
 					resp.Diagnostics.AddError("Peering type error", "Received an invalid peering provisioned ID: "+pc.PeerVPC.ID)
 					return
@@ -128,8 +136,12 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 			pcm.PeerRegionCode = types.StringValue(pc.PeerVPC.RegionCode)
 			pcm.TimescaleVPCID = types.Int64Value(vpcID)
 			pcm.PeerCIDR = types.StringValue("deprecated")
-
 		}
+	}
+
+	if !found {
+		tflog.Warn(ctx, "Peering connection not found, removing from state.", map[string]any{"id": state.ID.ValueInt64()})
+		resp.State.RemoveResource(ctx)
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, pcm)...)
@@ -210,6 +222,11 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 	plan.Status = types.StringValue(pc.Status)
 	plan.ErrorMessage = types.StringValue(pc.ErrorMessage)
 	plan.ProvisionedID = types.StringValue(pc.ProvisionedID)
+	// VPC peerings always share the same ID between accounts
+	plan.AccepterProvisionedID = types.StringValue(pc.ProvisionedID)
+	if plan.PeerVPCID.IsNull() {
+		plan.AccepterProvisionedID = types.StringValue(pc.AccepterProvisionedID)
+	}
 	plan.PeerCIDR = types.StringValue("deprecated")
 
 	// If the API doesn't return CIDR blocks, means they will be populated asynchronously (once the peering is approved).
@@ -417,7 +434,14 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 				},
 			},
 			"provisioned_id": schema.StringAttribute{
-				Description: "AWS ID of the peering connection (starts with pcx-... for VPC peering or tgw-... for TGW.)",
+				Description: "AWS ID of the peering connection requester (starts with pcx-... for VPC peering or tgw-... for TGW.)",
+				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"accepter_provisioned_id": schema.StringAttribute{
+				Description: "AWS ID of the peering connection accepter (starts with pcx-... for VPC peering or tgw-attach-... for TGW.)",
 				Computed:    true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),

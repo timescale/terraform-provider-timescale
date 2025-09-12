@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.2"
+      version = "~> 2.5"
     }
   }
 }
@@ -72,7 +72,8 @@ resource "timescale_service" "tf-test" {
   memory_gb                 = 2
   region_code               = "us-west-2"
   connection_pooler_enabled = true
-  enable_ha_replica         = true
+  ha_replicas               = 1
+  sync_replicas             = 0
 }
 
 ## host connection info
@@ -142,7 +143,7 @@ terraform {
      required_providers {
           timescale = {
                source  = "timescale/timescale"
-               version = "~> 2.2"
+               version = "~> 2.5"
           }
      }
 }
@@ -225,7 +226,7 @@ Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regi
 ✅ Pause/resume service <br />
 ✅ Delete service <br />
 ✅ Import service <br />
-✅ Enable High Availability replicas <br />
+✅ Enable High Availability replicas (all modes supported) <br />
 ✅ Enable read replicas <br />
 ✅ VPC peering <br />
 ✅ AWS Transit Gateway peering <br />

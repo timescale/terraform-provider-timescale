@@ -1,3 +1,10 @@
+## 2.5.0 (September 12, 2025)
+
+FEATURES:
+- Add ha_replicas and sync_replicas to the services resource to support all [HA modes] (https://docs.tigerdata.com/use-timescale/latest/ha-replicas/high-availability/).
+- Deprecate enable_ha_replica field
+
+
 ## 2.4.0 (July 30, 2025)
 
 FEATURES:

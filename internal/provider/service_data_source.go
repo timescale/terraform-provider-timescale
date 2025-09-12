@@ -62,6 +62,8 @@ type resourceSpecModel struct {
 	MilliCPU        types.Int64 `tfsdk:"milli_cpu"`
 	MemoryGB        types.Int64 `tfsdk:"memory_gb"`
 	EnableHAReplica types.Bool  `tfsdk:"enable_ha_replica"`
+	HAReplicas      types.Int64 `tfsdk:"ha_replicas"`
+	SyncReplicas    types.Int64 `tfsdk:"sync_replicas"`
 }
 
 func (d *serviceDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -149,8 +151,18 @@ func (d *serviceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 									Computed:            true,
 								},
 								"enable_ha_replica": schema.BoolAttribute{
-									MarkdownDescription: "EnableHAReplica defines if a replica will be provisioned for this service.",
-									Description:         "EnableHAReplica defines if a replica will be provisioned for this service.",
+									MarkdownDescription: "EnableHAReplica defines if a replica will be provisioned for this service (deprecated).",
+									Description:         "EnableHAReplica defines if a replica will be provisioned for this service (deprecated).",
+									Computed:            true,
+								},
+								"ha_replicas": schema.Int64Attribute{
+									MarkdownDescription: "Number of HA replicas (0, 1 or 2). Includes sync and async replicas.",
+									Description:         "Number of HA replicas (0, 1 or 2). Includes sync and async replicas.",
+									Computed:            true,
+								},
+								"sync_replicas": schema.Int64Attribute{
+									MarkdownDescription: "Number of synchronous replicas (0-1).",
+									Description:         "Number of synchronous replicas (0-1).",
 									Computed:            true,
 								},
 							},
@@ -251,6 +263,8 @@ func serviceToDataModel(diag diag.Diagnostics, s *tsClient.Service) serviceDataS
 				MilliCPU:        types.Int64Value(resource.Spec.MilliCPU),
 				MemoryGB:        types.Int64Value(resource.Spec.MemoryGB),
 				EnableHAReplica: types.BoolValue(s.ReplicaStatus != ""),
+				HAReplicas:      types.Int64Value(resource.Spec.ReplicaCount),
+				SyncReplicas:    types.Int64Value(resource.Spec.SyncReplicaCount),
 			},
 		})
 	}

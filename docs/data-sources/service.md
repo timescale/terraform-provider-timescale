@@ -45,9 +45,11 @@ Read-Only:
 
 Read-Only:
 
-- `enable_ha_replica` (Boolean) EnableHAReplica defines if a replica will be provisioned for this service.
+- `enable_ha_replica` (Boolean) EnableHAReplica defines if a replica will be provisioned for this service (deprecated).
+- `ha_replicas` (Number) Number of HA replicas (0, 1 or 2). Includes sync and async replicas.
 - `memory_gb` (Number) MemoryGB is the memory allocated for this service.
 - `milli_cpu` (Number) MilliCPU is the cpu allocated for this service.
+- `sync_replicas` (Number) Number of synchronous replicas (0-1).
 
 
 

@@ -34,16 +34,19 @@ var _ resource.Resource = &serviceResource{}
 var _ resource.ResourceWithImportState = &serviceResource{}
 
 const (
-	ErrCreateTimeout       = "Error waiting for service creation"
-	ErrUpdateService       = "Error updating service"
-	ErrInvalidAttribute    = "Invalid Attribute Value"
-	errReplicaFromFork     = "cannot create a read replica from a read replica or fork"
-	errReplicaWithHA       = "cannot create a read replica with HA enabled"
-	errUpdateReplicaSource = "cannot update read replica source"
-	errAttachExporter      = "error attaching exporter to service"
-	errDetachExporter      = "error detaching exporter form service"
-	DefaultMilliCPU        = 500
-	DefaultMemoryGB        = 2
+	ErrCreateTimeout            = "Error waiting for service creation"
+	ErrUpdateService            = "Error updating service"
+	ErrInvalidAttribute         = "Invalid Attribute Value"
+	errReplicaFromFork          = "cannot create a read replica from a read replica or fork"
+	errReplicaWithHA            = "cannot create a read replica with HA enabled"
+	errUpdateReplicaSource      = "cannot update read replica source"
+	errAttachExporter           = "error attaching exporter to service"
+	errDetachExporter           = "error detaching exporter form service"
+	errHAFieldConflict          = "cannot set enable_ha_replica as false together with ha_replicas > 0"
+	errHAFieldConflict2         = "cannot set enable_ha_replica as true together with ha_replicas = 0"
+	errSyncReplicaInvalidConfig = "sync_replicas can only be 1 when ha_replicas = 2"
+	DefaultMilliCPU             = 500
+	DefaultMemoryGB             = 2
 )
 
 var (
@@ -78,6 +81,8 @@ type serviceResourceModel struct {
 	Username                types.String   `tfsdk:"username"`
 	RegionCode              types.String   `tfsdk:"region_code"`
 	EnableHAReplica         types.Bool     `tfsdk:"enable_ha_replica"`
+	HAReplicas              types.Int64    `tfsdk:"ha_replicas"`
+	SyncReplicas            types.Int64    `tfsdk:"sync_replicas"`
 	Paused                  types.Bool     `tfsdk:"paused"`
 	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
@@ -134,11 +139,28 @@ The change has been taken into account but must still be propagated. You can run
 				},
 			},
 			"enable_ha_replica": schema.BoolAttribute{
-				MarkdownDescription: "Enable HA Replica",
-				Description:         "Enable HA Replica",
+				MarkdownDescription: "Enable HA Replica (deprecated - use ha_replicas and sync_replicas instead)",
+				Description:         "Enable HA Replica (deprecated - use ha_replicas and sync_replicas instead)",
+				Optional:            true,
+				DeprecationMessage:  "This field is deprecated. Use ha_replicas and sync_replicas fields instead for more granular HA configuration.",
+			},
+			"ha_replicas": schema.Int64Attribute{
+				MarkdownDescription: "Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.",
+				Description:         "Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(false),
+				Validators: []validator.Int64{
+					int64validator.Between(0, 2),
+				},
+			},
+			"sync_replicas": schema.Int64Attribute{
+				MarkdownDescription: "Number of synchronous replicas (0 or 1). Set to 1 to enable 'High data integrity mode' (1 Sync and 1 Async replicas). To set sync_replicas to 1, you must also set ha_replicas to 2.",
+				Description:         "Number of synchronous replicas (0 or 1). Set to 1 to enable 'High data integrity mode' (1 Sync and 1 Async replicas). To set sync_replicas to 1, you must also set ha_replicas to 2.",
+				Optional:            true,
+				Computed:            true,
+				Validators: []validator.Int64{
+					int64validator.Between(0, 1),
+				},
 			},
 			"read_replica_source": schema.StringAttribute{
 				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
@@ -294,6 +316,25 @@ func (r *serviceResource) Configure(ctx context.Context, req resource.ConfigureR
 	r.client = client
 }
 
+func validateHAConfiguration(plan serviceResourceModel) error {
+	haReplicas := plan.HAReplicas.ValueInt64()
+	syncReplicas := plan.SyncReplicas.ValueInt64()
+
+	if !plan.EnableHAReplica.IsNull() && !plan.EnableHAReplica.ValueBool() && haReplicas > 0 {
+		return errors.New(errHAFieldConflict)
+	}
+
+	if !plan.EnableHAReplica.IsNull() && plan.EnableHAReplica.ValueBool() && haReplicas == 0 {
+		return errors.New(errHAFieldConflict2)
+	}
+
+	if syncReplicas == 1 && haReplicas != 2 {
+		return errors.New(errSyncReplicaInvalidConfig)
+	}
+
+	return nil
+}
+
 func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	tflog.Trace(ctx, "ServiceResource.Create")
 	var plan serviceResourceModel
@@ -304,10 +345,21 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// Enabling HA replica means one replica
-	var replicaCount int64
-	if plan.EnableHAReplica.ValueBool() {
+
+	if err := validateHAConfiguration(plan); err != nil {
+		resp.Diagnostics.AddError(ErrInvalidAttribute, err.Error())
+		return
+	}
+
+	var replicaCount, syncReplicaCount int64
+	if !plan.HAReplicas.IsNull() {
+		// Use the new ha_replicas field
+		replicaCount = plan.HAReplicas.ValueInt64()
+		syncReplicaCount = plan.SyncReplicas.ValueInt64()
+	} else if !plan.EnableHAReplica.IsNull() && plan.EnableHAReplica.ValueBool() {
+		// Fall back to the deprecated enable_ha_replica field (default to 1 replica sync mode)
 		replicaCount = 1
+		syncReplicaCount = 0
 	}
 
 	request := tsClient.CreateServiceRequest{
@@ -316,6 +368,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		MemoryGB:               strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10),
 		RegionCode:             plan.RegionCode.ValueString(),
 		ReplicaCount:           strconv.FormatInt(replicaCount, 10),
+		SyncReplicaCount:       strconv.FormatInt(syncReplicaCount, 10),
 		EnableConnectionPooler: plan.ConnectionPoolerEnabled.ValueBool(),
 		EnvironmentTag:         plan.EnvironmentTag.ValueString(),
 	}
@@ -430,7 +483,7 @@ func (r *serviceResource) validateCreateReadReplicaRequest(ctx context.Context, 
 	if primary.ForkSpec != nil {
 		return errors.New(errReplicaFromFork)
 	}
-	if plan.EnableHAReplica.ValueBool() {
+	if (!plan.EnableHAReplica.IsNull() && plan.EnableHAReplica.ValueBool()) || (!plan.HAReplicas.IsNull() && plan.HAReplicas.ValueInt64() > 0) {
 		return errors.New(errReplicaWithHA)
 	}
 	return nil
@@ -510,12 +563,19 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 	serviceID := state.ID.ValueString()
 
+	// Validate HA configuration
+	if err := validateHAConfiguration(plan); err != nil {
+		resp.Diagnostics.AddError(ErrInvalidAttribute, err.Error())
+		return
+	}
+
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
 	if readReplicaSource != state.ReadReplicaSource.ValueString() {
 		resp.Diagnostics.AddError(ErrUpdateService, errUpdateReplicaSource)
 		return
 	}
-	if readReplicaSource != "" && plan.EnableHAReplica.ValueBool() {
+
+	if readReplicaSource != "" && ((!plan.EnableHAReplica.IsNull() && plan.EnableHAReplica.ValueBool()) || (!plan.HAReplicas.IsNull() && plan.HAReplicas.ValueInt64() > 0)) {
 		resp.Diagnostics.AddError(ErrUpdateService, errReplicaWithHA)
 		return
 	}
@@ -574,19 +634,34 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	// HA Replica ////////////////////////////////////////
-	if plan.EnableHAReplica != state.EnableHAReplica {
-		if plan.EnableHAReplica.ValueBool() {
-			if err := r.client.SetReplicaCount(ctx, serviceID, 1); err != nil {
-				resp.Diagnostics.AddError("Failed to add a HA replica", err.Error())
-				return
-			}
-		} else {
-			if err := r.client.SetReplicaCount(ctx, serviceID, 0); err != nil {
-				resp.Diagnostics.AddError("Failed to remove a HA replica", err.Error())
-				return
-			}
-		}
+	// Check if either the deprecated field or new fields have changed
+	var planReplicaCount, stateReplicaCount int64
+	var planSyncReplicaCount, stateSyncReplicaCount int64
 
+	// Calculate current state replica count and sync replica count
+	if !state.HAReplicas.IsNull() {
+		stateReplicaCount = state.HAReplicas.ValueInt64()
+		stateSyncReplicaCount = state.SyncReplicas.ValueInt64()
+	} else if !state.EnableHAReplica.IsNull() && state.EnableHAReplica.ValueBool() {
+		stateReplicaCount = 1
+		stateSyncReplicaCount = 0
+	}
+
+	// Calculate planned replica count and sync replica count
+	if !plan.HAReplicas.IsNull() {
+		planReplicaCount = plan.HAReplicas.ValueInt64()
+		planSyncReplicaCount = plan.SyncReplicas.ValueInt64()
+	} else if !plan.EnableHAReplica.IsNull() && plan.EnableHAReplica.ValueBool() {
+		planReplicaCount = 1
+		planSyncReplicaCount = 0
+	}
+
+	// Update the replica count if it has changed
+	if planReplicaCount != stateReplicaCount || planSyncReplicaCount != stateSyncReplicaCount {
+		if err := r.client.SetReplicaCount(ctx, serviceID, int(planReplicaCount), int(planSyncReplicaCount)); err != nil {
+			resp.Diagnostics.AddError("Failed to update HA replicas", err.Error())
+			return
+		}
 	}
 
 	// VPC ////////////////////////////////////////
@@ -725,8 +800,10 @@ func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportSt
 }
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
-	hasHaReplica := s.ReplicaStatus != ""
 	hasPooler := s.ServiceSpec.PoolerEnabled
+	replicaCount := s.Resources[0].Spec.ReplicaCount
+	syncReplicaCount := s.Resources[0].Spec.SyncReplicaCount
+
 	model := serviceResourceModel{
 		ID:                      types.StringValue(s.ID),
 		Password:                state.Password,
@@ -736,16 +813,27 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		Username:                types.StringValue(s.ServiceSpec.Username),
 		RegionCode:              types.StringValue(s.RegionCode),
 		Timeouts:                state.Timeouts,
-		EnableHAReplica:         types.BoolValue(hasHaReplica),
+		HAReplicas:              types.Int64Value(replicaCount),
+		SyncReplicas:            types.Int64Value(syncReplicaCount),
 		Paused:                  types.BoolValue(s.Status == "PAUSED" || s.Status == "PAUSING"),
 		ReadReplicaSource:       state.ReadReplicaSource,
 		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
+		EnableHAReplica:         types.BoolNull(),
 		Hostname:                types.StringNull(),
 		Port:                    types.Int64Null(),
 		ReplicaHostname:         types.StringNull(),
 		ReplicaPort:             types.Int64Null(),
 		PoolerHostname:          types.StringNull(),
 		PoolerPort:              types.Int64Null(),
+	}
+
+	// If the user was using the deprecated has_ha_replica field, populate it from the API for backwards compatibility
+	if !state.EnableHAReplica.IsNull() {
+		if replicaCount > 0 {
+			model.EnableHAReplica = types.BoolValue(true)
+		} else {
+			model.EnableHAReplica = types.BoolValue(false)
+		}
 	}
 
 	if s.VPCEndpoint != nil {
@@ -768,7 +856,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 			model.Port = types.Int64Value(int64(s.Endpoints.Primary.Port))
 		}
 
-		if hasHaReplica && s.Endpoints.Replica != nil && s.Endpoints.Replica.Host != "" {
+		if replicaCount > 0 && s.Endpoints.Replica != nil && s.Endpoints.Replica.Host != "" {
 			model.ReplicaHostname = types.StringValue(s.Endpoints.Replica.Host)
 			model.ReplicaPort = types.Int64Value(int64(s.Endpoints.Replica.Port))
 		}

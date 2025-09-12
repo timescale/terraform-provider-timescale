@@ -50,9 +50,11 @@ type VPCEndpoint struct {
 type ResourceSpec struct {
 	ID   string `json:"id"`
 	Spec struct {
-		MilliCPU  int64 `json:"milliCPU"`
-		MemoryGB  int64 `json:"memoryGB"`
-		StorageGB int64 `json:"storageGB"`
+		MilliCPU         int64 `json:"milliCPU"`
+		MemoryGB         int64 `json:"memoryGB"`
+		StorageGB        int64 `json:"storageGB"`
+		ReplicaCount     int64 `json:"replicaCount"`
+		SyncReplicaCount int64 `json:"syncReplicaCount"`
 	} `json:"spec"`
 }
 
@@ -66,11 +68,12 @@ type CreateServiceRequest struct {
 	MemoryGB string
 	// StorageGB is used for forks, since the CreateServiceRequest expects a storage to be requested
 	// and the fork instance should match the storage size of the primary.
-	StorageGB    string
-	RegionCode   string
-	ReplicaCount string
-	VpcID        int64
-	ForkConfig   *ForkConfig
+	StorageGB        string
+	RegionCode       string
+	ReplicaCount     string
+	SyncReplicaCount string
+	VpcID            int64
+	ForkConfig       *ForkConfig
 
 	EnableConnectionPooler bool
 	EnvironmentTag         string
@@ -147,10 +150,11 @@ func (c *Client) CreateService(ctx context.Context, request CreateServiceRequest
 		"type":       "TIMESCALEDB",
 		"regionCode": request.RegionCode,
 		"resourceConfig": map[string]string{
-			"milliCPU":     request.MilliCPU,
-			"storageGB":    request.StorageGB,
-			"memoryGB":     request.MemoryGB,
-			"replicaCount": request.ReplicaCount,
+			"milliCPU":                request.MilliCPU,
+			"storageGB":               request.StorageGB,
+			"memoryGB":                request.MemoryGB,
+			"replicaCount":            request.ReplicaCount,
+			"synchronousReplicaCount": request.SyncReplicaCount,
 		},
 		"enableConnectionPooler": request.EnableConnectionPooler,
 	}
@@ -206,16 +210,17 @@ func (c *Client) RenameService(ctx context.Context, serviceID string, newName st
 	return nil
 }
 
-func (c *Client) SetReplicaCount(ctx context.Context, serviceID string, replicaCount int) error {
+func (c *Client) SetReplicaCount(ctx context.Context, serviceID string, replicaCount int, syncReplicaCount int) error {
 	tflog.Trace(ctx, "Client.SetReplicaCount")
 
 	req := map[string]interface{}{
 		"operationName": "SetReplicaCount",
 		"query":         SetReplicaCountMutation,
 		"variables": map[string]any{
-			"projectId":    c.projectID,
-			"serviceId":    serviceID,
-			"replicaCount": replicaCount,
+			"projectId":               c.projectID,
+			"serviceId":               serviceID,
+			"replicaCount":            replicaCount,
+			"synchronousReplicaCount": syncReplicaCount,
 		},
 	}
 	var resp Response[any]

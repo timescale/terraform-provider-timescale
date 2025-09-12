@@ -28,6 +28,8 @@ query GetAllServices($projectId: ID!) {
                     milliCPU
                     memoryGB
                     storageGB
+                    replicaCount
+                    syncReplicaCount
                 }
             }
         }

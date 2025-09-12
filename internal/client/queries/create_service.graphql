@@ -39,6 +39,8 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
                         milliCPU
                         memoryGB
                         storageGB
+                        replicaCount
+                        syncReplicaCount
                     }
                 }
             }

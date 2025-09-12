@@ -3,11 +3,12 @@ package provider
 import (
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -38,7 +39,8 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "500"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "region_code", "us-east-1"),
-					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "false"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "0"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "connection_pooler_enabled", "false"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "environment_tag", "DEV"),
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
@@ -75,13 +77,38 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_port"),
 				),
 			},
-			// Enable ha-replica
+			// Enable HA replica (deprecated but still maintained for backwards compatibility)
 			{
-				Config: getServiceConfig(t, config.WithHAReplica(true)),
+				Config: getServiceConfig(t, config.WithEnableHAReplica(true).WithHAReplicasCount(1)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "enable_ha_replica", "true"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "1"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "replica_hostname"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "replica_port"),
+				),
+			},
+			// Enable 1 replicas (1 async)
+			{
+				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "1"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),
+				),
+			},
+			// Enable 2 replicas (2 async)
+			{
+				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "2"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),
+				),
+			},
+			// Enable 2 replicas with 1 sync (1 sync + 1 async)
+			{
+				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "2"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "1"),
 				),
 			},
 		},
@@ -135,7 +162,8 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 					resource.TestCheckResourceAttr(primaryFQID, "milli_cpu", "500"),
 					resource.TestCheckResourceAttr(primaryFQID, "memory_gb", "2"),
 					resource.TestCheckResourceAttr(primaryFQID, "region_code", "us-east-1"),
-					resource.TestCheckResourceAttr(primaryFQID, "enable_ha_replica", "false"),
+					resource.TestCheckResourceAttr(primaryFQID, "ha_replicas", "0"),
+					resource.TestCheckResourceAttr(primaryFQID, "sync_replicas", "0"),
 					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
 
 					// Verify read replica attributes
@@ -148,7 +176,8 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 					resource.TestCheckResourceAttr(replicaFQID, "milli_cpu", "500"),
 					resource.TestCheckResourceAttr(replicaFQID, "memory_gb", "2"),
 					resource.TestCheckResourceAttr(replicaFQID, "region_code", "us-east-1"),
-					resource.TestCheckResourceAttr(replicaFQID, "enable_ha_replica", "false"),
+					resource.TestCheckResourceAttr(replicaFQID, "ha_replicas", "0"),
+					resource.TestCheckResourceAttr(replicaFQID, "sync_replicas", "0"),
 					resource.TestCheckResourceAttrSet(replicaFQID, "read_replica_source"),
 					resource.TestCheckNoResourceAttr(replicaFQID, "vpc_id"),
 				),
@@ -178,12 +207,12 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 			},
 			// Check adding HA returns an error
 			{
-				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithHAReplica(true)),
+				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithEnableHAReplica(true)),
 				ExpectError: regexp.MustCompile(errReplicaWithHA),
 			},
 			// Check removing read_replica_source returns an error
 			{
-				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithHAReplica(false).WithReadReplica("")),
+				Config:      getServiceConfig(t, primaryConfig, replicaConfig.WithEnableHAReplica(false).WithReadReplica("")),
 				ExpectError: regexp.MustCompile(errUpdateReplicaSource),
 			},
 			// Check changing read_replica_source returns an error
@@ -211,6 +240,37 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 					}
 					return nil
 				},
+			},
+		},
+	})
+}
+
+func TestServiceResource_HA_Validation(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: getServiceConfig(t, (&ServiceConfig{
+					Name:         "test-ha-validation",
+					ResourceName: "resource",
+				}).WithHAReplicasAndSync(1, 1)),
+				ExpectError: regexp.MustCompile("sync_replicas can only be 1 when ha_replicas = 2"),
+			},
+			{
+				Config: getServiceConfig(t, (&ServiceConfig{
+					Name:         "test-ha-conflict",
+					ResourceName: "resource",
+					//EnableHAReplica: false,
+				}).WithHAReplicasCount(1).WithEnableHAReplica(false)),
+				ExpectError: regexp.MustCompile("cannot set enable_ha_replica as false together with ha_replicas > 0"),
+			},
+			{
+				Config: getServiceConfig(t, (&ServiceConfig{
+					Name:         "test-ha-conflict-2",
+					ResourceName: "resource",
+				}).WithHAReplicasCount(0).WithEnableHAReplica(true)),
+				ExpectError: regexp.MustCompile("cannot set enable_ha_replica as true together with ha_replicas = 0"),
 			},
 		},
 	})
@@ -421,9 +481,8 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 			}
 			milli_cpu  = %d
 			memory_gb  = %d
-			region_code = %q
-			enable_ha_replica = %t%s
-		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, config.EnableHAReplica, passwordLine)
+			region_code = %q%s
+		}`, resourceName, config.Name, config.Timeouts.Create, config.MilliCPU, config.MemoryGB, config.RegionCode, passwordLine)
 }
 
 type ServiceConfig struct {
@@ -433,7 +492,9 @@ type ServiceConfig struct {
 	MilliCPU          int64
 	MemoryGB          int64
 	RegionCode        string
-	EnableHAReplica   bool
+	EnableHAReplica   *bool
+	HAReplicas        *int64
+	SyncReplicas      *int64
 	VpcID             int64
 	ReadReplicaSource string
 	Pooler            bool
@@ -478,8 +539,24 @@ func (c *ServiceConfig) WithVPC(id int64) *ServiceConfig {
 	return c
 }
 
-func (c *ServiceConfig) WithHAReplica(enableHAReplica bool) *ServiceConfig {
-	c.EnableHAReplica = enableHAReplica
+func (c *ServiceConfig) WithEnableHAReplica(enableHAReplica bool) *ServiceConfig {
+	c.EnableHAReplica = &enableHAReplica
+	return c
+}
+
+func (c *ServiceConfig) WithHAReplicasAndSync(haReplicas, syncReplicas int64) *ServiceConfig {
+	c.HAReplicas = &haReplicas
+	c.SyncReplicas = &syncReplicas
+	return c
+}
+
+func (c *ServiceConfig) WithHAReplicasCount(haReplicas int64) *ServiceConfig {
+	c.HAReplicas = &haReplicas
+	return c
+}
+
+func (c *ServiceConfig) WithSyncReplicas(syncReplicas int64) *ServiceConfig {
+	c.SyncReplicas = &syncReplicas
 	return c
 }
 func (c *ServiceConfig) WithPooler(pooler bool) *ServiceConfig {
@@ -507,8 +584,14 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	if c.ReadReplicaSource != "" {
 		write("read_replica_source = %s \n", c.ReadReplicaSource)
 	}
-	if c.EnableHAReplica {
-		write("enable_ha_replica = %t \n", c.EnableHAReplica)
+	if c.EnableHAReplica != nil {
+		write("enable_ha_replica = %t \n", *c.EnableHAReplica)
+	}
+	if c.HAReplicas != nil {
+		write("ha_replicas = %d \n", *c.HAReplicas)
+	}
+	if c.SyncReplicas != nil {
+		write("sync_replicas = %d \n", *c.SyncReplicas)
 	}
 	if c.Pooler {
 		write("connection_pooler_enabled = %t \n", c.Pooler)

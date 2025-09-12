@@ -22,7 +22,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.4"
+      version = "~> 2.5"
     }
   }
 }
@@ -66,8 +66,9 @@ resource "timescale_service" "read_replica" {
 ### Optional
 
 - `connection_pooler_enabled` (Boolean) Set connection pooler status for this service.
-- `enable_ha_replica` (Boolean) Enable HA Replica
+- `enable_ha_replica` (Boolean, Deprecated) Enable HA Replica (deprecated - use ha_replicas and sync_replicas instead)
 - `environment_tag` (String) Set environment tag for this service.
+- `ha_replicas` (Number) Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.
 - `log_exporter_id` (String) The Log Exporter ID attached to this service.
 				WARNING: To complete the logs exporter attachment, a service restart is required.
 - `memory_gb` (Number) Memory GB
@@ -79,6 +80,7 @@ resource "timescale_service" "read_replica" {
 - `read_replica_source` (String) If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider
 - `region_code` (String) The region for this service.
 - `storage_gb` (Number, Deprecated) Deprecated: Storage GB
+- `sync_replicas` (Number) Number of synchronous replicas (0 or 1). Set to 1 to enable 'High data integrity mode' (1 Sync and 1 Async replicas). To set sync_replicas to 1, you must also set ha_replicas to 2.
 - `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 - `vpc_id` (Number) The VpcID this service is tied to.
 

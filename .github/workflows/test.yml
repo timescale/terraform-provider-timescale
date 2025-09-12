@@ -5,9 +5,13 @@ name: Tests
 # Optionally, you can turn it on using a schedule for regular testing.
 on:
   pull_request:
+    branches:
+      - main
     paths-ignore:
       - 'README.md'
   push:
+    branches:
+      - main
     paths-ignore:
       - 'README.md'
 
@@ -62,6 +66,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    if: github.event_name == 'pull_request'
     strategy:
       fail-fast: false
       matrix:

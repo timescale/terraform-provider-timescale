@@ -89,7 +89,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 			},
 			// Enable 1 replicas (1 async)
 			{
-				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 1)),
+				Config: getServiceConfig(t, config.WithHAReplicasAndSync(1, 0)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "1"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),
@@ -97,7 +97,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 			},
 			// Enable 2 replicas (2 async)
 			{
-				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 1)),
+				Config: getServiceConfig(t, config.WithHAReplicasAndSync(2, 0)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "2"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),

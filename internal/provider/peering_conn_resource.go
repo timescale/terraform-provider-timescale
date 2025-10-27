@@ -99,9 +99,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 		}
 
 		if state.ID.ValueInt64() == pcID {
-			if pc.ErrorMessage != "" {
-				pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
-			}
+			pcm.ErrorMessage = types.StringValue(pc.ErrorMessage)
 
 			found = true
 

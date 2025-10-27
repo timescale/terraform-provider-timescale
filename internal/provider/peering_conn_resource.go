@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -481,6 +482,7 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 				ElementType: types.StringType,
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
+					OrderInsensitiveList(),
 				},
 			},
 			"peer_cidr": schema.StringAttribute{
@@ -524,4 +526,75 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 			},
 		},
 	}
+}
+
+// orderInsensitiveListModifier is a plan modifier that suppresses changes when
+// list elements are the same but in a different order.
+type orderInsensitiveListModifier struct{}
+
+// Description returns a human-readable description of the plan modifier.
+func (m orderInsensitiveListModifier) Description(_ context.Context) string {
+	return "Suppresses plan changes when list elements are the same but in different order"
+}
+
+// MarkdownDescription returns a markdown description of the plan modifier.
+func (m orderInsensitiveListModifier) MarkdownDescription(_ context.Context) string {
+	return "Suppresses plan changes when list elements are the same but in different order"
+}
+
+// PlanModifyList implements the plan modification logic.
+func (m orderInsensitiveListModifier) PlanModifyList(ctx context.Context, req planmodifier.ListRequest, resp *planmodifier.ListResponse) {
+	// If state is null or unknown, or plan is unknown, don't do anything
+	if req.StateValue.IsNull() || req.StateValue.IsUnknown() || req.PlanValue.IsUnknown() {
+		return
+	}
+
+	// If plan is null, respect the explicit null (user wants to remove it)
+	if req.PlanValue.IsNull() {
+		return
+	}
+
+	// Extract elements from state and plan
+	var stateElements, planElements []string
+
+	diags := req.StateValue.ElementsAs(ctx, &stateElements, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	diags = req.PlanValue.ElementsAs(ctx, &planElements, false)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// If lengths differ, there's a real change
+	if len(stateElements) != len(planElements) {
+		return
+	}
+
+	// Sort both slices for comparison
+	stateSorted := make([]string, len(stateElements))
+	planSorted := make([]string, len(planElements))
+	copy(stateSorted, stateElements)
+	copy(planSorted, planElements)
+	sort.Strings(stateSorted)
+	sort.Strings(planSorted)
+
+	// Compare sorted slices
+	for i := range stateSorted {
+		if stateSorted[i] != planSorted[i] {
+			// Elements are different, allow the change
+			return
+		}
+	}
+
+	// Elements are the same but in different order. Use current state to avoid diff
+	resp.PlanValue = req.StateValue
+}
+
+// OrderInsensitiveList returns a plan modifier that makes list comparison order-insensitive.
+func OrderInsensitiveList() planmodifier.List {
+	return orderInsensitiveListModifier{}
 }

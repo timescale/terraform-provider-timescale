@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -405,7 +406,15 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		request.VpcID = plan.VpcID.ValueInt64()
 	}
 
-	response, err := r.client.CreateService(ctx, request)
+	var response *tsClient.CreateServiceResponse
+	var err error
+
+	// If creating a read replica, retry on backup availability errors
+	if readReplicaSource != "" {
+		response, err = r.createReadReplicaWithRetry(ctx, request)
+	} else {
+		response, err = r.client.CreateService(ctx, request)
+	}
 
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create service, got error: %s", err))
@@ -487,6 +496,36 @@ func (r *serviceResource) validateCreateReadReplicaRequest(ctx context.Context, 
 		return errors.New(errReplicaWithHA)
 	}
 	return nil
+}
+
+// createReadReplicaWithRetry attempts to create a read replica with retry logic for backup availability errors.
+func (r *serviceResource) createReadReplicaWithRetry(ctx context.Context, request tsClient.CreateServiceRequest) (*tsClient.CreateServiceResponse, error) {
+	tflog.Trace(ctx, "ServiceResource.createReadReplicaWithRetry")
+
+	var response *tsClient.CreateServiceResponse
+
+	err := retry.RetryContext(ctx, 10*time.Minute, func() *retry.RetryError {
+		resp, err := r.client.CreateService(ctx, request)
+		if err != nil {
+			errMsg := err.Error()
+			if strings.Contains(errMsg, "doesn't yet have any backups or snapshots available") {
+				tflog.Info(ctx, "Parent service doesn't have backups yet, retrying...")
+				// Retry. The parent service needs more time to create backups
+				return retry.RetryableError(err)
+			}
+			return retry.NonRetryableError(err)
+		}
+
+		// Success
+		response = resp
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
 }
 
 func (r *serviceResource) waitForServiceReadiness(ctx context.Context, id string, timeouts timeouts.Value) (*tsClient.Service, error) {

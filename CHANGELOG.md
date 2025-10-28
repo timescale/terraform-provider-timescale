@@ -1,8 +1,15 @@
+## 2.6.0 (October 28, 2025)
+
+FEATURES:
+- Make peer_cidr_blocks order insensitive.
+- Fix error_message consistency issue.
+
+
 ## 2.5.0 (September 12, 2025)
 
 FEATURES:
 - Add ha_replicas and sync_replicas to the services resource to support all [HA modes] (https://docs.tigerdata.com/use-timescale/latest/ha-replicas/high-availability/).
-- Deprecate enable_ha_replica field
+- Deprecate enable_ha_replica field.
 
 
 ## 2.4.0 (July 30, 2025)

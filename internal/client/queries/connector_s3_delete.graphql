@@ -1,0 +1,9 @@
+mutation DeleteS3Connector($id: ID!, $projectId: ID!, $serviceId: ID!) {
+    deleteS3LiveSync(
+        data: {
+            id: $id
+            project_id: $projectId
+            service_id: $serviceId
+        }
+    )
+}

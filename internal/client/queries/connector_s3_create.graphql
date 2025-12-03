@@ -1,0 +1,15 @@
+mutation CreateS3Connector($id: ID!, $projectId: ID!, $serviceId: ID!, $bucket: String, $pattern: String, $credentials: S3LiveSyncCredentialsInput, $definition: S3LiveSyncDefinitionInput, $tableIdentifier: FileImportTableIdentifierInput, $name: String) {
+    createS3LiveSync(
+        data: {
+            id: $id
+            project_id: $projectId
+            service_id: $serviceId
+            bucket: $bucket
+            pattern: $pattern
+            credentials: $credentials
+            definition: $definition
+            table_identifier: $tableIdentifier
+            name: $name
+        }
+    )
+}

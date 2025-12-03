@@ -96,6 +96,16 @@ var (
 	AttachGenericExporterMutation string
 	//go:embed queries/detach_generic_exporter.graphql
 	DetachGenericExporterMutation string
+
+	// S3 Connectors
+	//go:embed queries/connector_s3_create.graphql
+	CreateS3ConnectorMutation string
+	//go:embed queries/connector_s3_update.graphql
+	UpdateS3ConnectorMutation string
+	//go:embed queries/connector_s3_get.graphql
+	GetS3ConnectorQuery string
+	//go:embed queries/connector_s3_delete.graphql
+	DeleteS3ConnectorMutation string
 )
 
 type Client struct {
@@ -209,4 +219,8 @@ func (c *Client) setRequestHeaders(request *http.Request) {
 	userAgent = userAgent + " terraform-provider-timescale/" + c.version
 	userAgent = userAgent + " terraform/" + c.terraformVersion
 	request.Header.Set("User-Agent", userAgent)
+}
+
+func (c *Client) GetProjectID() string {
+	return c.projectID
 }

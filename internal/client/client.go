@@ -195,7 +195,34 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
 		return err
 	}
-	return json.Unmarshal(data, resp)
+
+	// Check HTTP status code before attempting to parse JSON
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		tflog.Error(ctx, fmt.Sprintf("HTTP request returned status code %d", response.StatusCode))
+
+		// Try to parse response body to get more context
+		bodyPreview := string(data)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "..."
+		}
+
+		return fmt.Errorf("HTTP request failed with status code %d: %s", response.StatusCode, bodyPreview)
+	}
+
+	// Parse JSON response
+	if err := json.Unmarshal(data, resp); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Failed to parse JSON response: %s", err))
+
+		// Include response body preview for debugging
+		bodyPreview := string(data)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "..."
+		}
+
+		return fmt.Errorf("failed to parse JSON response: %w. Response body: %s", err, bodyPreview)
+	}
+
+	return nil
 }
 
 func (c *Client) setRequestHeaders(request *http.Request) {

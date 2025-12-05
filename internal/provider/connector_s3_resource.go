@@ -574,7 +574,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// Bucket
 	if !model.Bucket.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type:   "bucket",
+			Type:   tsClient.S3ConnectorUpdateTypeBucket,
 			Bucket: map[string]string{"value": model.Bucket.ValueString()},
 		})
 	}
@@ -582,7 +582,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// Pattern
 	if !model.Pattern.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type:    "pattern",
+			Type:    tsClient.S3ConnectorUpdateTypePattern,
 			Pattern: map[string]string{"value": model.Pattern.ValueString()},
 		})
 	}
@@ -598,7 +598,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 			}
 		}
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type: "credentials",
+			Type: tsClient.S3ConnectorUpdateTypeCredentials,
 			Credentials: map[string]interface{}{
 				"value": map[string]interface{}{
 					"type": creds.Type,
@@ -617,7 +617,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	if model.Definition != nil {
 		def := r.buildDefinition(model.Definition)
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type:       "definition",
+			Type:       tsClient.S3ConnectorUpdateTypeDefinition,
 			Definition: map[string]interface{}{"value": buildDefinitionInput(def)},
 		})
 	}
@@ -625,7 +625,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// Table Identifier
 	if model.TableIdentifier != nil {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type: "table_identifier",
+			Type: tsClient.S3ConnectorUpdateTypeTableIdentifier,
 			TableIdentifier: map[string]interface{}{
 				"value": map[string]interface{}{
 					"table_name":  model.TableIdentifier.TableName.ValueString(),
@@ -638,7 +638,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// Frequency
 	if !model.Frequency.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type:      "frequency",
+			Type:      tsClient.S3ConnectorUpdateTypeFrequency,
 			Frequency: map[string]string{"value": model.Frequency.ValueString()},
 		})
 	}
@@ -646,7 +646,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// Name
 	if !model.Name.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type: "name",
+			Type: tsClient.S3ConnectorUpdateTypeName,
 			Name: map[string]string{"value": model.Name.ValueString()},
 		})
 	}
@@ -654,7 +654,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// OnConflictDoNothing (sent as settings to API)
 	if !model.OnConflictDoNothing.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type: "settings",
+			Type: tsClient.S3ConnectorUpdateTypeSettings,
 			Settings: map[string]interface{}{
 				"value": map[string]interface{}{
 					"on_conflict_do_nothing": model.OnConflictDoNothing.ValueBool(),
@@ -670,7 +670,7 @@ func (r *connectorS3Resource) buildUpdateRequests(model *connectorS3ResourceMode
 	// thrown.
 	if !model.Enabled.IsNull() {
 		requests = append(requests, tsClient.S3ConnectorUpdateRequest{
-			Type:    "enabled",
+			Type:    tsClient.S3ConnectorUpdateTypeEnabled,
 			Enabled: map[string]bool{"value": model.Enabled.ValueBool()},
 		})
 	}
@@ -689,7 +689,7 @@ func (r *connectorS3Resource) disableConnector(
 ) (*tsClient.S3Connector, error) {
 	enableRequest := []tsClient.S3ConnectorUpdateRequest{
 		{
-			Type:    "enabled",
+			Type:    tsClient.S3ConnectorUpdateTypeEnabled,
 			Enabled: map[string]bool{"value": false},
 		},
 	}

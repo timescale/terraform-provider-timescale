@@ -93,9 +93,24 @@ type CreateS3ConnectorRequest struct {
 	Settings        *ImportSettings
 }
 
+// S3ConnectorUpdateType represents the type of update operation.
+type S3ConnectorUpdateType string
+
+const (
+	S3ConnectorUpdateTypeBucket          S3ConnectorUpdateType = "bucket"
+	S3ConnectorUpdateTypePattern         S3ConnectorUpdateType = "pattern"
+	S3ConnectorUpdateTypeCredentials     S3ConnectorUpdateType = "credentials"
+	S3ConnectorUpdateTypeDefinition      S3ConnectorUpdateType = "definition"
+	S3ConnectorUpdateTypeTableIdentifier S3ConnectorUpdateType = "table_identifier"
+	S3ConnectorUpdateTypeFrequency       S3ConnectorUpdateType = "frequency"
+	S3ConnectorUpdateTypeName            S3ConnectorUpdateType = "name"
+	S3ConnectorUpdateTypeSettings        S3ConnectorUpdateType = "settings"
+	S3ConnectorUpdateTypeEnabled         S3ConnectorUpdateType = "enabled"
+)
+
 // S3ConnectorUpdateRequest represents a single update operation.
 type S3ConnectorUpdateRequest struct {
-	Type               string                 `json:"type"`
+	Type               S3ConnectorUpdateType  `json:"type"`
 	Bucket             map[string]string      `json:"bucket,omitempty"`
 	Pattern            map[string]string      `json:"pattern,omitempty"`
 	Credentials        map[string]interface{} `json:"credentials,omitempty"`

@@ -295,3 +295,106 @@ resource "timescale_connector_s3" "test" {
 }
 `, bucket, pattern, tableName)
 }
+
+func TestAccConnectorS3ResourceColumnMapping(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConnectorS3ResourceConfigColumnMapping("mapping-test-bucket", "data/*.csv", "mapped_table"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "mapping-test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "CSV"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.skip_header", "true"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.0.source", "ts"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.0.destination", "timestamp"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.1.source", "val"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.1.destination", "value"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.2.source", "dev_id"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.column_mappings.2.destination", "device_id"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "table_identifier.table_name", "mapped_table"),
+				),
+			},
+		},
+	})
+}
+
+func testAccConnectorS3ResourceConfigColumnMapping(bucket, pattern, tableName string) string {
+	return providerConfig + fmt.Sprintf(`
+resource "timescale_service" "test" {
+  name = "connector-s3-mapping-test"
+}
+
+resource "timescale_connector_s3" "test" {
+  service_id = timescale_service.test.id
+  name       = "column-mapping-connector"
+  bucket     = %[1]q
+  pattern    = %[2]q
+
+  credentials = {
+    type = "Public"
+  }
+
+  definition = {
+    type = "CSV"
+    csv = {
+      skip_header = true
+      column_mappings = [
+        {
+          source      = "ts"
+          destination = "timestamp"
+        },
+        {
+          source      = "val"
+          destination = "value"
+        },
+        {
+          source      = "dev_id"
+          destination = "device_id"
+        }
+      ]
+    }
+  }
+
+  table_identifier = {
+    schema_name = "public"
+    table_name  = %[3]q
+  }
+
+  enabled = true
+}
+`, bucket, pattern, tableName)
+}
+
+func TestAccConnectorS3ResourceImport(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccConnectorS3ResourceConfigCSV("import-test-bucket", "*.csv", "import_table"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "import-test-bucket"),
+					resource.TestCheckResourceAttrSet("timescale_connector_s3.test", "id"),
+					resource.TestCheckResourceAttrSet("timescale_connector_s3.test", "service_id"),
+				),
+			},
+			{
+				ResourceName:      "timescale_connector_s3.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(s *resource.State) (string, error) {
+					rs, ok := s.RootModule().Resources["timescale_connector_s3.test"]
+					if !ok {
+						return "", fmt.Errorf("resource not found")
+					}
+					serviceID := rs.Primary.Attributes["service_id"]
+					connectorID := rs.Primary.Attributes["id"]
+					return fmt.Sprintf("%s:%s", serviceID, connectorID), nil
+				},
+			},
+		},
+	})
+}

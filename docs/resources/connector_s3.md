@@ -99,9 +99,6 @@ resource "timescale_connector_s3" "example" {
 
 - `created_at` (String) Timestamp when the connector was created.
 - `id` (String) Unique identifier for the S3 connector.
-- `last_error` (String) Last error message if sync failed.
-- `last_imported_object` (String) Last successfully imported S3 object key.
-- `next_tick` (String) Next scheduled sync time.
 - `updated_at` (String) Timestamp when the connector was last updated.
 
 <a id="nestedatt--credentials"></a>

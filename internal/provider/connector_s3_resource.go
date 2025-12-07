@@ -48,9 +48,6 @@ type connectorS3ResourceModel struct {
 	OnConflictDoNothing types.Bool            `tfsdk:"on_conflict_do_nothing"`
 	CreatedAt           types.String          `tfsdk:"created_at"`
 	UpdatedAt           types.String          `tfsdk:"updated_at"`
-	NextTick            types.String          `tfsdk:"next_tick"`
-	LastImportedObject  types.String          `tfsdk:"last_imported_object"`
-	LastError           types.String          `tfsdk:"last_error"`
 }
 
 type credentialsModel struct {
@@ -138,22 +135,13 @@ func (r *connectorS3Resource) Schema(_ context.Context, _ resource.SchemaRequest
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Timestamp when the connector was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"updated_at": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Timestamp when the connector was last updated.",
-			},
-			"next_tick": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Next scheduled sync time.",
-			},
-			"last_imported_object": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Last successfully imported S3 object key.",
-			},
-			"last_error": schema.StringAttribute{
-				Computed:            true,
-				MarkdownDescription: "Last error message if sync failed.",
 			},
 			"on_conflict_do_nothing": schema.BoolAttribute{
 				Optional:            true,
@@ -815,25 +803,6 @@ func (r *connectorS3Resource) mapConnectorToModel(connector *tsClient.S3Connecto
 		model.Frequency = types.StringValue(connector.Frequency)
 	} else {
 		model.Frequency = types.StringValue("")
-	}
-
-	// Computed-only fields - always set to known value (even if empty)
-	if connector.NextTick != "" {
-		model.NextTick = types.StringValue(connector.NextTick)
-	} else {
-		model.NextTick = types.StringValue("")
-	}
-
-	if connector.LastImportedObject != "" {
-		model.LastImportedObject = types.StringValue(connector.LastImportedObject)
-	} else {
-		model.LastImportedObject = types.StringValue("")
-	}
-
-	if connector.LastError != "" {
-		model.LastError = types.StringValue(connector.LastError)
-	} else {
-		model.LastError = types.StringValue("")
 	}
 
 	// Credentials

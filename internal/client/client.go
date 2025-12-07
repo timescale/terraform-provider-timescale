@@ -10,8 +10,10 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/hashicorp/go-retryablehttp"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
@@ -110,6 +112,7 @@ var (
 
 type Client struct {
 	httpClient       *http.Client
+	retryClient      *retryablehttp.Client
 	token            string
 	projectID        string
 	url              string
@@ -127,14 +130,21 @@ type Error struct {
 }
 
 func NewClient(token, projectID, env, terraformVersion string) *Client {
-	c := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
 	url := getURL(env)
 
+	// Configure retryable HTTP client
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = getEnvInt("TIMESCALE_MAX_RETRIES", 5)
+	retryClient.RetryWaitMin = time.Duration(getEnvInt("TIMESCALE_RETRY_WAIT_MIN_SEC", 1)) * time.Second
+	retryClient.RetryWaitMax = time.Duration(getEnvInt("TIMESCALE_RETRY_WAIT_MAX_SEC", 30)) * time.Second
+	retryClient.HTTPClient.Timeout = 30 * time.Second
+
+	// Disable default logging to avoid noise
+	retryClient.Logger = nil
+
 	return &Client{
-		httpClient:       c,
+		httpClient:       retryClient.StandardClient(),
+		retryClient:      retryClient,
 		token:            token,
 		projectID:        projectID,
 		url:              url,
@@ -148,6 +158,15 @@ func getURL(_ string) string {
 		return value
 	}
 	return "https://console.cloud.timescale.com/api/query"
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value, ok := os.LookupEnv(key); ok {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
 }
 
 type JWTFromCCResponse struct {
@@ -188,24 +207,53 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewBuffer(jsonValue))
+
+	// Create retryable request
+	retryableReq, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewBuffer(jsonValue))
 	if err != nil {
 		return err
 	}
-	c.setRequestHeaders(request)
+	c.setRequestHeaders(retryableReq.Request)
 
-	response, err := c.httpClient.Do(request)
+	// Execute with automatic retries
+	response, err := c.retryClient.Do(retryableReq)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
 		return err
 	}
 	defer response.Body.Close()
+
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
-		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
+		tflog.Error(ctx, fmt.Sprintf("Failed to read response body: %s\n", err))
 		return err
 	}
-	return json.Unmarshal(data, resp)
+
+	// Check HTTP status code before attempting to parse JSON
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		tflog.Error(ctx, fmt.Sprintf("HTTP request returned status code %d", response.StatusCode))
+
+		bodyPreview := string(data)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "..."
+		}
+
+		return fmt.Errorf("HTTP request failed with status code %d: %s", response.StatusCode, bodyPreview)
+	}
+
+	// Parse JSON response
+	if err := json.Unmarshal(data, resp); err != nil {
+		tflog.Error(ctx, fmt.Sprintf("Failed to parse JSON response: %s", err))
+
+		bodyPreview := string(data)
+		if len(bodyPreview) > 500 {
+			bodyPreview = bodyPreview[:500] + "..."
+		}
+
+		return fmt.Errorf("failed to parse JSON response: %w. Response body: %s", err, bodyPreview)
+	}
+
+	return nil
 }
 
 func (c *Client) setRequestHeaders(request *http.Request) {

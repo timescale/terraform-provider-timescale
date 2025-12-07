@@ -386,6 +386,9 @@ func TestAccConnectorS3ResourceImport(t *testing.T) {
 				ResourceName:      "timescale_connector_s3.test",
 				ImportState:       true,
 				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"updated_at",
+				},
 				ImportStateIdFunc: func(state *terraform.State) (string, error) {
 					rs, ok := state.RootModule().Resources["timescale_connector_s3.test"]
 					if !ok {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccConnectorS3Resource(t *testing.T) {
@@ -385,8 +386,8 @@ func TestAccConnectorS3ResourceImport(t *testing.T) {
 				ResourceName:      "timescale_connector_s3.test",
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateIdFunc: func(s *resource.State) (string, error) {
-					rs, ok := s.RootModule().Resources["timescale_connector_s3.test"]
+				ImportStateIdFunc: func(state *terraform.State) (string, error) {
+					rs, ok := state.RootModule().Resources["timescale_connector_s3.test"]
 					if !ok {
 						return "", fmt.Errorf("resource not found")
 					}

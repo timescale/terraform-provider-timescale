@@ -3,6 +3,7 @@ module github.com/timescale/terraform-provider-timescale
 go 1.24.3
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/hashicorp/terraform-plugin-framework v1.15.0
 	github.com/hashicorp/terraform-plugin-framework-timeouts v0.5.0

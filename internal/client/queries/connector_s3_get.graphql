@@ -1,0 +1,56 @@
+query GetS3Connector($id: ID!, $projectId: ID!, $serviceId: ID!) {
+    getS3LiveSync(
+        data: {
+            id: $id
+            project_id: $projectId
+            service_id: $serviceId
+        }
+    ) {
+        id
+        project_id
+        service_id
+        created_at
+        updated_at
+        bucket
+        pattern
+        credentials {
+            type
+            role {
+                arn
+            }
+        }
+        definition {
+            type
+            csv {
+                delimiter
+                skip_header
+                column_names
+                column_mappings {
+                    source
+                    destination
+                }
+                auto_column_mapping
+            }
+            parquet {
+                column_mappings {
+                    source
+                    destination
+                }
+                auto_column_mapping
+            }
+        }
+        table_identifier {
+            schema_name
+            table_name
+        }
+        frequency
+        next_tick
+        last_imported_object
+        enabled
+        name
+        last_error
+        settings {
+            on_conflict_do_nothing
+        }
+    }
+}

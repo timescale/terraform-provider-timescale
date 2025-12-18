@@ -1,20 +1,27 @@
 # Timescale Terraform Provider
+
 The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 
 ## Requirements
+
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
 
 ## Quick Start
+
 Check provider [documentation](docs/index.md#quick-start)
 
 ## Local Provider Usage and Development
+
 ### Requirements
+
 - [Go](https://go.dev) >= v1.24
 
 ### Building The Provider
+
 1. Clone the repository
 1. Enter the repository directory
 1. Run `make` to fmt/lint/install/generate:
+
 ```shell
 make
 ```
@@ -24,12 +31,12 @@ make
 `docs` folder content is automatically generated. Please **do not modify these files manually**.
 
 Update `./templates/index.md` and just run `make`:
+
 ```shell
 make
 ```
 
 `data-sources` and `resources` doc files are generated from the actual provider go code (Schema definitions, descriptions, etc.).
-
 
 ### Local provider development override
 
@@ -46,7 +53,7 @@ To use the local provider, create a `~/.terraformrc` file with the following con
 ```hcl
 provider_installation {
   dev_overrides {
-      "registry.terraform.io/providers/timescale" = "$HOME/go/bin"
+      "registry.terraform.io/timescale/timescale" = "$HOME/go/bin"
   }
 
   direct {}
@@ -61,7 +68,6 @@ Remember to run `make` again whenever the provider code is changed.
 
 > [WARNING]
 > Acceptance tests create real resources.
-
 
 Run `make` to install the last version of the provider.
 
@@ -78,9 +84,10 @@ export PEER_TGW_ID=<peer_tgw_id>
 export TIMESCALE_DEV_URL=<api_url> # Optional: to use different environment
 ```
 
-Use `make testacc` to run the full acceptance tests suite. This can take up to 20 minutes as several services are created. 
+Use `make testacc` to run the full acceptance tests suite. This can take up to 20 minutes as several services are created.
 
 **Please do not abort the execution to prevent dangling resources.**
+
 ```shell
 make testacc
 ```

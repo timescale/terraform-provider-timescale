@@ -186,8 +186,8 @@ The change has been taken into account but must still be propagated. You can run
 				Create: true,
 			}),
 			"password": schema.StringAttribute{
-				Description:         "The Postgres password for this service",
-				MarkdownDescription: "The Postgres password for this service",
+				Description:         "The Postgres password for this service. For read replicas, the password is synchronized with the parent service. If not explicitly set for a read replica, it will be null in the state. To maintain the password in state, set this attribute to match the parent service's password.",
+				MarkdownDescription: "The Postgres password for this service. **Note for read replicas:** Read replicas automatically synchronize their password with the parent service. If not explicitly set for a read replica, the password will be `null` in the Terraform state. To maintain the password in state, set this attribute to match the parent service's password.",
 				Optional:            true,
 				Computed:            true,
 				Sensitive:           true,
@@ -423,7 +423,15 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Set the password to the initial password if not provided by the user
 	if plan.Password.IsNull() || plan.Password.IsUnknown() {
-		plan.Password = types.StringValue(response.InitialPassword)
+		if readReplicaSource != "" {
+			// Read replicas synchronize their password with the parent service
+			// The API returns a fake password that doesn't match reality
+			// Store null since we cannot know the actual password
+			// Users should explicitly set the password attribute to match the parent
+			plan.Password = types.StringNull()
+		} else {
+			plan.Password = types.StringValue(response.InitialPassword)
+		}
 	}
 	service, err := r.waitForServiceReadiness(ctx, response.Service.ID, plan.Timeouts)
 	if err != nil {

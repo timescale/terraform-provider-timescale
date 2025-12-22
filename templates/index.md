@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.6"
+      version = "~> 2.7"
     }
   }
 }
@@ -143,7 +143,7 @@ terraform {
      required_providers {
           timescale = {
                source  = "timescale/timescale"
-               version = "~> 2.6"
+               version = "~> 2.7"
           }
      }
 }
@@ -233,6 +233,7 @@ Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regi
 ✅ Connection pooling <br />
 ✅ Metric exporters <br />
 ✅ Log exporters <br />
+✅ S3 connector <br />
 
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,

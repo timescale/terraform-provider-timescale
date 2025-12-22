@@ -1,3 +1,9 @@
+## 2.7.0 (December 22, 2025)
+
+FEATURES:
+- Add S3 connector.
+
+
 ## 2.6.0 (October 28, 2025)
 
 FEATURES:

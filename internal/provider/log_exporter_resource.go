@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -10,9 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
-	"strings"
-	"time"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -98,6 +100,15 @@ func (r *logExporterResource) Create(ctx context.Context, req resource.CreateReq
 	// Get plan
 	var plan logExporterResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	// Region validation - check for unsupported Azure regions
+	if !plan.Region.IsNull() && isNotSupportedRegion(plan.Region.ValueString()) {
+		resp.Diagnostics.AddError(
+			"Unsupported Region",
+			fmt.Sprintf(ErrUnsupportedRegion, plan.Region.ValueString()),
+		)
+		return
+	}
 
 	// Validations
 	if plan.Cloudwatch == nil {

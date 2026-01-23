@@ -3,6 +3,9 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -10,9 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
+
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
-	"strings"
-	"time"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -111,6 +113,15 @@ func (r *metricExporterResource) Create(ctx context.Context, req resource.Create
 	// Get plan
 	var plan metricExporterResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+
+	// Region validation - check for unsupported Azure regions
+	if !plan.Region.IsNull() && isNotSupportedRegion(plan.Region.ValueString()) {
+		resp.Diagnostics.AddError(
+			"Unsupported Region",
+			fmt.Sprintf(ErrUnsupportedRegion, plan.Region.ValueString()),
+		)
+		return
+	}
 
 	// Validations
 	// First check that only one of the three types of exporters is configured (datadog OR prometheus OR cloudwatch)

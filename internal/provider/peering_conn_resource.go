@@ -161,6 +161,14 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 		resp.Diagnostics.AddError(ErrPeeringConnCreate, "Peer region code is required")
 		return
 	}
+	// Region validation - check for unsupported Azure regions
+	if isNotSupportedRegion(plan.PeerRegionCode.ValueString()) {
+		resp.Diagnostics.AddError(
+			ErrPeeringConnCreate,
+			fmt.Sprintf(ErrUnsupportedRegion, plan.PeerRegionCode.ValueString()),
+		)
+		return
+	}
 	if plan.PeerAccountID.IsNull() {
 		resp.Diagnostics.AddError(ErrPeeringConnCreate, "Peer Account ID is required")
 		return

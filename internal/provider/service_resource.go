@@ -104,6 +104,9 @@ func (r *serviceResource) Schema(ctx context.Context, _ resource.SchemaRequest, 
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: `A Service is a TimescaleDB instance.
+Supported providers: AWS and Azure, though there's no VPC support yet on Azure.
+AWS and Azure region naming is official, with the caveat that Azure regions
+have the prefix "az-" before, such as az-eastus2 or az-westeurope.
 
 Please note that when updating the vpc_id attribute, it is possible to encounter a "no Endpoint for that service id exists" error. 
 The change has been taken into account but must still be propagated. You can run "terraform refresh" shortly to get the updated data.`,
@@ -263,8 +266,8 @@ The change has been taken into account but must still be propagated. You can run
 				},
 			},
 			"vpc_id": schema.Int64Attribute{
-				Description:         `The VpcID this service is tied to.`,
-				MarkdownDescription: `The VpcID this service is tied to.`,
+				Description:         `The VpcID this service is tied to, only supported in AWS for now.`,
+				MarkdownDescription: `The VpcID this service is tied to, only supported in AWS for now.`,
 				Optional:            true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
@@ -281,14 +284,14 @@ The change has been taken into account but must still be propagated. You can run
 				},
 			},
 			"metric_exporter_id": schema.StringAttribute{
-				Description:         "The Exporter ID attached to this service.",
-				MarkdownDescription: "The Exporter ID attached to this service.",
+				Description:         "The Exporter ID attached to this service, only supported in AWS for now",
+				MarkdownDescription: "The Exporter ID attached to this service, only supported in AWS for now",
 				Optional:            true,
 			},
 			"log_exporter_id": schema.StringAttribute{
-				Description: `The Log Exporter ID attached to this service.
+				Description: `The Log Exporter ID attached to this service, only supported in AWS for now.
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
-				MarkdownDescription: `The Log Exporter ID attached to this service.
+				MarkdownDescription: `The Log Exporter ID attached to this service, only supported in AWS for now.
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
 			},

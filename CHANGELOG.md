@@ -1,3 +1,9 @@
+## 2.8.0 (January 23, 2026)
+
+FEATURES:
+- Add Azure support.
+
+
 ## 2.7.0 (December 22, 2025)
 
 FEATURES:

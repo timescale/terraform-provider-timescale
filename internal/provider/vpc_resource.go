@@ -134,6 +134,14 @@ func (r *vpcResource) Create(ctx context.Context, req resource.CreateRequest, re
 		resp.Diagnostics.AddError(ErrVPCCreate, "Region code is required")
 		return
 	}
+	// Region validation - check for unsupported Azure regions
+	if isNotSupportedRegion(plan.RegionCode.ValueString()) {
+		resp.Diagnostics.AddError(
+			ErrVPCCreate,
+			fmt.Sprintf(ErrUnsupportedRegion, plan.RegionCode.ValueString()),
+		)
+		return
+	}
 	if plan.CIDR.IsNull() {
 		resp.Diagnostics.AddError(ErrVPCCreate, "CIDR is required")
 		return

@@ -18,6 +18,7 @@ on:
 # Don't run multiple acceptance tests actions simultaneously to avoid conflicts (f.e. VPCs).
 concurrency:
   group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 # Testing only needs permissions to read the repository contents.
 permissions:

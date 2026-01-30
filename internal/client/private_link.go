@@ -156,3 +156,22 @@ func (c *Client) ListPrivateLinkConnections(ctx context.Context, region string) 
 	}
 	return resp.Data.Connections, nil
 }
+
+func (c *Client) SyncPrivateLinkConnections(ctx context.Context) error {
+	tflog.Trace(ctx, "Client.SyncPrivateLinkConnections")
+	req := map[string]interface{}{
+		"operationName": "SyncPrivateLinkConnections",
+		"query":         SyncPrivateLinkConnectionsMutation,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}

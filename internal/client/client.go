@@ -118,6 +118,8 @@ var (
 	DetachServiceFromPrivateLinkMutation string
 	//go:embed queries/list_private_link_connections.graphql
 	ListPrivateLinkConnectionsQuery string
+	//go:embed queries/sync_private_link_connections.graphql
+	SyncPrivateLinkConnectionsMutation string
 )
 
 type Client struct {

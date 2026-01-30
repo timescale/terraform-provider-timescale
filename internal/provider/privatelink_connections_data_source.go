@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
@@ -29,6 +31,8 @@ type privateLinkConnectionsDataSourceModel struct {
 	ID                  types.String                   `tfsdk:"id"`
 	Region              types.String                   `tfsdk:"region"`
 	AzureConnectionName types.String                   `tfsdk:"azure_connection_name"`
+	Sync                types.Bool                     `tfsdk:"sync"`
+	Timeout             types.String                   `tfsdk:"timeout"`
 	Connections         []privateLinkConnectionDSModel `tfsdk:"connections"`
 }
 
@@ -75,7 +79,13 @@ When you create a Private Endpoint in Azure using Terraform, the connection name
 
 Azure appends a resource GUID to your connection name (e.g., ` + "`my-connection.9c99d83c-4445-459a-b1f7-20317aeef7a2`" + `).
 The ` + "`azure_connection_name`" + ` filter matches connections where the full Azure connection name starts with
-your specified value followed by a dot, allowing you to find your connection without knowing the GUID.`,
+your specified value followed by a dot, allowing you to find your connection without knowing the GUID.
+
+## Sync Behavior
+
+By default (` + "`sync = true`" + `), this data source will sync pending Private Link connections from Azure
+before listing. This ensures that newly created Azure Private Endpoints are discovered and approved
+automatically. The data source will retry until the connection is found or the timeout is reached.`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
@@ -97,6 +107,28 @@ your specified value followed by a dot, allowing you to find your connection wit
 					"Azure appends a resource GUID to this name (e.g., `my-connection` becomes `my-connection.<guid>`). " +
 					"When set, returns only the connection matching this name. " +
 					"An error is returned if multiple connections match.",
+			},
+			"sync": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Sync pending Private Link connections from Azure before listing. " +
+					"This discovers and approves newly created Azure Private Endpoints. " +
+					"When azure_connection_name is set, retries until the connection is found or timeout is reached. " +
+					"Defaults to true.",
+				MarkdownDescription: "Sync pending Private Link connections from Azure before listing. " +
+					"This discovers and approves newly created Azure Private Endpoints. " +
+					"When `azure_connection_name` is set, retries until the connection is found or timeout is reached. " +
+					"Defaults to `true`.",
+			},
+			"timeout": schema.StringAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "How long to wait for the connection to appear when sync is enabled. " +
+					"Only applies when azure_connection_name is set. " +
+					"Accepts duration strings like '2m', '5m', '30s'. Defaults to '2m'.",
+				MarkdownDescription: "How long to wait for the connection to appear when sync is enabled. " +
+					"Only applies when `azure_connection_name` is set. " +
+					"Accepts duration strings like `2m`, `5m`, `30s`. Defaults to `2m`.",
 			},
 			"connections": schema.ListNestedAttribute{
 				Computed:    true,
@@ -181,36 +213,118 @@ func (d *privateLinkConnectionsDataSource) Read(ctx context.Context, req datasou
 		return
 	}
 
+	// Set defaults
+	sync := true
+	if !config.Sync.IsNull() {
+		sync = config.Sync.ValueBool()
+	}
+
+	timeoutStr := "2m"
+	if !config.Timeout.IsNull() {
+		timeoutStr = config.Timeout.ValueString()
+	}
+
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid timeout", fmt.Sprintf("Failed to parse timeout '%s': %s", timeoutStr, err))
+		return
+	}
+
 	region := ""
 	if !config.Region.IsNull() {
 		region = config.Region.ValueString()
 	}
 
-	connections, err := d.client.ListPrivateLinkConnections(ctx, region)
-	if err != nil {
-		resp.Diagnostics.AddError("Unable to list Private Link connections", err.Error())
-		return
-	}
-
-	// Filter by azure_connection_name if specified
 	azureConnectionNameFilter := ""
 	if !config.AzureConnectionName.IsNull() {
 		azureConnectionNameFilter = config.AzureConnectionName.ValueString()
 	}
 
-	var state privateLinkConnectionsDataSourceModel
-	state.Region = config.Region
-	state.AzureConnectionName = config.AzureConnectionName
+	var matchedConnections []*tsClient.PrivateLinkConnection
 
-	for _, conn := range connections {
-		// If filter is set, only include connections where azureConnectionName starts with "filter."
-		if azureConnectionNameFilter != "" {
-			expectedPrefix := azureConnectionNameFilter + "."
-			if !strings.HasPrefix(conn.AzureConnectionName, expectedPrefix) {
-				continue
+	// If sync is enabled and we're filtering by azure_connection_name, retry until found or timeout
+	if sync && azureConnectionNameFilter != "" {
+		deadline := time.Now().Add(timeout)
+		retryInterval := 15 * time.Second
+
+		for {
+			// Call sync
+			tflog.Debug(ctx, "Syncing Private Link connections from Azure")
+			if err := d.client.SyncPrivateLinkConnections(ctx); err != nil {
+				tflog.Warn(ctx, "Failed to sync Private Link connections", map[string]interface{}{"error": err.Error()})
+			}
+
+			// List connections
+			connections, err := d.client.ListPrivateLinkConnections(ctx, region)
+			if err != nil {
+				resp.Diagnostics.AddError("Unable to list Private Link connections", err.Error())
+				return
+			}
+
+			// Filter by azure_connection_name
+			matchedConnections = filterConnectionsByAzureName(connections, azureConnectionNameFilter)
+
+			if len(matchedConnections) > 0 {
+				break
+			}
+
+			if time.Now().After(deadline) {
+				resp.Diagnostics.AddError(
+					"Timeout waiting for Private Link connection",
+					fmt.Sprintf("No connection matching azure_connection_name '%s' found after %s. "+
+						"Ensure the Azure Private Endpoint is created and the authorization is approved.",
+						azureConnectionNameFilter, timeoutStr),
+				)
+				return
+			}
+
+			tflog.Info(ctx, "Connection not found yet, retrying...", map[string]interface{}{
+				"azure_connection_name": azureConnectionNameFilter,
+				"retry_in":              retryInterval.String(),
+			})
+			time.Sleep(retryInterval)
+		}
+	} else {
+		// No retry loop - just sync once (if enabled) and list
+		if sync {
+			tflog.Debug(ctx, "Syncing Private Link connections from Azure")
+			if err := d.client.SyncPrivateLinkConnections(ctx); err != nil {
+				tflog.Warn(ctx, "Failed to sync Private Link connections", map[string]interface{}{"error": err.Error()})
 			}
 		}
 
+		connections, err := d.client.ListPrivateLinkConnections(ctx, region)
+		if err != nil {
+			resp.Diagnostics.AddError("Unable to list Private Link connections", err.Error())
+			return
+		}
+
+		if azureConnectionNameFilter != "" {
+			matchedConnections = filterConnectionsByAzureName(connections, azureConnectionNameFilter)
+		} else {
+			matchedConnections = connections
+		}
+	}
+
+	// Error if azure_connection_name filter was set but matched multiple connections
+	if azureConnectionNameFilter != "" && len(matchedConnections) > 1 {
+		resp.Diagnostics.AddError(
+			"Multiple connections matched azure_connection_name filter",
+			fmt.Sprintf("Expected exactly one connection matching '%s', but found %d. "+
+				"Use a more specific connection name or add a region filter.",
+				azureConnectionNameFilter, len(matchedConnections)),
+		)
+		return
+	}
+
+	// Build state
+	var state privateLinkConnectionsDataSourceModel
+	state.Region = config.Region
+	state.AzureConnectionName = config.AzureConnectionName
+	state.Sync = types.BoolValue(sync)
+	state.Timeout = types.StringValue(timeoutStr)
+
+	for _, conn := range matchedConnections {
 		connModel := privateLinkConnectionDSModel{
 			ConnectionID:        types.StringValue(conn.ConnectionID),
 			SubscriptionID:      types.StringValue(conn.SubscriptionID),
@@ -241,18 +355,18 @@ func (d *privateLinkConnectionsDataSource) Read(ctx context.Context, req datasou
 		state.Connections = append(state.Connections, connModel)
 	}
 
-	// Error if azure_connection_name filter was set but matched multiple connections
-	if azureConnectionNameFilter != "" && len(state.Connections) > 1 {
-		resp.Diagnostics.AddError(
-			"Multiple connections matched azure_connection_name filter",
-			fmt.Sprintf("Expected exactly one connection matching '%s', but found %d. "+
-				"Use a more specific connection name or add a region filter.",
-				azureConnectionNameFilter, len(state.Connections)),
-		)
-		return
-	}
-
 	state.ID = types.StringValue(fmt.Sprintf("privatelink_connections_%d", len(state.Connections)))
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+
+func filterConnectionsByAzureName(connections []*tsClient.PrivateLinkConnection, filter string) []*tsClient.PrivateLinkConnection {
+	var matched []*tsClient.PrivateLinkConnection
+	expectedPrefix := filter + "."
+	for _, conn := range connections {
+		if strings.HasPrefix(conn.AzureConnectionName, expectedPrefix) {
+			matched = append(matched, conn)
+		}
+	}
+	return matched
 }

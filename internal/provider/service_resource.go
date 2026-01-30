@@ -960,7 +960,9 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
 	}
 
-	// Private Link - preserve from state since API doesn't return this in service response
+	// TODO: Read private_endpoint_connection_id from API response instead of preserving from state.
+	// The API returns this value via ListPrivateLinkBindings, but we need to call it and find
+	// the binding for this service to get the actual connection ID.
 	model.PrivateEndpointConnectionID = state.PrivateEndpointConnectionID
 
 	return model

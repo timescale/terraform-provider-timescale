@@ -38,3 +38,16 @@ resource "timescale_service" "test" {
 resource "timescale_service" "read_replica" {
   read_replica_source = timescale_service.test.id
 }
+
+# Service with Azure Private Link
+# Prerequisites:
+# 1. Create a Private Link authorization in the Timescale UI for your Azure subscription
+# 2. Create a Private Endpoint in Azure pointing to the Timescale Private Link Service
+# 3. Get the private_endpoint_connection_id from the Timescale UI
+resource "timescale_service" "with_private_link" {
+  name                            = "private-link-service"
+  milli_cpu                       = 1000
+  memory_gb                       = 4
+  region_code                     = "az-eastus2"
+  private_endpoint_connection_id  = "your-private-endpoint-connection-id"
+}

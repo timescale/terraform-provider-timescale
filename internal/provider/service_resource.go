@@ -89,8 +89,9 @@ type serviceResourceModel struct {
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
-	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
-	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
+	MetricExporterID              types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID                 types.String   `tfsdk:"log_exporter_id"`
+	PrivateEndpointConnectionID   types.String   `tfsdk:"private_endpoint_connection_id"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -295,6 +296,14 @@ The change has been taken into account but must still be propagated. You can run
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
 			},
+			"private_endpoint_connection_id": schema.StringAttribute{
+				Description:         "The Private Endpoint Connection ID to attach this service to (Azure Private Link).",
+				MarkdownDescription: "The Private Endpoint Connection ID to attach this service to (Azure Private Link).",
+				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -485,6 +494,15 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		service, err = r.client.GetService(ctx, service.ID)
 		if err != nil {
 			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
+			return
+		}
+	}
+
+	// Private Link
+	if !plan.PrivateEndpointConnectionID.IsNull() {
+		err := r.client.AttachServiceToPrivateLink(ctx, service.ID, plan.PrivateEndpointConnectionID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("error attaching service to private link", err.Error())
 			return
 		}
 	}
@@ -776,6 +794,24 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	// Private Link ////////////////////////////////////////
+	if !plan.PrivateEndpointConnectionID.Equal(state.PrivateEndpointConnectionID) {
+		// Detach old if exists
+		if !state.PrivateEndpointConnectionID.IsNull() && !state.PrivateEndpointConnectionID.IsUnknown() {
+			if err := r.client.DetachServiceFromPrivateLink(ctx, serviceID, state.PrivateEndpointConnectionID.ValueString()); err != nil {
+				resp.Diagnostics.AddError("Failed to detach service from private link", err.Error())
+				return
+			}
+		}
+		// Attach new if specified
+		if !plan.PrivateEndpointConnectionID.IsNull() && !plan.PrivateEndpointConnectionID.IsUnknown() {
+			if err := r.client.AttachServiceToPrivateLink(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString()); err != nil {
+				resp.Diagnostics.AddError("Failed to attach service to private link", err.Error())
+				return
+			}
+		}
+	}
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -923,6 +959,9 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	if s.ServiceSpec.GenericExporterID != nil {
 		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
 	}
+
+	// Private Link - preserve from state since API doesn't return this in service response
+	model.PrivateEndpointConnectionID = state.PrivateEndpointConnectionID
 
 	return model
 }

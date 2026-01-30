@@ -1,0 +1,11 @@
+query ListPrivateLinkBindings($projectId: ID!, $serviceId: ID!) {
+    listPrivateLinkBindings(data: { projectId: $projectId, serviceId: $serviceId }) {
+        projectId
+        serviceId
+        privateEndpointConnectionId
+        bindingType
+        port
+        hostname
+        createdAt
+    }
+}

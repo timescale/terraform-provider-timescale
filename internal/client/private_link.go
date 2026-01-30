@@ -43,16 +43,17 @@ type DetachServiceFromPrivateLinkResponse struct {
 }
 
 type PrivateLinkConnection struct {
-	ConnectionID   string                `json:"connectionId"`
-	SubscriptionID string                `json:"subscriptionId"`
-	LinkIdentifier string                `json:"linkIdentifier"`
-	State          string                `json:"state"`
-	IPAddress      string                `json:"ipAddress"`
-	Name           string                `json:"name"`
-	Region         string                `json:"region"`
-	CreatedAt      string                `json:"createdAt"`
-	UpdatedAt      string                `json:"updatedAt"`
-	Bindings       []*PrivateLinkBinding `json:"bindings"`
+	ConnectionID        string                `json:"connectionId"`
+	SubscriptionID      string                `json:"subscriptionId"`
+	LinkIdentifier      string                `json:"linkIdentifier"`
+	State               string                `json:"state"`
+	IPAddress           string                `json:"ipAddress"`
+	Name                string                `json:"name"`
+	AzureConnectionName string                `json:"azureConnectionName"`
+	Region              string                `json:"region"`
+	CreatedAt           string                `json:"createdAt"`
+	UpdatedAt           string                `json:"updatedAt"`
+	Bindings            []*PrivateLinkBinding `json:"bindings"`
 }
 
 type ListPrivateLinkConnectionsResponse struct {

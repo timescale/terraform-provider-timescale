@@ -116,6 +116,8 @@ var (
 	AttachServiceToPrivateLinkMutation string
 	//go:embed queries/detach_service_from_private_link.graphql
 	DetachServiceFromPrivateLinkMutation string
+	//go:embed queries/list_private_link_connections.graphql
+	ListPrivateLinkConnectionsQuery string
 )
 
 type Client struct {

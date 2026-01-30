@@ -1,0 +1,22 @@
+query ListPrivateLinkConnections($projectId: ID!, $region: String) {
+    listPrivateLinkConnections(data: { projectId: $projectId, region: $region }) {
+        connectionId
+        subscriptionId
+        linkIdentifier
+        state
+        ipAddress
+        name
+        region
+        createdAt
+        updatedAt
+        bindings {
+            projectId
+            serviceId
+            privateEndpointConnectionId
+            bindingType
+            port
+            hostname
+            createdAt
+        }
+    }
+}

@@ -40,8 +40,14 @@ variable "azure_subscription_id" {
 
 variable "azure_location" {
   type        = string
-  description = "Azure region"
+  description = "Azure region for infrastructure (VNet, VM, Private Endpoint)"
   default     = "eastus"
+}
+
+variable "timescale_region" {
+  type        = string
+  description = "Timescale region for the service (e.g., az-eastus, az-eastus2)"
+  default     = "az-eastus"
 }
 
 variable "resource_prefix" {
@@ -65,23 +71,6 @@ provider "azurerm" {
   subscription_id = var.azure_subscription_id
 }
 
-# =============================================================================
-# Timescale Private Link Setup
-# =============================================================================
-
-# Step 1: Authorize the Azure subscription
-resource "timescale_privatelink_authorization" "main" {
-  subscription_id = var.azure_subscription_id
-  name            = "Terraform managed - ${var.resource_prefix}"
-}
-
-# Step 2: Get the Private Link Service alias for the region
-data "timescale_privatelink_available_regions" "all" {}
-
-locals {
-  timescale_region           = "az-${var.azure_location}"
-  private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[local.timescale_region].private_link_service_alias
-}
 
 # =============================================================================
 # Azure Infrastructure - Resource Group & Network
@@ -207,8 +196,25 @@ resource "azurerm_linux_virtual_machine" "vm" {
 }
 
 # =============================================================================
-# Azure Private Endpoint
+# Timescale Private Link Setup
 # =============================================================================
+
+# Step 1: Authorize the Azure subscription
+resource "timescale_privatelink_authorization" "main" {
+  subscription_id = var.azure_subscription_id
+  name            = "Terraform managed - ${var.resource_prefix}"
+}
+
+# Step 2: Get the Private Link Service alias for the region
+data "timescale_privatelink_available_regions" "all" {}
+
+locals {
+  private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].private_link_service_alias
+}
+
+# # =============================================================================
+# # Azure Private Endpoint
+# # =============================================================================
 
 resource "azurerm_private_endpoint" "timescale" {
   name                = "${var.resource_prefix}-pe"
@@ -239,7 +245,7 @@ resource "azurerm_private_endpoint" "timescale" {
 # then configures it with the IP address from the Azure Private Endpoint
 resource "timescale_privatelink_connection" "main" {
   azure_connection_name = azurerm_private_endpoint.timescale.name
-  region                = local.timescale_region
+  region                = var.timescale_region
   ip_address            = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
   name                  = "Managed by Terraform"
 
@@ -254,7 +260,7 @@ resource "timescale_service" "main" {
   name        = "${var.resource_prefix}-db"
   milli_cpu   = 500
   memory_gb   = 2
-  region_code = local.timescale_region
+  region_code = var.timescale_region
 
   private_endpoint_connection_id = timescale_privatelink_connection.main.connection_id
 }

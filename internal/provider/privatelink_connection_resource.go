@@ -328,10 +328,37 @@ func (r *privateLinkConnectionResource) Delete(ctx context.Context, req resource
 		"connection_id": connectionID,
 	})
 
-	if err := r.client.DeletePrivateLinkConnection(ctx, connectionID); err != nil {
-		resp.Diagnostics.AddError("Failed to delete Private Link connection", err.Error())
-		return
+	// Retry deletion with backoff - bindings may take time to be removed after service deletion
+	maxRetries := 10
+	retryInterval := 5 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		err := r.client.DeletePrivateLinkConnection(ctx, connectionID)
+		if err == nil {
+			return
+		}
+
+		// Check if error is due to existing bindings
+		if !strings.Contains(err.Error(), "existing bindings") {
+			resp.Diagnostics.AddError("Failed to delete Private Link connection", err.Error())
+			return
+		}
+
+		if i < maxRetries-1 {
+			tflog.Info(ctx, "Connection still has bindings, retrying...", map[string]interface{}{
+				"connection_id": connectionID,
+				"retry":         i + 1,
+				"max_retries":   maxRetries,
+				"retry_in":      retryInterval.String(),
+			})
+			time.Sleep(retryInterval)
+		}
 	}
+
+	resp.Diagnostics.AddError(
+		"Failed to delete Private Link connection",
+		fmt.Sprintf("Connection %s still has bindings after %d retries. The service may still be detaching.", connectionID, maxRetries),
+	)
 }
 
 func findConnectionByAzureName(connections []*tsClient.PrivateLinkConnection, filter string) *tsClient.PrivateLinkConnection {

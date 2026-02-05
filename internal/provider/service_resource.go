@@ -66,32 +66,32 @@ type serviceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                      types.String   `tfsdk:"id"`
-	Name                    types.String   `tfsdk:"name"`
-	Timeouts                timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU                types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB               types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB                types.Int64    `tfsdk:"memory_gb"`
-	Password                types.String   `tfsdk:"password"`
-	Hostname                types.String   `tfsdk:"hostname"`
-	Port                    types.Int64    `tfsdk:"port"`
-	ReplicaHostname         types.String   `tfsdk:"replica_hostname"`
-	ReplicaPort             types.Int64    `tfsdk:"replica_port"`
-	PoolerHostname          types.String   `tfsdk:"pooler_hostname"`
-	PoolerPort              types.Int64    `tfsdk:"pooler_port"`
-	Username                types.String   `tfsdk:"username"`
-	RegionCode              types.String   `tfsdk:"region_code"`
-	EnableHAReplica         types.Bool     `tfsdk:"enable_ha_replica"`
-	HAReplicas              types.Int64    `tfsdk:"ha_replicas"`
-	SyncReplicas            types.Int64    `tfsdk:"sync_replicas"`
-	Paused                  types.Bool     `tfsdk:"paused"`
-	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
-	VpcID                   types.Int64    `tfsdk:"vpc_id"`
-	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
-	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
-	MetricExporterID              types.String   `tfsdk:"metric_exporter_id"`
-	LogExporterID                 types.String   `tfsdk:"log_exporter_id"`
-	PrivateEndpointConnectionID   types.String   `tfsdk:"private_endpoint_connection_id"`
+	ID                          types.String   `tfsdk:"id"`
+	Name                        types.String   `tfsdk:"name"`
+	Timeouts                    timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU                    types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB                   types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB                    types.Int64    `tfsdk:"memory_gb"`
+	Password                    types.String   `tfsdk:"password"`
+	Hostname                    types.String   `tfsdk:"hostname"`
+	Port                        types.Int64    `tfsdk:"port"`
+	ReplicaHostname             types.String   `tfsdk:"replica_hostname"`
+	ReplicaPort                 types.Int64    `tfsdk:"replica_port"`
+	PoolerHostname              types.String   `tfsdk:"pooler_hostname"`
+	PoolerPort                  types.Int64    `tfsdk:"pooler_port"`
+	Username                    types.String   `tfsdk:"username"`
+	RegionCode                  types.String   `tfsdk:"region_code"`
+	EnableHAReplica             types.Bool     `tfsdk:"enable_ha_replica"`
+	HAReplicas                  types.Int64    `tfsdk:"ha_replicas"`
+	SyncReplicas                types.Int64    `tfsdk:"sync_replicas"`
+	Paused                      types.Bool     `tfsdk:"paused"`
+	ReadReplicaSource           types.String   `tfsdk:"read_replica_source"`
+	VpcID                       types.Int64    `tfsdk:"vpc_id"`
+	ConnectionPoolerEnabled     types.Bool     `tfsdk:"connection_pooler_enabled"`
+	EnvironmentTag              types.String   `tfsdk:"environment_tag"`
+	MetricExporterID            types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID               types.String   `tfsdk:"log_exporter_id"`
+	PrivateEndpointConnectionID types.String   `tfsdk:"private_endpoint_connection_id"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {

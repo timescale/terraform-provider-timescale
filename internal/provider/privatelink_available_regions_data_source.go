@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -72,7 +73,15 @@ func (d *privateLinkAvailableRegionsDataSource) Configure(_ context.Context, req
 	if req.ProviderData == nil {
 		return
 	}
-	d.client = req.ProviderData.(*tsClient.Client)
+	client, ok := req.ProviderData.(*tsClient.Client)
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *tsClient.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+		return
+	}
+	d.client = client
 }
 
 func (d *privateLinkAvailableRegionsDataSource) Read(ctx context.Context, _ datasource.ReadRequest, resp *datasource.ReadResponse) {

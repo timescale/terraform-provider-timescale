@@ -3,7 +3,5 @@ mutation DetachServiceFromPrivateLink($projectId: ID!, $serviceId: ID!, $private
         projectId: $projectId
         serviceId: $serviceId
         privateEndpointConnectionId: $privateEndpointConnectionId
-    }) {
-        success
-    }
+    })
 }

@@ -505,6 +505,11 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 			resp.Diagnostics.AddError("error attaching service to private link", err.Error())
 			return
 		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("error refreshing service after attaching to private link", err.Error())
+			return
+		}
 	}
 
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
@@ -960,10 +965,12 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
 	}
 
-	// TODO: Read private_endpoint_connection_id from API response instead of preserving from state.
-	// The API returns this value via ListPrivateLinkBindings, but we need to call it and find
-	// the binding for this service to get the actual connection ID.
-	model.PrivateEndpointConnectionID = state.PrivateEndpointConnectionID
+	if s.PrivateLinkEndpointConnectionID != nil {
+		model.PrivateEndpointConnectionID = types.StringValue(*s.PrivateLinkEndpointConnectionID)
+	} else {
+		// Preserve from state if API doesn't return it yet (eventual consistency)
+		model.PrivateEndpointConnectionID = state.PrivateEndpointConnectionID
+	}
 
 	return model
 }

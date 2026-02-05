@@ -3,7 +3,5 @@ mutation AttachServiceToPrivateLink($projectId: ID!, $serviceId: ID!, $privateEn
         projectId: $projectId
         serviceId: $serviceId
         privateEndpointConnectionId: $privateEndpointConnectionId
-    }) {
-        success
-    }
+    })
 }

@@ -120,6 +120,8 @@ var (
 	ListPrivateLinkConnectionsQuery string
 	//go:embed queries/sync_private_link_connections.graphql
 	SyncPrivateLinkConnectionsMutation string
+	//go:embed queries/update_private_link_connection.graphql
+	UpdatePrivateLinkConnectionMutation string
 )
 
 type Client struct {

@@ -31,15 +31,11 @@ type ListPrivateLinkBindingsResponse struct {
 }
 
 type AttachServiceToPrivateLinkResponse struct {
-	Result struct {
-		Success bool `json:"success"`
-	} `json:"attachServiceToPrivateLink"`
+	Result string `json:"attachServiceToPrivateLink"`
 }
 
 type DetachServiceFromPrivateLinkResponse struct {
-	Result struct {
-		Success bool `json:"success"`
-	} `json:"detachServiceFromPrivateLink"`
+	Result string `json:"detachServiceFromPrivateLink"`
 }
 
 type PrivateLinkConnection struct {
@@ -174,4 +170,38 @@ func (c *Client) SyncPrivateLinkConnections(ctx context.Context) error {
 		return resp.Errors[0]
 	}
 	return nil
+}
+
+type UpdatePrivateLinkConnectionResponse struct {
+	Connection *PrivateLinkConnection `json:"updatePrivateLinkConnection"`
+}
+
+func (c *Client) UpdatePrivateLinkConnection(ctx context.Context, connectionID string, ipAddress *string, name *string) (*PrivateLinkConnection, error) {
+	tflog.Trace(ctx, "Client.UpdatePrivateLinkConnection")
+	variables := map[string]interface{}{
+		"projectId":    c.projectID,
+		"connectionId": connectionID,
+	}
+	if ipAddress != nil {
+		variables["ipAddress"] = *ipAddress
+	}
+	if name != nil {
+		variables["name"] = *name
+	}
+	req := map[string]interface{}{
+		"operationName": "UpdatePrivateLinkConnection",
+		"query":         UpdatePrivateLinkConnectionMutation,
+		"variables":     variables,
+	}
+	var resp Response[UpdatePrivateLinkConnectionResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Connection, nil
 }

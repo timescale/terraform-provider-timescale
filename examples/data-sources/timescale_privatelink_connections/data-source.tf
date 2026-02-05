@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.3.0"
+
   required_providers {
     timescale = {
       source  = "timescale/timescale"
@@ -6,23 +8,56 @@ terraform {
     }
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = ">= 3.70.0"
     }
   }
 }
 
+# =============================================================================
+# Variables
+# =============================================================================
+
 variable "ts_access_key" {
-  type = string
+  type        = string
+  description = "Timescale access key"
 }
 
 variable "ts_secret_key" {
-  type      = string
-  sensitive = true
+  type        = string
+  sensitive   = true
+  description = "Timescale secret key"
 }
 
 variable "ts_project_id" {
-  type = string
+  type        = string
+  description = "Timescale project ID"
 }
+
+variable "azure_subscription_id" {
+  type        = string
+  description = "Azure subscription ID"
+}
+
+variable "azure_location" {
+  type        = string
+  description = "Azure region"
+  default     = "eastus"
+}
+
+variable "private_link_service_alias" {
+  type        = string
+  description = "Timescale Private Link Service alias (from Console: Settings -> Private Link)"
+}
+
+variable "resource_prefix" {
+  type        = string
+  description = "Prefix for all resource names"
+  default     = "tspl-demo"
+}
+
+# =============================================================================
+# Providers
+# =============================================================================
 
 provider "timescale" {
   access_key = var.ts_access_key
@@ -32,69 +67,240 @@ provider "timescale" {
 
 provider "azurerm" {
   features {}
+  subscription_id = var.azure_subscription_id
 }
 
 # =============================================================================
-# Example 1: List all private link connections
+# Azure Infrastructure - Resource Group & Network
 # =============================================================================
-data "timescale_privatelink_connections" "all" {}
 
-output "all_connections" {
-  description = "All private link connections"
-  value       = data.timescale_privatelink_connections.all.connections
+resource "azurerm_resource_group" "main" {
+  name     = "${var.resource_prefix}-rg"
+  location = var.azure_location
+}
+
+resource "azurerm_virtual_network" "main" {
+  name                = "${var.resource_prefix}-vnet"
+  address_space       = ["10.3.0.0/16"]
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+resource "azurerm_subnet" "vm" {
+  name                 = "vm-subnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.3.1.0/24"]
+}
+
+resource "azurerm_subnet" "endpoint" {
+  name                              = "endpoint-subnet"
+  resource_group_name               = azurerm_resource_group.main.name
+  virtual_network_name              = azurerm_virtual_network.main.name
+  address_prefixes                  = ["10.3.2.0/24"]
+  private_endpoint_network_policies = "Disabled"
 }
 
 # =============================================================================
-# Example 2: Filter by region
+# Azure Infrastructure - VM for testing connectivity
 # =============================================================================
-data "timescale_privatelink_connections" "eastus" {
-  region = "az-eastus"
+
+resource "azurerm_public_ip" "vm" {
+  name                = "${var.resource_prefix}-vm-pip"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
 }
 
-# =============================================================================
-# Example 3: Match by Azure connection name (recommended for automation)
-# =============================================================================
-# When you create a Private Endpoint in Azure, you specify a connection name
-# in the private_service_connection block. Azure appends a resource GUID to
-# this name (e.g., "my-pe-connection" becomes "my-pe-connection.<guid>").
-#
-# The azure_connection_name filter matches your connection by this name,
-# without requiring you to know the GUID.
+resource "azurerm_network_interface" "vm" {
+  name                = "${var.resource_prefix}-vm-nic"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
 
-# First, create the Azure Private Endpoint
-resource "azurerm_private_endpoint" "timescale" {
-  name                = "my-timescale-pe"
-  location            = "eastus"
-  resource_group_name = "my-resource-group"
-  subnet_id           = "/subscriptions/.../subnets/default"
-
-  private_service_connection {
-    name                              = "my-pe-connection" # This is the name to use in the filter
-    private_connection_resource_alias = "timescaledb-...-pls.azure.privatelinkservice"
-    is_manual_connection              = true
-    request_message                   = var.ts_project_id
+  ip_configuration {
+    name                          = "ipconfig1"
+    subnet_id                     = azurerm_subnet.vm.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.vm.id
   }
 }
 
-# Then, look up the connection using the same name you specified above
-data "timescale_privatelink_connections" "my_connection" {
-  azure_connection_name = azurerm_private_endpoint.timescale.private_service_connection[0].name
+resource "azurerm_network_security_group" "vm" {
+  name                = "${var.resource_prefix}-nsg"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
 
-  # The data source will find the connection where azure_connection_name
-  # starts with "my-pe-connection." (your name + dot + GUID)
+  security_rule {
+    name                       = "SSH"
+    priority                   = 1001
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
 }
 
-# Finally, create a service attached to this private link connection
-resource "timescale_service" "with_private_link" {
-  name        = "private-link-service"
-  milli_cpu   = 1000
-  memory_gb   = 4
-  region_code = "az-eastus"
-
-  # Use connection_id from the matched connection
-  private_endpoint_connection_id = data.timescale_privatelink_connections.my_connection.connections[0].connection_id
+resource "azurerm_network_interface_security_group_association" "vm" {
+  network_interface_id      = azurerm_network_interface.vm.id
+  network_security_group_id = azurerm_network_security_group.vm.id
 }
 
-output "service_hostname" {
-  value = timescale_service.with_private_link.hostname
+resource "azurerm_linux_virtual_machine" "vm" {
+  name                = "${var.resource_prefix}-vm"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  size                = "Standard_B1s"
+  admin_username      = "adminuser"
+
+  network_interface_ids = [
+    azurerm_network_interface.vm.id,
+  ]
+
+  admin_ssh_key {
+    username   = "adminuser"
+    public_key = file("~/.ssh/id_rsa.pub")
+  }
+
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "ubuntu-24_04-lts"
+    sku       = "server"
+    version   = "latest"
+  }
+
+  custom_data = base64encode(<<-EOF
+    #!/bin/bash
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y postgresql-client netcat-openbsd curl
+    psql --version
+  EOF
+  )
+
+  tags = {
+    Environment = "Demo"
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =============================================================================
+# Azure Private Endpoint
+# =============================================================================
+
+resource "azurerm_private_endpoint" "timescale" {
+  name                = "${var.resource_prefix}-pe"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = azurerm_subnet.endpoint.id
+
+  private_service_connection {
+    name                              = "${var.resource_prefix}-psc"
+    private_connection_resource_alias = var.private_link_service_alias
+    is_manual_connection              = true
+    request_message                   = var.ts_project_id
+  }
+
+  tags = {
+    Environment = "Demo"
+    ManagedBy   = "Terraform"
+  }
+}
+
+# =============================================================================
+# Timescale Private Link Connection
+# =============================================================================
+
+# This resource syncs and waits for the Azure connection to appear,
+# then configures it with the IP address from the Azure Private Endpoint
+resource "timescale_privatelink_connection" "main" {
+  azure_connection_name = azurerm_private_endpoint.timescale.name
+  region                = "az-${var.azure_location}"
+  ip_address            = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
+  name                  = "Managed by Terraform"
+
+  depends_on = [azurerm_private_endpoint.timescale]
+}
+
+# =============================================================================
+# Timescale Service with Private Link
+# =============================================================================
+
+resource "timescale_service" "main" {
+  name        = "${var.resource_prefix}-db"
+  milli_cpu   = 500
+  memory_gb   = 2
+  region_code = "az-${var.azure_location}"
+
+  private_endpoint_connection_id = timescale_privatelink_connection.main.connection_id
+}
+
+# =============================================================================
+# Outputs
+# =============================================================================
+
+output "vm_public_ip" {
+  description = "Public IP of VM for SSH access"
+  value       = azurerm_public_ip.vm.ip_address
+}
+
+output "vm_ssh_command" {
+  description = "SSH command to connect to VM"
+  value       = "ssh adminuser@${azurerm_public_ip.vm.ip_address}"
+}
+
+output "private_endpoint_ip" {
+  description = "Private IP of the Private Endpoint"
+  value       = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
+}
+
+output "timescale_hostname" {
+  description = "Timescale service hostname"
+  value       = timescale_service.main.hostname
+}
+
+output "timescale_port" {
+  description = "Timescale service port"
+  value       = timescale_service.main.port
+}
+
+output "timescale_username" {
+  description = "Timescale service username"
+  value       = timescale_service.main.username
+}
+
+output "connection_test_command_private_ip" {
+  description = "Command to test connection from VM using private IP (run after SSH)"
+  value       = "PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
+  sensitive   = true
+}
+
+output "connection_test_command_hostname" {
+  description = "Command to test connection using service hostname (run after SSH)"
+  value       = "PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
+  sensitive   = true
+}
+
+output "private_link_connection_state" {
+  description = "State of the Private Link connection"
+  value       = timescale_privatelink_connection.main.state
+}
+
+output "private_link_connection_id" {
+  description = "Connection ID for use with timescale_service"
+  value       = timescale_privatelink_connection.main.connection_id
+}
+
+output "service_id" {
+  description = "Timescale service ID"
+  value       = timescale_service.main.id
 }

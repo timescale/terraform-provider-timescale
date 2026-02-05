@@ -1,0 +1,14 @@
+# Timescale credentials
+ts_access_key = "your-access-key"
+ts_secret_key = "your-secret-key"
+ts_project_id = "your-project-id"
+
+# Azure configuration
+azure_subscription_id = "your-azure-subscription-id"
+azure_location        = "eastus"
+
+# Timescale Private Link Service alias (from Console: Settings -> Private Link -> Add Authorization)
+private_link_service_alias = "timescaledb-prod-az-eastus.<guid>.eastus.azure.privatelinkservice"
+
+# Resource naming prefix (optional)
+resource_prefix = "tspl-demo"

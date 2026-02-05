@@ -122,6 +122,10 @@ var (
 	SyncPrivateLinkConnectionsMutation string
 	//go:embed queries/update_private_link_connection.graphql
 	UpdatePrivateLinkConnectionMutation string
+	//go:embed queries/list_private_link_available_regions.graphql
+	ListPrivateLinkAvailableRegionsQuery string
+	//go:embed queries/delete_private_link_connection.graphql
+	DeletePrivateLinkConnectionMutation string
 )
 
 type Client struct {

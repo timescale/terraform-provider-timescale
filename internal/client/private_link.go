@@ -205,3 +205,55 @@ func (c *Client) UpdatePrivateLinkConnection(ctx context.Context, connectionID s
 	}
 	return resp.Data.Connection, nil
 }
+
+type PrivateLinkAvailableRegion struct {
+	Region                  string `json:"region"`
+	PrivateLinkServiceAlias string `json:"privateLinkServiceAlias"`
+}
+
+type ListPrivateLinkAvailableRegionsResponse struct {
+	Regions []*PrivateLinkAvailableRegion `json:"listPrivateLinkAvailableRegions"`
+}
+
+func (c *Client) ListPrivateLinkAvailableRegions(ctx context.Context) ([]*PrivateLinkAvailableRegion, error) {
+	tflog.Trace(ctx, "Client.ListPrivateLinkAvailableRegions")
+	req := map[string]interface{}{
+		"operationName": "ListPrivateLinkAvailableRegions",
+		"query":         ListPrivateLinkAvailableRegionsQuery,
+	}
+	var resp Response[ListPrivateLinkAvailableRegionsResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Regions, nil
+}
+
+type DeletePrivateLinkConnectionResponse struct {
+	Result string `json:"deletePrivateLinkConnection"`
+}
+
+func (c *Client) DeletePrivateLinkConnection(ctx context.Context, connectionID string) error {
+	tflog.Trace(ctx, "Client.DeletePrivateLinkConnection")
+	req := map[string]interface{}{
+		"operationName": "DeletePrivateLinkConnection",
+		"query":         DeletePrivateLinkConnectionMutation,
+		"variables": map[string]string{
+			"projectId":    c.projectID,
+			"connectionId": connectionID,
+		},
+	}
+	var resp Response[DeletePrivateLinkConnectionResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}

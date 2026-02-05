@@ -316,11 +316,22 @@ func (r *privateLinkConnectionResource) Update(ctx context.Context, req resource
 }
 
 func (r *privateLinkConnectionResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// The connection is managed by Azure - we don't delete it from Timescale
-	// Just remove from state. The connection will be cleaned up when the Azure
-	// Private Endpoint is deleted.
-	tflog.Info(ctx, "Removing Private Link connection from Terraform state. "+
-		"The connection will remain in Timescale until the Azure Private Endpoint is deleted.")
+	var state privateLinkConnectionResourceModel
+	diags := req.State.Get(ctx, &state)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	connectionID := state.ConnectionID.ValueString()
+	tflog.Info(ctx, "Deleting Private Link connection", map[string]interface{}{
+		"connection_id": connectionID,
+	})
+
+	if err := r.client.DeletePrivateLinkConnection(ctx, connectionID); err != nil {
+		resp.Diagnostics.AddError("Failed to delete Private Link connection", err.Error())
+		return
+	}
 }
 
 func findConnectionByAzureName(connections []*tsClient.PrivateLinkConnection, filter string) *tsClient.PrivateLinkConnection {

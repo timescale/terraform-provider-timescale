@@ -1,0 +1,6 @@
+query ListPrivateLinkAvailableRegions {
+    listPrivateLinkAvailableRegions {
+        region
+        privateLinkServiceAlias
+    }
+}

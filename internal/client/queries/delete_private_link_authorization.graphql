@@ -1,0 +1,6 @@
+mutation DeletePrivateLinkAuthorization($projectId: ID!, $subscriptionId: String!) {
+    deletePrivateLinkAuthorization(data: {
+        projectId: $projectId
+        subscriptionId: $subscriptionId
+    })
+}

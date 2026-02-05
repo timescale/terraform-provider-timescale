@@ -257,3 +257,119 @@ func (c *Client) DeletePrivateLinkConnection(ctx context.Context, connectionID s
 	}
 	return nil
 }
+
+// Authorization types and methods
+
+type PrivateLinkAuthorization struct {
+	ProjectID      string  `json:"projectId"`
+	SubscriptionID string  `json:"subscriptionId"`
+	Name           string  `json:"name"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      *string `json:"updatedAt"`
+}
+
+type ListPrivateLinkAuthorizationsResponse struct {
+	Authorizations []*PrivateLinkAuthorization `json:"listPrivateLinkAuthorizations"`
+}
+
+type CreatePrivateLinkAuthorizationResponse struct {
+	Authorization *PrivateLinkAuthorization `json:"createPrivateLinkAuthorization"`
+}
+
+type UpdatePrivateLinkAuthorizationResponse struct {
+	Authorization *PrivateLinkAuthorization `json:"updatePrivateLinkAuthorization"`
+}
+
+type DeletePrivateLinkAuthorizationResponse struct {
+	Result string `json:"deletePrivateLinkAuthorization"`
+}
+
+func (c *Client) ListPrivateLinkAuthorizations(ctx context.Context) ([]*PrivateLinkAuthorization, error) {
+	tflog.Trace(ctx, "Client.ListPrivateLinkAuthorizations")
+	req := map[string]interface{}{
+		"operationName": "ListPrivateLinkAuthorizations",
+		"query":         ListPrivateLinkAuthorizationsQuery,
+		"variables": map[string]string{
+			"projectId": c.projectID,
+		},
+	}
+	var resp Response[ListPrivateLinkAuthorizationsResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Authorizations, nil
+}
+
+func (c *Client) CreatePrivateLinkAuthorization(ctx context.Context, subscriptionID, name string) (*PrivateLinkAuthorization, error) {
+	tflog.Trace(ctx, "Client.CreatePrivateLinkAuthorization")
+	req := map[string]interface{}{
+		"operationName": "CreatePrivateLinkAuthorization",
+		"query":         CreatePrivateLinkAuthorizationMutation,
+		"variables": map[string]string{
+			"projectId":      c.projectID,
+			"subscriptionId": subscriptionID,
+			"name":           name,
+		},
+	}
+	var resp Response[CreatePrivateLinkAuthorizationResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Authorization, nil
+}
+
+func (c *Client) UpdatePrivateLinkAuthorization(ctx context.Context, subscriptionID, name string) (*PrivateLinkAuthorization, error) {
+	tflog.Trace(ctx, "Client.UpdatePrivateLinkAuthorization")
+	req := map[string]interface{}{
+		"operationName": "UpdatePrivateLinkAuthorization",
+		"query":         UpdatePrivateLinkAuthorizationMutation,
+		"variables": map[string]string{
+			"projectId":      c.projectID,
+			"subscriptionId": subscriptionID,
+			"name":           name,
+		},
+	}
+	var resp Response[UpdatePrivateLinkAuthorizationResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Authorization, nil
+}
+
+func (c *Client) DeletePrivateLinkAuthorization(ctx context.Context, subscriptionID string) error {
+	tflog.Trace(ctx, "Client.DeletePrivateLinkAuthorization")
+	req := map[string]interface{}{
+		"operationName": "DeletePrivateLinkAuthorization",
+		"query":         DeletePrivateLinkAuthorizationMutation,
+		"variables": map[string]string{
+			"projectId":      c.projectID,
+			"subscriptionId": subscriptionID,
+		},
+	}
+	var resp Response[DeletePrivateLinkAuthorizationResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	return nil
+}

@@ -21,12 +21,11 @@ type privateLinkAvailableRegionsDataSource struct {
 }
 
 type privateLinkAvailableRegionModel struct {
-	Region                  types.String `tfsdk:"region"`
 	PrivateLinkServiceAlias types.String `tfsdk:"private_link_service_alias"`
 }
 
 type privateLinkAvailableRegionsDataSourceModel struct {
-	Regions []privateLinkAvailableRegionModel `tfsdk:"regions"`
+	Regions map[string]privateLinkAvailableRegionModel `tfsdk:"regions"`
 }
 
 func (d *privateLinkAvailableRegionsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -40,17 +39,24 @@ func (d *privateLinkAvailableRegionsDataSource) Schema(_ context.Context, _ data
 
 This data source returns all regions where Azure Private Link is available,
 along with the Private Link Service alias for each region. Use the alias
-when creating Azure Private Endpoints.`,
+when creating Azure Private Endpoints.
+
+## Example Usage
+
+` + "```hcl" + `
+data "timescale_privatelink_available_regions" "all" {}
+
+# Access the alias for a specific region
+locals {
+  alias = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+}
+` + "```",
 		Attributes: map[string]schema.Attribute{
-			"regions": schema.ListNestedAttribute{
+			"regions": schema.MapNestedAttribute{
 				Computed:    true,
-				Description: "List of available regions for Private Link.",
+				Description: "Map of available regions for Private Link, keyed by region code.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"region": schema.StringAttribute{
-							Computed:    true,
-							Description: "The Timescale region code (e.g., az-eastus2).",
-						},
 						"private_link_service_alias": schema.StringAttribute{
 							Computed:    true,
 							Description: "The Azure Private Link Service alias to use when creating a Private Endpoint.",
@@ -78,12 +84,13 @@ func (d *privateLinkAvailableRegionsDataSource) Read(ctx context.Context, _ data
 		return
 	}
 
-	var state privateLinkAvailableRegionsDataSourceModel
+	state := privateLinkAvailableRegionsDataSourceModel{
+		Regions: make(map[string]privateLinkAvailableRegionModel),
+	}
 	for _, r := range regions {
-		state.Regions = append(state.Regions, privateLinkAvailableRegionModel{
-			Region:                  types.StringValue(r.Region),
+		state.Regions[r.Region] = privateLinkAvailableRegionModel{
 			PrivateLinkServiceAlias: types.StringValue(r.PrivateLinkServiceAlias),
-		})
+		}
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)

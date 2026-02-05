@@ -148,5 +148,6 @@ func (p *timescaleProvider) Resources(ctx context.Context) []func() resource.Res
 		NewLogExporterResource,
 		NewConnectorS3Resource,
 		NewPrivateLinkConnectionResource,
+		NewPrivateLinkAuthorizationResource,
 	}
 }

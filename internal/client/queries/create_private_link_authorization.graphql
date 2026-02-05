@@ -1,0 +1,13 @@
+mutation CreatePrivateLinkAuthorization($projectId: ID!, $subscriptionId: String!, $name: String!) {
+    createPrivateLinkAuthorization(data: {
+        projectId: $projectId
+        subscriptionId: $subscriptionId
+        name: $name
+    }) {
+        projectId
+        subscriptionId
+        name
+        createdAt
+        updatedAt
+    }
+}

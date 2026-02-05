@@ -34,21 +34,14 @@ provider "timescale" {
 # List all regions where Azure Private Link is available
 data "timescale_privatelink_available_regions" "all" {}
 
+# Output all available regions
 output "available_regions" {
   description = "All regions where Azure Private Link is available"
-  value = [
-    for r in data.timescale_privatelink_available_regions.all.regions : {
-      region = r.region
-      alias  = r.private_link_service_alias
-    }
-  ]
+  value       = data.timescale_privatelink_available_regions.all.regions
 }
 
-# Example: Get the alias for a specific region
-output "eastus2_alias" {
-  description = "Private Link Service alias for az-eastus2"
-  value = [
-    for r in data.timescale_privatelink_available_regions.all.regions : r.private_link_service_alias
-    if r.region == "az-eastus2"
-  ]
+# Example: Get the alias for a specific region using map access
+output "eastus_alias" {
+  description = "Private Link Service alias for az-eastus"
+  value       = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
 }

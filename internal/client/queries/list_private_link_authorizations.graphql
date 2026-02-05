@@ -1,0 +1,11 @@
+query ListPrivateLinkAuthorizations($projectId: ID!) {
+    listPrivateLinkAuthorizations(data: {
+        projectId: $projectId
+    }) {
+        projectId
+        subscriptionId
+        name
+        createdAt
+        updatedAt
+    }
+}

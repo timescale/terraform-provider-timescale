@@ -78,11 +78,22 @@ resource "timescale_privatelink_connection" "main" {
 terraform destroy
 ```
 
+## Test Connection
+
+After successful apply, test the connection via SSH to the VM:
+
+```bash
+terraform output -raw ssh_select_1 | bash
+```
+
+This will SSH into the VM and execute `SELECT 1` against the database via Private Link.
+
 ## Outputs
 
 After successful apply:
 
 - `vm_ssh_command` - SSH into the test VM
+- `ssh_select_1` - Ready-to-run command to test database connection via SSH
 - `connection_test_command_private_ip` - psql command to test from VM using private IP
 - `connection_test_command_hostname` - psql command to test from VM using hostname
 - `timescale_hostname` - Service hostname

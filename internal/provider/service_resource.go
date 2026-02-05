@@ -263,6 +263,7 @@ The change has been taken into account but must still be propagated. You can run
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"vpc_id": schema.Int64Attribute{
@@ -642,11 +643,6 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	if !plan.Port.IsUnknown() {
 		resp.Diagnostics.AddError(ErrUpdateService, "Do not support port change")
-		return
-	}
-
-	if plan.RegionCode != state.RegionCode {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support region code change")
 		return
 	}
 

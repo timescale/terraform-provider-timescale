@@ -143,6 +143,15 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 		return
 	}
 
+	if hasConnectionID && hasAzureName {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("connection_id"),
+			"Conflicting attributes",
+			"Cannot specify both connection_id and azure_connection_name. Use one or the other.",
+		)
+		return
+	}
+
 	if hasAzureName && !hasRegion {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),

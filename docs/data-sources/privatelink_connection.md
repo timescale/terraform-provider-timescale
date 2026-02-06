@@ -79,10 +79,8 @@ output "connection_ip" {
 
 ### Read-Only
 
-- `created_at` (String) When the connection was created.
 - `ip_address` (String) The private IP address of the Azure Private Endpoint.
 - `link_identifier` (String) The Azure private link identifier.
 - `name` (String) The display name for the connection.
 - `state` (String) The state of the connection (e.g., APPROVED, PENDING).
 - `subscription_id` (String) The Azure subscription ID.
-- `updated_at` (String) When the connection was last updated.

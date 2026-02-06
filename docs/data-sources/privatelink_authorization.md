@@ -58,6 +58,4 @@ output "authorization_name" {
 
 ### Read-Only
 
-- `created_at` (String) When the authorization was created.
 - `name` (String) The friendly name for this authorization.
-- `updated_at` (String) When the authorization was last updated.

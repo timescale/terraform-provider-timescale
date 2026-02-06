@@ -12,6 +12,29 @@ description: |-
   Important
   The azure_connection_name filter matches using the Azure Private Endpoint name (not the
   private_service_connection name). Azure formats the connection name as <pe-name>.<guid>.
+  Troubleshooting
+  If you see an error like:
+  
+  No connection matching azure_connection_name 'my-pe' found after 2m.
+  Ensure the Azure Private Endpoint is created and the authorization is approved.
+  
+  Check the Azure Private Endpoint connection status using the azurerm_private_endpoint_connection data source:
+  
+  data "azurerm_private_endpoint_connection" "example" {
+    name                = azurerm_private_endpoint.example.name
+    resource_group_name = azurerm_resource_group.example.name
+  }
+  
+  output "status" {
+    value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].status
+  }
+  
+  output "message" {
+    value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].request_response
+  }
+  
+  Common issues:
+  Status: Rejected - The request_message (project ID) is incorrect or the subscription is not authorizedStatus: Pending - The timescale_privatelink_authorization resource may not have been created yet
 ---
 
 # timescale_privatelink_connection (Resource)
@@ -34,6 +57,36 @@ this resource syncs with Azure to find it and then manages the Timescale-side co
 
 The `azure_connection_name` filter matches using the Azure Private Endpoint name (not the
 private_service_connection name). Azure formats the connection name as `<pe-name>.<guid>`.
+
+## Troubleshooting
+
+If you see an error like:
+
+```
+No connection matching azure_connection_name 'my-pe' found after 2m.
+Ensure the Azure Private Endpoint is created and the authorization is approved.
+```
+
+Check the Azure Private Endpoint connection status using the `azurerm_private_endpoint_connection` data source:
+
+```hcl
+data "azurerm_private_endpoint_connection" "example" {
+  name                = azurerm_private_endpoint.example.name
+  resource_group_name = azurerm_resource_group.example.name
+}
+
+output "status" {
+  value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].status
+}
+
+output "message" {
+  value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].request_response
+}
+```
+
+Common issues:
+- **Status: Rejected** - The `request_message` (project ID) is incorrect or the subscription is not authorized
+- **Status: Pending** - The `timescale_privatelink_authorization` resource may not have been created yet
 
 ## Example Usage
 
@@ -252,9 +305,9 @@ locals {
   private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].private_link_service_alias
 }
 
-# # =============================================================================
-# # Azure Private Endpoint
-# # =============================================================================
+# =============================================================================
+# Azure Private Endpoint
+# =============================================================================
 
 resource "azurerm_private_endpoint" "timescale" {
   name                = "${var.resource_prefix}-pe"
@@ -277,6 +330,12 @@ resource "azurerm_private_endpoint" "timescale" {
   depends_on = [timescale_privatelink_authorization.main]
 }
 
+# Data source to get the connection status (not available on the resource itself)
+data "azurerm_private_endpoint_connection" "timescale" {
+  name                = azurerm_private_endpoint.timescale.name
+  resource_group_name = azurerm_resource_group.main.name
+}
+
 # =============================================================================
 # Timescale Private Link Connection
 # =============================================================================
@@ -290,6 +349,12 @@ resource "timescale_privatelink_connection" "main" {
   name                  = "Managed by Terraform"
 
   depends_on = [azurerm_private_endpoint.timescale]
+
+  lifecycle {
+    ## This is needed because we need to attach to the new connection before we can destroy the old one.action_trigger 
+    ## only useful in the scenario when we move between connections
+    create_before_destroy = true
+  }
 }
 
 # =============================================================================
@@ -356,6 +421,16 @@ output "private_link_connection_state" {
   value       = timescale_privatelink_connection.main.state
 }
 
+output "azure_private_endpoint_status" {
+  description = "Azure Private Endpoint connection status (Pending, Approved, Rejected, Disconnected)"
+  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].status
+}
+
+output "azure_private_endpoint_message" {
+  description = "Azure Private Endpoint connection request/response message"
+  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].request_response
+}
+
 output "private_link_connection_id" {
   description = "Connection ID for use with timescale_service"
   value       = timescale_privatelink_connection.main.connection_id
@@ -395,9 +470,7 @@ output "ssh_select_1" {
 ### Read-Only
 
 - `connection_id` (String) The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.
-- `created_at` (String) When the connection was created.
 - `id` (String) Resource identifier (same as connection_id).
 - `link_identifier` (String) The Azure private link identifier.
 - `state` (String) The state of the connection (e.g., APPROVED, PENDING).
 - `subscription_id` (String) The Azure subscription ID.
-- `updated_at` (String) When the connection was last updated.

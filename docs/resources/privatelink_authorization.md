@@ -46,6 +46,4 @@ resource "timescale_privatelink_authorization" "example" {
 
 ### Read-Only
 
-- `created_at` (String) When the authorization was created.
 - `id` (String) Resource identifier (same as subscription_id).
-- `updated_at` (String) When the authorization was last updated.

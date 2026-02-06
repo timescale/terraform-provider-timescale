@@ -30,8 +30,6 @@ type privateLinkAuthorizationResourceModel struct {
 	ID             types.String `tfsdk:"id"`
 	SubscriptionID types.String `tfsdk:"subscription_id"`
 	Name           types.String `tfsdk:"name"`
-	CreatedAt      types.String `tfsdk:"created_at"`
-	UpdatedAt      types.String `tfsdk:"updated_at"`
 }
 
 func (r *privateLinkAuthorizationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -68,14 +66,6 @@ from this subscription will be auto-approved.
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "A friendly name for this authorization.",
-			},
-			"created_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the authorization was created.",
-			},
-			"updated_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the authorization was last updated.",
 			},
 		},
 	}
@@ -116,12 +106,6 @@ func (r *privateLinkAuthorizationResource) Create(ctx context.Context, req resou
 	plan.ID = types.StringValue(auth.SubscriptionID)
 	plan.SubscriptionID = types.StringValue(auth.SubscriptionID)
 	plan.Name = types.StringValue(auth.Name)
-	plan.CreatedAt = types.StringValue(auth.CreatedAt)
-	if auth.UpdatedAt != nil {
-		plan.UpdatedAt = types.StringValue(*auth.UpdatedAt)
-	} else {
-		plan.UpdatedAt = types.StringNull()
-	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
@@ -156,12 +140,6 @@ func (r *privateLinkAuthorizationResource) Read(ctx context.Context, req resourc
 	}
 
 	state.Name = types.StringValue(auth.Name)
-	state.CreatedAt = types.StringValue(auth.CreatedAt)
-	if auth.UpdatedAt != nil {
-		state.UpdatedAt = types.StringValue(*auth.UpdatedAt)
-	} else {
-		state.UpdatedAt = types.StringNull()
-	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -185,12 +163,6 @@ func (r *privateLinkAuthorizationResource) Update(ctx context.Context, req resou
 
 	plan.ID = types.StringValue(auth.SubscriptionID)
 	plan.Name = types.StringValue(auth.Name)
-	plan.CreatedAt = types.StringValue(auth.CreatedAt)
-	if auth.UpdatedAt != nil {
-		plan.UpdatedAt = types.StringValue(*auth.UpdatedAt)
-	} else {
-		plan.UpdatedAt = types.StringNull()
-	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

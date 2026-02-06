@@ -808,9 +808,23 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 				return
 			}
 		}
-		// Attach new if specified
+		// Attach new if specified (with retry for async detach completion)
 		if !plan.PrivateEndpointConnectionID.IsNull() && !plan.PrivateEndpointConnectionID.IsUnknown() {
-			if err := r.client.AttachServiceToPrivateLink(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString()); err != nil {
+			err := retry.RetryContext(ctx, 2*time.Minute, func() *retry.RetryError {
+				attachErr := r.client.AttachServiceToPrivateLink(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString())
+				if attachErr == nil {
+					return nil
+				}
+				// Retry if service is still detaching from previous connection
+				if strings.Contains(attachErr.Error(), "already attached") {
+					tflog.Info(ctx, "Service still detaching from previous private link, retrying attach...", map[string]interface{}{
+						"service_id": serviceID,
+					})
+					return retry.RetryableError(attachErr)
+				}
+				return retry.NonRetryableError(attachErr)
+			})
+			if err != nil {
 				resp.Diagnostics.AddError("Failed to attach service to private link", err.Error())
 				return
 			}
@@ -968,8 +982,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	if s.PrivateLinkEndpointConnectionID != nil {
 		model.PrivateEndpointConnectionID = types.StringValue(*s.PrivateLinkEndpointConnectionID)
 	} else {
-		// Preserve from state if API doesn't return it yet (eventual consistency)
-		model.PrivateEndpointConnectionID = state.PrivateEndpointConnectionID
+		model.PrivateEndpointConnectionID = types.StringNull()
 	}
 
 	return model

@@ -32,8 +32,6 @@ type privateLinkConnectionDataSourceModel struct {
 	State               types.String `tfsdk:"state"`
 	IPAddress           types.String `tfsdk:"ip_address"`
 	Name                types.String `tfsdk:"name"`
-	CreatedAt           types.String `tfsdk:"created_at"`
-	UpdatedAt           types.String `tfsdk:"updated_at"`
 }
 
 func (d *privateLinkConnectionDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -104,14 +102,6 @@ data "timescale_privatelink_connection" "by_name" {
 			"name": schema.StringAttribute{
 				Computed:    true,
 				Description: "The display name for the connection.",
-			},
-			"created_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the connection was created.",
-			},
-			"updated_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the connection was last updated.",
 			},
 		},
 	}
@@ -243,8 +233,6 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 	config.State = types.StringValue(found.State)
 	config.IPAddress = types.StringValue(found.IPAddress)
 	config.Name = types.StringValue(found.Name)
-	config.CreatedAt = types.StringValue(found.CreatedAt)
-	config.UpdatedAt = types.StringValue(found.UpdatedAt)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

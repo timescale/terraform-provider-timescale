@@ -212,12 +212,12 @@ locals {
   private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].private_link_service_alias
 }
 
-# # =============================================================================
-# # Azure Private Endpoint
-# # =============================================================================
+# =============================================================================
+# Azure Private Endpoint
+# =============================================================================
 
 resource "azurerm_private_endpoint" "timescale" {
-  name                = "${var.resource_prefix}-pe"
+  name                = "${var.resource_prefix}-pe-3"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   subnet_id           = azurerm_subnet.endpoint.id
@@ -237,6 +237,12 @@ resource "azurerm_private_endpoint" "timescale" {
   depends_on = [timescale_privatelink_authorization.main]
 }
 
+# Data source to get the connection status (not available on the resource itself)
+data "azurerm_private_endpoint_connection" "timescale" {
+  name                = azurerm_private_endpoint.timescale.name
+  resource_group_name = azurerm_resource_group.main.name
+}
+
 # =============================================================================
 # Timescale Private Link Connection
 # =============================================================================
@@ -250,6 +256,12 @@ resource "timescale_privatelink_connection" "main" {
   name                  = "Managed by Terraform"
 
   depends_on = [azurerm_private_endpoint.timescale]
+
+  lifecycle {
+    ## This is needed because we need to attach to the new connection before we can destroy the old one.action_trigger 
+    ## only useful in the scenario when we move between connections
+    create_before_destroy = true
+  }
 }
 
 # =============================================================================
@@ -314,6 +326,16 @@ output "connection_test_command_hostname" {
 output "private_link_connection_state" {
   description = "State of the Private Link connection"
   value       = timescale_privatelink_connection.main.state
+}
+
+output "azure_private_endpoint_status" {
+  description = "Azure Private Endpoint connection status (Pending, Approved, Rejected, Disconnected)"
+  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].status
+}
+
+output "azure_private_endpoint_message" {
+  description = "Azure Private Endpoint connection request/response message"
+  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].request_response
 }
 
 output "private_link_connection_id" {

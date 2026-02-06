@@ -24,8 +24,6 @@ type privateLinkAuthorizationDataSource struct {
 type privateLinkAuthorizationDataSourceModel struct {
 	SubscriptionID types.String `tfsdk:"subscription_id"`
 	Name           types.String `tfsdk:"name"`
-	CreatedAt      types.String `tfsdk:"created_at"`
-	UpdatedAt      types.String `tfsdk:"updated_at"`
 }
 
 func (d *privateLinkAuthorizationDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -59,14 +57,6 @@ output "authorization_name" {
 			"name": schema.StringAttribute{
 				Computed:    true,
 				Description: "The friendly name for this authorization.",
-			},
-			"created_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the authorization was created.",
-			},
-			"updated_at": schema.StringAttribute{
-				Computed:    true,
-				Description: "When the authorization was last updated.",
 			},
 		},
 	}
@@ -123,12 +113,6 @@ func (d *privateLinkAuthorizationDataSource) Read(ctx context.Context, req datas
 	}
 
 	config.Name = types.StringValue(found.Name)
-	config.CreatedAt = types.StringValue(found.CreatedAt)
-	if found.UpdatedAt != nil {
-		config.UpdatedAt = types.StringValue(*found.UpdatedAt)
-	} else {
-		config.UpdatedAt = types.StringNull()
-	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &config)...)
 }

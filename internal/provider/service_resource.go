@@ -561,15 +561,19 @@ func (r *serviceResource) waitForServiceReadiness(ctx context.Context, id string
 		Refresh: func() (result interface{}, state string, err error) {
 			s, err := r.client.GetService(ctx, id)
 			if err != nil {
+				tflog.Error(ctx, "error polling service status", map[string]interface{}{"service_id": id, "error": err.Error()})
 				return nil, "", err
 			}
+			tflog.Debug(ctx, "polling service status", map[string]interface{}{"service_id": id, "status": s.Status})
 			return s, s.Status, nil
 		},
 	}
 	result, err := conf.WaitForStateContext(ctx)
 	if err != nil {
+		tflog.Error(ctx, "service readiness wait failed", map[string]interface{}{"service_id": id, "error": err.Error()})
 		return nil, err
 	}
+	tflog.Info(ctx, "service is ready", map[string]interface{}{"service_id": id})
 	s, ok := result.(*tsClient.Service)
 	if !ok {
 		return nil, fmt.Errorf("unexpected type found, expected Service but got %T", result)

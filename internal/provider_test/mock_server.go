@@ -11,17 +11,17 @@ import (
 	"github.com/timescale/terraform-provider-timescale/internal/provider"
 )
 
-// OperationHandler handles a specific GraphQL operation
+// OperationHandler handles a specific GraphQL operation.
 type OperationHandler func(t *testing.T, req map[string]interface{}) map[string]interface{}
 
-// MockServer wraps httptest.Server with GraphQL operation routing
+// MockServer wraps httptest.Server with GraphQL operation routing.
 type MockServer struct {
 	*httptest.Server
 	handlers map[string]OperationHandler
 	t        *testing.T
 }
 
-// NewMockServer creates a mock server with default handlers for common operations
+// NewMockServer creates a mock server with default handlers for common operations.
 func NewMockServer(t *testing.T) *MockServer {
 	m := &MockServer{
 		handlers: make(map[string]OperationHandler),
@@ -39,7 +39,9 @@ func NewMockServer(t *testing.T) *MockServer {
 
 	m.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]interface{}
-		json.NewDecoder(r.Body).Decode(&req)
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Logf("Failed to decode request: %v", err)
+		}
 
 		operationName, _ := req["operationName"].(string)
 
@@ -56,19 +58,21 @@ func NewMockServer(t *testing.T) *MockServer {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Logf("Failed to encode response: %v", err)
+		}
 	}))
 
 	return m
 }
 
-// Handle registers a handler for a specific operation
+// Handle registers a handler for a specific operation.
 func (m *MockServer) Handle(operationName string, handler OperationHandler) *MockServer {
 	m.handlers[operationName] = handler
 	return m
 }
 
-// SetupEnv sets the environment variables needed for testing
+// SetupEnv sets the environment variables needed for testing.
 func (m *MockServer) SetupEnv(t *testing.T) {
 	t.Setenv("TF_ACC", "1")
 	t.Setenv("TIMESCALE_DEV_URL", m.URL)
@@ -77,14 +81,32 @@ func (m *MockServer) SetupEnv(t *testing.T) {
 	t.Setenv("TF_VAR_ts_project_id", "test-project-id")
 }
 
-// TestProviderFactories returns the provider factories for testing
+// TestProviderFactories returns the provider factories for testing.
 func TestProviderFactories() map[string]func() (tfprotov6.ProviderServer, error) {
 	return map[string]func() (tfprotov6.ProviderServer, error){
 		"timescale": providerserver.NewProtocol6WithError(provider.New("test")()),
 	}
 }
 
-// ProviderConfig returns the common provider configuration for tests
+// GetVars extracts the variables map from a GraphQL request.
+func GetVars(req map[string]interface{}) map[string]interface{} {
+	vars, ok := req["variables"].(map[string]interface{})
+	if !ok {
+		return make(map[string]interface{})
+	}
+	return vars
+}
+
+// GetString extracts a string value from a map.
+func GetString(m map[string]interface{}, key string) string {
+	val, ok := m[key].(string)
+	if !ok {
+		return ""
+	}
+	return val
+}
+
+// ProviderConfig is the common provider configuration for tests.
 const ProviderConfig = `
 variable "ts_access_key" {
   type = string

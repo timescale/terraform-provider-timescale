@@ -13,7 +13,7 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 	defer server.Close()
 
 	server.Handle("CreatePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "test-subscription-id", vars["subscriptionId"])
 		assert.Equal(t, "test-authorization", vars["name"])
 		assert.Equal(t, "test-project-id", vars["projectId"])
@@ -31,7 +31,7 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 	})
 
 	server.Handle("ListPrivateLinkAuthorizations", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "test-project-id", vars["projectId"])
 
 		return map[string]interface{}{
@@ -49,7 +49,7 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 	})
 
 	server.Handle("DeletePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "test-subscription-id", vars["subscriptionId"])
 		assert.Equal(t, "test-project-id", vars["projectId"])
 

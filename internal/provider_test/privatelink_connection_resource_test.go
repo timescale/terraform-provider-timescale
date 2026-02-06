@@ -23,8 +23,15 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 	})
 
 	server.Handle("ListPrivateLinkConnections", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "az-eastus2", vars["region"])
+
+		ipAddress := ""
+		name := ""
+		if connectionCreated {
+			ipAddress = "10.0.0.5"
+			name = "My Connection"
+		}
 
 		// Connection appears after first sync
 		return map[string]interface{}{
@@ -37,8 +44,8 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 						"subscriptionId":      "sub-456",
 						"linkIdentifier":      "link-789",
 						"state":               "APPROVED",
-						"ipAddress":           func() string { if connectionCreated { return "10.0.0.5" } else { return "" } }(),
-						"name":                func() string { if connectionCreated { return "My Connection" } else { return "" } }(),
+						"ipAddress":           ipAddress,
+						"name":                name,
 						"createdAt":           "2024-01-01T00:00:00Z",
 						"updatedAt":           "2024-01-01T00:00:00Z",
 					},
@@ -48,7 +55,7 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 	})
 
 	server.Handle("UpdatePrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "conn-123", vars["connectionId"])
 		assert.Equal(t, "10.0.0.5", vars["ipAddress"])
 		assert.Equal(t, "My Connection", vars["name"])
@@ -74,7 +81,7 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 	})
 
 	server.Handle("DeletePrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "conn-123", vars["connectionId"])
 
 		return map[string]interface{}{
@@ -152,9 +159,9 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 	})
 
 	server.Handle("UpdatePrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
-		currentIP = vars["ipAddress"].(string)
-		currentName = vars["name"].(string)
+		vars := GetVars(req)
+		currentIP = GetString(vars, "ipAddress")
+		currentName = GetString(vars, "name")
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{

@@ -16,7 +16,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	attachedConnectionID := ""
 
 	server.Handle("CreateService", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "test-service", vars["name"])
 		assert.Equal(t, "az-eastus2", vars["regionCode"])
 
@@ -99,11 +99,9 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	})
 
 	server.Handle("AttachServiceToPrivateLink", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-		connectionID := vars["privateEndpointConnectionId"].(string)
-
-		attachedConnectionID = connectionID
+		attachedConnectionID = GetString(vars, "privateEndpointConnectionId")
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
@@ -113,7 +111,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	})
 
 	server.Handle("DetachServiceFromPrivateLink", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
+		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
 
 		attachedConnectionID = ""

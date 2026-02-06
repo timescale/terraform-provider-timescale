@@ -103,8 +103,8 @@ func TestAccPrivateLinkConnectionDataSource_byConnectionID(t *testing.T) {
 
 	// Returns connections for each region - connection is in second region
 	server.Handle("ListPrivateLinkConnections", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
-		vars := req["variables"].(map[string]interface{})
-		region := vars["region"].(string)
+		vars := GetVars(req)
+		region := GetString(vars, "region")
 
 		if region == "az-eastus" {
 			// First region: no matching connection

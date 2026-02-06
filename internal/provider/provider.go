@@ -134,6 +134,8 @@ func (p *timescaleProvider) DataSources(ctx context.Context) []func() datasource
 		NewServiceDataSource,
 		NewVpcsDataSource,
 		NewPrivateLinkAvailableRegionsDataSource,
+		NewPrivateLinkAuthorizationDataSource,
+		NewPrivateLinkConnectionDataSource,
 	}
 }
 

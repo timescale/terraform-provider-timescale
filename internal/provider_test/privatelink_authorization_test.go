@@ -87,7 +87,14 @@ resource "timescale_privatelink_authorization" "test" {
 					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "id", "test-subscription-id"),
 				),
 			},
-			// Step 3: Plan again - verify no drift (empty plan)
+			// Step 3: Import and verify state matches
+			{
+				ResourceName:      "timescale_privatelink_authorization.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "test-subscription-id",
+			},
+			// Step 4: Plan again - verify no drift (empty plan)
 			{
 				Config:             config,
 				PlanOnly:           true,

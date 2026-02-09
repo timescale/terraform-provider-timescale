@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -14,8 +15,9 @@ import (
 )
 
 var (
-	_ resource.Resource              = &privateLinkAuthorizationResource{}
-	_ resource.ResourceWithConfigure = &privateLinkAuthorizationResource{}
+	_ resource.Resource                = &privateLinkAuthorizationResource{}
+	_ resource.ResourceWithConfigure   = &privateLinkAuthorizationResource{}
+	_ resource.ResourceWithImportState = &privateLinkAuthorizationResource{}
 )
 
 func NewPrivateLinkAuthorizationResource() resource.Resource {
@@ -38,7 +40,7 @@ func (r *privateLinkAuthorizationResource) Metadata(_ context.Context, req resou
 
 func (r *privateLinkAuthorizationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Authorizes an Azure subscription to connect via Private Link.",
+		Description: "Authorizes an Azure subscription to connect via Private Link. Import using the Azure subscription ID: `terraform import timescale_privatelink_authorization.example <subscription_id>`.",
 		MarkdownDescription: `Authorizes an Azure subscription to connect via Private Link.
 
 This resource authorizes an Azure subscription to create Private Endpoint connections
@@ -139,6 +141,7 @@ func (r *privateLinkAuthorizationResource) Read(ctx context.Context, req resourc
 		return
 	}
 
+	state.ID = types.StringValue(auth.SubscriptionID)
 	state.Name = types.StringValue(auth.Name)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -184,4 +187,8 @@ func (r *privateLinkAuthorizationResource) Delete(ctx context.Context, req resou
 		resp.Diagnostics.AddError("Failed to delete Private Link authorization", err.Error())
 		return
 	}
+}
+
+func (r *privateLinkAuthorizationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	resource.ImportStatePassthroughID(ctx, path.Root("subscription_id"), req, resp)
 }

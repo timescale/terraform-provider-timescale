@@ -117,6 +117,14 @@ resource "timescale_privatelink_connection" "test" {
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "name", "My Connection"),
 				),
 			},
+			// Step 2: Import and verify state matches
+			{
+				ResourceName:            "timescale_privatelink_connection.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateId:           "az-eastus2,conn-123",
+				ImportStateVerifyIgnore: []string{"azure_connection_name", "timeout"},
+			},
 		},
 	})
 }

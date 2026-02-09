@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
@@ -17,8 +18,9 @@ import (
 )
 
 var (
-	_ resource.Resource              = &privateLinkConnectionResource{}
-	_ resource.ResourceWithConfigure = &privateLinkConnectionResource{}
+	_ resource.Resource                = &privateLinkConnectionResource{}
+	_ resource.ResourceWithConfigure   = &privateLinkConnectionResource{}
+	_ resource.ResourceWithImportState = &privateLinkConnectionResource{}
 )
 
 func NewPrivateLinkConnectionResource() resource.Resource {
@@ -49,7 +51,7 @@ func (r *privateLinkConnectionResource) Metadata(_ context.Context, req resource
 
 func (r *privateLinkConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an Azure Private Link connection in a Timescale project.",
+		Description: "Manages an Azure Private Link connection in a Timescale project. Import using `region,connection_id` format: `terraform import timescale_privatelink_connection.example <region>,<connection_id>`.",
 		MarkdownDescription: `Manages an Azure Private Link connection in a Timescale project.
 
 This resource discovers an existing Azure Private Link connection (created via Azure Private Endpoint)
@@ -281,7 +283,12 @@ func (r *privateLinkConnectionResource) Read(ctx context.Context, req resource.R
 		return
 	}
 
-	// Update state
+	// Update state — only set azure_connection_name if not already set (e.g. during import)
+	if state.AzureConnectionName.IsNull() || state.AzureConnectionName.ValueString() == "" {
+		state.AzureConnectionName = types.StringValue(conn.AzureConnectionName)
+	}
+	state.ID = types.StringValue(conn.ConnectionID)
+	state.ConnectionID = types.StringValue(conn.ConnectionID)
 	state.SubscriptionID = types.StringValue(conn.SubscriptionID)
 	state.LinkIdentifier = types.StringValue(conn.LinkIdentifier)
 	state.State = types.StringValue(conn.State)
@@ -365,6 +372,21 @@ func (r *privateLinkConnectionResource) Delete(ctx context.Context, req resource
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to delete Private Link connection", err.Error())
 	}
+}
+
+func (r *privateLinkConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	idParts := strings.Split(req.ID, ",")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: region,connection_id. Got: %q", req.ID),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("region"), idParts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("connection_id"), idParts[1])...)
 }
 
 func findConnectionByAzureName(connections []*tsClient.PrivateLinkConnection, filter string) *tsClient.PrivateLinkConnection {

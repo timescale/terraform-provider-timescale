@@ -98,6 +98,7 @@ jobs:
         run: go test ./internal/provider/ -v -timeout=30m -sweep=all
       - env:
           TF_ACC: "1"
+          TF_LOG: ${{ runner.debug == '1' && 'DEBUG' || '' }}
           TF_VAR_ts_access_key: ${{ secrets.TF_VAR_TS_ACCESS_KEY }}
           TF_VAR_ts_secret_key: ${{ secrets.TF_VAR_TS_SECRET_KEY }}
           TF_VAR_ts_project_id: ${{ secrets.TF_VAR_TS_PROJECT_ID }}

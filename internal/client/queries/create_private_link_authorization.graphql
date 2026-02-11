@@ -1,12 +1,14 @@
-mutation CreatePrivateLinkAuthorization($projectId: ID!, $subscriptionId: String!, $name: String!) {
+mutation CreatePrivateLinkAuthorization($projectId: ID!, $name: String!, $principalId: String, $cloudProvider: PrivateLinkCloudProvider) {
     createPrivateLinkAuthorization(data: {
         projectId: $projectId
-        subscriptionId: $subscriptionId
         name: $name
+        principalId: $principalId
+        cloudProvider: $cloudProvider
     }) {
         projectId
-        subscriptionId
         name
+        principalId
+        cloudProvider
         createdAt
         updatedAt
     }

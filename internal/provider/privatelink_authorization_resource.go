@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -29,9 +30,10 @@ type privateLinkAuthorizationResource struct {
 }
 
 type privateLinkAuthorizationResourceModel struct {
-	ID             types.String `tfsdk:"id"`
-	SubscriptionID types.String `tfsdk:"subscription_id"`
-	Name           types.String `tfsdk:"name"`
+	ID            types.String `tfsdk:"id"`
+	PrincipalID   types.String `tfsdk:"principal_id"`
+	CloudProvider types.String `tfsdk:"cloud_provider"`
+	Name          types.String `tfsdk:"name"`
 }
 
 func (r *privateLinkAuthorizationResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -40,27 +42,34 @@ func (r *privateLinkAuthorizationResource) Metadata(_ context.Context, req resou
 
 func (r *privateLinkAuthorizationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Authorizes an Azure subscription to connect via Private Link. Import using the Azure subscription ID: `terraform import timescale_privatelink_authorization.example <subscription_id>`.",
-		MarkdownDescription: `Authorizes an Azure subscription to connect via Private Link.
+		Description: "Authorizes a cloud account to connect via Private Link. Import using `cloud_provider,principal_id` format: `terraform import timescale_privatelink_authorization.example AZURE,<principal_id>`.",
+		MarkdownDescription: `Authorizes a cloud account to connect via Private Link.
 
-This resource authorizes an Azure subscription to create Private Endpoint connections
-to the Timescale Private Link Service. Once authorized, Private Endpoint connections
-from this subscription will be auto-approved.
+This resource authorizes an Azure subscription or AWS account to create Private Endpoint
+or VPC Endpoint connections to the Timescale Private Link Service. Once authorized,
+connections from this account will be auto-approved.
 
 ## Workflow
 
-1. Create this authorization resource with your Azure subscription ID
-2. Create an Azure Private Endpoint pointing to the Timescale Private Link Service alias
+1. Create this authorization resource with your principal ID and cloud provider
+2. Create an Azure Private Endpoint or AWS VPC Endpoint pointing to the Timescale service
 3. The connection will be automatically approved
 4. Use ` + "`timescale_privatelink_connection`" + ` to configure the connection`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
-				Description: "Resource identifier (same as subscription_id).",
+				Description: "Resource identifier (same as principal_id).",
 			},
-			"subscription_id": schema.StringAttribute{
+			"principal_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The Azure subscription ID to authorize.",
+				Description: "The Azure subscription ID or AWS account ID to authorize.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"cloud_provider": schema.StringAttribute{
+				Required:    true,
+				Description: "The cloud provider: AZURE or AWS.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -96,17 +105,17 @@ func (r *privateLinkAuthorizationResource) Create(ctx context.Context, req resou
 		return
 	}
 
-	subscriptionID := plan.SubscriptionID.ValueString()
+	principalID := plan.PrincipalID.ValueString()
+	cloudProvider := plan.CloudProvider.ValueString()
 	name := plan.Name.ValueString()
 
-	auth, err := r.client.CreatePrivateLinkAuthorization(ctx, subscriptionID, name)
+	auth, err := r.client.CreatePrivateLinkAuthorization(ctx, principalID, cloudProvider, name)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to create Private Link authorization", err.Error())
 		return
 	}
 
-	plan.ID = types.StringValue(auth.SubscriptionID)
-	plan.SubscriptionID = types.StringValue(auth.SubscriptionID)
+	plan.ID = types.StringValue(principalID)
 	plan.Name = types.StringValue(auth.Name)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -120,7 +129,8 @@ func (r *privateLinkAuthorizationResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	subscriptionID := state.SubscriptionID.ValueString()
+	principalID := state.PrincipalID.ValueString()
+	cloudProvider := state.CloudProvider.ValueString()
 
 	authorizations, err := r.client.ListPrivateLinkAuthorizations(ctx)
 	if err != nil {
@@ -130,7 +140,7 @@ func (r *privateLinkAuthorizationResource) Read(ctx context.Context, req resourc
 
 	var auth *tsClient.PrivateLinkAuthorization
 	for _, a := range authorizations {
-		if a.SubscriptionID == subscriptionID {
+		if a.PrincipalID == principalID && a.CloudProvider == cloudProvider {
 			auth = a
 			break
 		}
@@ -141,7 +151,7 @@ func (r *privateLinkAuthorizationResource) Read(ctx context.Context, req resourc
 		return
 	}
 
-	state.ID = types.StringValue(auth.SubscriptionID)
+	state.ID = types.StringValue(principalID)
 	state.Name = types.StringValue(auth.Name)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -155,16 +165,17 @@ func (r *privateLinkAuthorizationResource) Update(ctx context.Context, req resou
 		return
 	}
 
-	subscriptionID := plan.SubscriptionID.ValueString()
+	principalID := plan.PrincipalID.ValueString()
+	cloudProvider := plan.CloudProvider.ValueString()
 	name := plan.Name.ValueString()
 
-	auth, err := r.client.UpdatePrivateLinkAuthorization(ctx, subscriptionID, name)
+	auth, err := r.client.UpdatePrivateLinkAuthorization(ctx, principalID, cloudProvider, name)
 	if err != nil {
 		resp.Diagnostics.AddError("Failed to update Private Link authorization", err.Error())
 		return
 	}
 
-	plan.ID = types.StringValue(auth.SubscriptionID)
+	plan.ID = types.StringValue(principalID)
 	plan.Name = types.StringValue(auth.Name)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -178,17 +189,30 @@ func (r *privateLinkAuthorizationResource) Delete(ctx context.Context, req resou
 		return
 	}
 
-	subscriptionID := state.SubscriptionID.ValueString()
+	principalID := state.PrincipalID.ValueString()
+	cloudProvider := state.CloudProvider.ValueString()
 	tflog.Info(ctx, "Deleting Private Link authorization", map[string]interface{}{
-		"subscription_id": subscriptionID,
+		"principal_id":   principalID,
+		"cloud_provider": cloudProvider,
 	})
 
-	if err := r.client.DeletePrivateLinkAuthorization(ctx, subscriptionID); err != nil {
+	if err := r.client.DeletePrivateLinkAuthorization(ctx, principalID, cloudProvider); err != nil {
 		resp.Diagnostics.AddError("Failed to delete Private Link authorization", err.Error())
 		return
 	}
 }
 
 func (r *privateLinkAuthorizationResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("subscription_id"), req, resp)
+	idParts := strings.Split(req.ID, ",")
+
+	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
+		resp.Diagnostics.AddError(
+			"Unexpected Import Identifier",
+			fmt.Sprintf("Expected import identifier with format: cloud_provider,principal_id (e.g. AZURE,<principal_id> or AWS,<account_id>). Got: %q", req.ID),
+		)
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("cloud_provider"), idParts[0])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), idParts[1])...)
 }

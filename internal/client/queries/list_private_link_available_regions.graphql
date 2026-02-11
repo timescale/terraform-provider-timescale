@@ -1,6 +1,7 @@
 query ListPrivateLinkAvailableRegions {
     listPrivateLinkAvailableRegions {
         region
-        privateLinkServiceAlias
+        cloudProvider
+        serviceName
     }
 }

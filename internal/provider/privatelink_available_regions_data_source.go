@@ -22,7 +22,8 @@ type privateLinkAvailableRegionsDataSource struct {
 }
 
 type privateLinkAvailableRegionModel struct {
-	PrivateLinkServiceAlias types.String `tfsdk:"private_link_service_alias"`
+	CloudProvider types.String `tfsdk:"cloud_provider"`
+	ServiceName   types.String `tfsdk:"service_name"`
 }
 
 type privateLinkAvailableRegionsDataSourceModel struct {
@@ -35,21 +36,25 @@ func (d *privateLinkAvailableRegionsDataSource) Metadata(_ context.Context, req 
 
 func (d *privateLinkAvailableRegionsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Lists available regions for Azure Private Link.",
-		MarkdownDescription: `Lists available regions for Azure Private Link.
+		Description: "Lists available regions for Private Link.",
+		MarkdownDescription: `Lists available regions for Private Link.
 
-This data source returns all regions where Azure Private Link is available,
-along with the Private Link Service alias for each region. Use the alias
-when creating Azure Private Endpoints.
+This data source returns all regions where Private Link is available,
+along with the service name and cloud provider for each region.
 
 ## Example Usage
 
 ` + "```hcl" + `
 data "timescale_privatelink_available_regions" "all" {}
 
-# Access the alias for a specific region
+# Access the service name for an Azure region
 locals {
-  alias = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+  azure_service = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
+}
+
+# Access the service name for an AWS region
+locals {
+  aws_service = data.timescale_privatelink_available_regions.all.regions["us-east-1"].service_name
 }
 ` + "```",
 		Attributes: map[string]schema.Attribute{
@@ -58,9 +63,13 @@ locals {
 				Description: "Map of available regions for Private Link, keyed by region code.",
 				NestedObject: schema.NestedAttributeObject{
 					Attributes: map[string]schema.Attribute{
-						"private_link_service_alias": schema.StringAttribute{
+						"cloud_provider": schema.StringAttribute{
 							Computed:    true,
-							Description: "The Azure Private Link Service alias to use when creating a Private Endpoint.",
+							Description: "The cloud provider for this region (AZURE or AWS).",
+						},
+						"service_name": schema.StringAttribute{
+							Computed:    true,
+							Description: "The service name to use when creating a Private Endpoint (Azure alias or AWS VPC Endpoint Service name).",
 						},
 					},
 				},
@@ -98,7 +107,8 @@ func (d *privateLinkAvailableRegionsDataSource) Read(ctx context.Context, _ data
 	}
 	for _, r := range regions {
 		state.Regions[r.Region] = privateLinkAvailableRegionModel{
-			PrivateLinkServiceAlias: types.StringValue(r.PrivateLinkServiceAlias),
+			CloudProvider: types.StringValue(r.CloudProvider),
+			ServiceName:   types.StringValue(r.ServiceName),
 		}
 	}
 

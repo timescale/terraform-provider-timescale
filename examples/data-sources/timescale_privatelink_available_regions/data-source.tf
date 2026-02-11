@@ -31,17 +31,17 @@ provider "timescale" {
   project_id = var.ts_project_id
 }
 
-# List all regions where Azure Private Link is available
+# List all regions where Private Link is available
 data "timescale_privatelink_available_regions" "all" {}
 
 # Output all available regions
 output "available_regions" {
-  description = "All regions where Azure Private Link is available"
+  description = "All regions where Private Link is available"
   value       = data.timescale_privatelink_available_regions.all.regions
 }
 
-# Example: Get the alias for a specific region using map access
-output "eastus_alias" {
-  description = "Private Link Service alias for az-eastus"
-  value       = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+# Example: Get the service name for a specific region using map access
+output "eastus_service_name" {
+  description = "Private Link service name for az-eastus"
+  value       = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
 }

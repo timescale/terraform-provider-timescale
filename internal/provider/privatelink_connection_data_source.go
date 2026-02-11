@@ -24,14 +24,14 @@ type privateLinkConnectionDataSource struct {
 }
 
 type privateLinkConnectionDataSourceModel struct {
-	ConnectionID        types.String `tfsdk:"connection_id"`
-	AzureConnectionName types.String `tfsdk:"azure_connection_name"`
-	Region              types.String `tfsdk:"region"`
-	SubscriptionID      types.String `tfsdk:"subscription_id"`
-	LinkIdentifier      types.String `tfsdk:"link_identifier"`
-	State               types.String `tfsdk:"state"`
-	IPAddress           types.String `tfsdk:"ip_address"`
-	Name                types.String `tfsdk:"name"`
+	ConnectionID         types.String `tfsdk:"connection_id"`
+	ProviderConnectionID types.String `tfsdk:"provider_connection_id"`
+	CloudProvider        types.String `tfsdk:"cloud_provider"`
+	Region               types.String `tfsdk:"region"`
+	LinkIdentifier       types.String `tfsdk:"link_identifier"`
+	State                types.String `tfsdk:"state"`
+	IPAddress            types.String `tfsdk:"ip_address"`
+	Name                 types.String `tfsdk:"name"`
 }
 
 func (d *privateLinkConnectionDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -40,12 +40,12 @@ func (d *privateLinkConnectionDataSource) Metadata(_ context.Context, req dataso
 
 func (d *privateLinkConnectionDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Looks up an existing Azure Private Link connection.",
-		MarkdownDescription: `Looks up an existing Azure Private Link connection.
+		Description: "Looks up an existing Private Link connection.",
+		MarkdownDescription: `Looks up an existing Private Link connection.
 
 Use this data source to reference a connection that was created outside of Terraform
 or in a different Terraform workspace. You can look up by ` + "`connection_id`" + ` or by
-` + "`azure_connection_name`" + ` and ` + "`region`" + `.
+` + "`provider_connection_id`" + `, ` + "`cloud_provider`" + `, and ` + "`region`" + `.
 
 ## Example Usage
 
@@ -57,39 +57,40 @@ data "timescale_privatelink_connection" "by_id" {
 }
 ` + "```" + `
 
-### Look up by Azure connection name
+### Look up by provider connection ID
 
 ` + "```hcl" + `
-data "timescale_privatelink_connection" "by_name" {
-  azure_connection_name = "my-private-endpoint"
-  region                = "az-eastus2"
+data "timescale_privatelink_connection" "by_provider_id" {
+  provider_connection_id = "my-private-endpoint"
+  cloud_provider         = "AZURE"
+  region                 = "az-eastus2"
 }
 ` + "```",
 		Attributes: map[string]schema.Attribute{
 			"connection_id": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The unique identifier for the connection. Either this or azure_connection_name+region must be provided.",
+				Description: "The unique identifier for the connection. Either this or provider_connection_id+cloud_provider+region must be provided.",
 			},
-			"azure_connection_name": schema.StringAttribute{
+			"provider_connection_id": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Description: "The Azure private endpoint name to match. " +
-					"Azure formats the connection name as '<pe-name>.<guid>', so this matches " +
-					"connections where the name starts with this value followed by a dot.",
+				Description: "The cloud provider connection identifier to match. " +
+					"For Azure: the private endpoint name. For AWS: the VPC Endpoint ID.",
+			},
+			"cloud_provider": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "The cloud provider: AZURE or AWS. Required when using provider_connection_id.",
 			},
 			"region": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The Timescale region (e.g., az-eastus2). Required when using azure_connection_name.",
-			},
-			"subscription_id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The Azure subscription ID.",
+				Description: "The Timescale region. Required when using provider_connection_id.",
 			},
 			"link_identifier": schema.StringAttribute{
 				Computed:    true,
-				Description: "The Azure private link identifier.",
+				Description: "The private link identifier.",
 			},
 			"state": schema.StringAttribute{
 				Computed:    true,
@@ -97,7 +98,7 @@ data "timescale_privatelink_connection" "by_name" {
 			},
 			"ip_address": schema.StringAttribute{
 				Computed:    true,
-				Description: "The private IP address of the Azure Private Endpoint.",
+				Description: "The private IP address of the endpoint.",
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,
@@ -131,32 +132,42 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 	}
 
 	hasConnectionID := !config.ConnectionID.IsNull()
-	hasAzureName := !config.AzureConnectionName.IsNull()
+	hasProviderConnID := !config.ProviderConnectionID.IsNull()
 	hasRegion := !config.Region.IsNull()
+	hasCloudProvider := !config.CloudProvider.IsNull()
 
-	if !hasConnectionID && !hasAzureName {
+	if !hasConnectionID && !hasProviderConnID {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("connection_id"),
 			"Missing required attribute",
-			"Either connection_id or azure_connection_name must be provided.",
+			"Either connection_id or provider_connection_id must be provided.",
 		)
 		return
 	}
 
-	if hasConnectionID && hasAzureName {
+	if hasConnectionID && hasProviderConnID {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("connection_id"),
 			"Conflicting attributes",
-			"Cannot specify both connection_id and azure_connection_name. Use one or the other.",
+			"Cannot specify both connection_id and provider_connection_id. Use one or the other.",
 		)
 		return
 	}
 
-	if hasAzureName && !hasRegion {
+	if hasProviderConnID && !hasRegion {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("region"),
 			"Missing required attribute",
-			"region is required when using azure_connection_name.",
+			"region is required when using provider_connection_id.",
+		)
+		return
+	}
+
+	if hasProviderConnID && !hasCloudProvider {
+		resp.Diagnostics.AddAttributeError(
+			path.Root("cloud_provider"),
+			"Missing required attribute",
+			"cloud_provider is required when using provider_connection_id.",
 		)
 		return
 	}
@@ -169,7 +180,6 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 			"connection_id": connectionID,
 		})
 
-		// Need to search across all regions since we don't know the region
 		regions, err := d.client.ListPrivateLinkAvailableRegions(ctx)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to list Private Link regions", err.Error())
@@ -197,10 +207,12 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 		}
 	} else {
 		region := config.Region.ValueString()
-		azureName := config.AzureConnectionName.ValueString()
-		tflog.Debug(ctx, "Looking up Private Link connection by Azure name", map[string]interface{}{
-			"azure_connection_name": azureName,
-			"region":                region,
+		cloudProvider := config.CloudProvider.ValueString()
+		providerConnID := config.ProviderConnectionID.ValueString()
+		tflog.Debug(ctx, "Looking up Private Link connection by provider connection ID", map[string]interface{}{
+			"provider_connection_id": providerConnID,
+			"cloud_provider":         cloudProvider,
+			"region":                 region,
 		})
 
 		connections, err := d.client.ListPrivateLinkConnections(ctx, region)
@@ -209,11 +221,21 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 			return
 		}
 
-		expectedPrefix := azureName + "."
-		for _, conn := range connections {
-			if strings.HasPrefix(conn.AzureConnectionName, expectedPrefix) {
-				found = conn
-				break
+		switch cloudProvider {
+		case "AZURE":
+			expectedPrefix := providerConnID + "."
+			for _, conn := range connections {
+				if strings.HasPrefix(conn.ProviderConnectionID, expectedPrefix) {
+					found = conn
+					break
+				}
+			}
+		case "AWS":
+			for _, conn := range connections {
+				if conn.ProviderConnectionID == providerConnID {
+					found = conn
+					break
+				}
 			}
 		}
 	}
@@ -227,17 +249,17 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 		} else {
 			resp.Diagnostics.AddError(
 				"Connection not found",
-				fmt.Sprintf("No Private Link connection found matching azure_connection_name '%s' in region '%s'.",
-					config.AzureConnectionName.ValueString(), config.Region.ValueString()),
+				fmt.Sprintf("No Private Link connection found matching provider_connection_id '%s' (cloud_provider=%s) in region '%s'.",
+					config.ProviderConnectionID.ValueString(), config.CloudProvider.ValueString(), config.Region.ValueString()),
 			)
 		}
 		return
 	}
 
 	config.ConnectionID = types.StringValue(found.ConnectionID)
-	config.AzureConnectionName = types.StringValue(found.AzureConnectionName)
+	config.ProviderConnectionID = types.StringValue(found.ProviderConnectionID)
+	config.CloudProvider = types.StringValue(found.CloudProvider)
 	config.Region = types.StringValue(found.Region)
-	config.SubscriptionID = types.StringValue(found.SubscriptionID)
 	config.LinkIdentifier = types.StringValue(found.LinkIdentifier)
 	config.State = types.StringValue(found.State)
 	config.IPAddress = types.StringValue(found.IPAddress)

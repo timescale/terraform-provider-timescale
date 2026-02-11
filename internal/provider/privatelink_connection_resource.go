@@ -32,15 +32,15 @@ type privateLinkConnectionResource struct {
 }
 
 type privateLinkConnectionResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	AzureConnectionName types.String `tfsdk:"azure_connection_name"`
-	Region              types.String `tfsdk:"region"`
-	IPAddress           types.String `tfsdk:"ip_address"`
-	Name                types.String `tfsdk:"name"`
-	Timeout             types.String `tfsdk:"timeout"`
+	ID                   types.String `tfsdk:"id"`
+	ProviderConnectionID types.String `tfsdk:"provider_connection_id"`
+	CloudProvider        types.String `tfsdk:"cloud_provider"`
+	Region               types.String `tfsdk:"region"`
+	IPAddress            types.String `tfsdk:"ip_address"`
+	Name                 types.String `tfsdk:"name"`
+	Timeout              types.String `tfsdk:"timeout"`
 	// Computed fields
 	ConnectionID   types.String `tfsdk:"connection_id"`
-	SubscriptionID types.String `tfsdk:"subscription_id"`
 	LinkIdentifier types.String `tfsdk:"link_identifier"`
 	State          types.String `tfsdk:"state"`
 }
@@ -51,80 +51,55 @@ func (r *privateLinkConnectionResource) Metadata(_ context.Context, req resource
 
 func (r *privateLinkConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an Azure Private Link connection in a Timescale project. Import using `region,connection_id` format: `terraform import timescale_privatelink_connection.example <region>,<connection_id>`.",
-		MarkdownDescription: `Manages an Azure Private Link connection in a Timescale project.
+		Description: "Manages a Private Link connection in a Timescale project. Import using `region,connection_id` format: `terraform import timescale_privatelink_connection.example <region>,<connection_id>`.",
+		MarkdownDescription: `Manages a Private Link connection in a Timescale project.
 
-This resource discovers an existing Azure Private Link connection (created via Azure Private Endpoint)
-and allows you to configure its IP address and name. The connection must already exist in Azure -
-this resource syncs with Azure to find it and then manages the Timescale-side configuration.
+This resource discovers an existing Private Link connection (created via Azure Private Endpoint
+or AWS VPC Endpoint) and allows you to configure its IP address and name.
 
 ## Workflow
 
+### Azure
 1. Create an Azure Private Endpoint pointing to the Timescale Private Link Service
-2. Use this resource with ` + "`azure_connection_name`" + ` set to the private endpoint name
+2. Use this resource with ` + "`provider_connection_id`" + ` set to the private endpoint name and ` + "`cloud_provider = \"AZURE\"`" + `
 3. The resource will sync and wait for the connection to appear
 4. Set ` + "`ip_address`" + ` to the private IP from the Azure Private Endpoint
-5. The connection can then be used with ` + "`timescale_service.private_endpoint_connection_id`" + `
 
-## Important
-
-The ` + "`azure_connection_name`" + ` filter matches using the Azure Private Endpoint name (not the
-private_service_connection name). Azure formats the connection name as ` + "`<pe-name>.<guid>`" + `.
-
-## Troubleshooting
-
-If you see an error like:
-
-` + "```" + `
-No connection matching azure_connection_name 'my-pe' found after 2m.
-Ensure the Azure Private Endpoint is created and the authorization is approved.
-` + "```" + `
-
-Check the Azure Private Endpoint connection status using the ` + "`azurerm_private_endpoint_connection`" + ` data source:
-
-` + "```hcl" + `
-data "azurerm_private_endpoint_connection" "example" {
-  name                = azurerm_private_endpoint.example.name
-  resource_group_name = azurerm_resource_group.example.name
-}
-
-output "status" {
-  value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].status
-}
-
-output "message" {
-  value = data.azurerm_private_endpoint_connection.example.private_service_connection[0].request_response
-}
-` + "```" + `
-
-Common issues:
-- **Status: Rejected** - The ` + "`request_message`" + ` (project ID) is incorrect or the subscription is not authorized
-- **Status: Pending** - The ` + "`timescale_privatelink_authorization`" + ` resource may not have been created yet`,
+### AWS
+1. Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint Service
+2. Use this resource with ` + "`provider_connection_id`" + ` set to the VPC Endpoint ID and ` + "`cloud_provider = \"AWS\"`" + `
+3. The resource will sync and find the connection`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Resource identifier (same as connection_id).",
 			},
-			"azure_connection_name": schema.StringAttribute{
+			"provider_connection_id": schema.StringAttribute{
 				Required: true,
-				Description: "The Azure private endpoint name to match. " +
-					"Azure formats the connection name as '<pe-name>.<guid>', so this matches " +
-					"connections where the name starts with this value followed by a dot.",
+				Description: "The cloud provider connection identifier. " +
+					"For Azure: the private endpoint name. For AWS: the VPC Endpoint ID (vpce-...).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
+			},
+			"cloud_provider": schema.StringAttribute{
+				Required:    true,
+				Description: "The cloud provider: AZURE or AWS.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"region": schema.StringAttribute{
 				Required:    true,
-				Description: "The Timescale region (e.g., az-eastus2).",
+				Description: "The Timescale region (e.g., az-eastus2, us-east-1).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"ip_address": schema.StringAttribute{
 				Required: true,
-				Description: "The private IP address of the Azure Private Endpoint. " +
-					"This is required to enable services to connect via this private link.",
+				Description: "The private IP address of the Private Endpoint or VPC Endpoint. " +
+					"Required to enable services to connect via this private link.",
 			},
 			"name": schema.StringAttribute{
 				Optional:    true,
@@ -140,13 +115,9 @@ Common issues:
 				Computed:    true,
 				Description: "The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.",
 			},
-			"subscription_id": schema.StringAttribute{
-				Computed:    true,
-				Description: "The Azure subscription ID.",
-			},
 			"link_identifier": schema.StringAttribute{
 				Computed:    true,
-				Description: "The Azure private link identifier.",
+				Description: "The private link identifier.",
 			},
 			"state": schema.StringAttribute{
 				Computed:    true,
@@ -190,13 +161,14 @@ func (r *privateLinkConnectionResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	azureConnectionName := plan.AzureConnectionName.ValueString()
+	providerConnectionID := plan.ProviderConnectionID.ValueString()
+	cloudProvider := plan.CloudProvider.ValueString()
 	region := plan.Region.ValueString()
 
 	// Sync and wait for the connection to appear
 	var conn *tsClient.PrivateLinkConnection
 	err = retry.RetryContext(ctx, timeout, func() *retry.RetryError {
-		tflog.Debug(ctx, "Syncing Private Link connections from Azure")
+		tflog.Debug(ctx, "Syncing Private Link connections")
 		if syncErr := r.client.SyncPrivateLinkConnections(ctx); syncErr != nil {
 			tflog.Warn(ctx, "Failed to sync Private Link connections", map[string]interface{}{"error": syncErr.Error()})
 		}
@@ -206,22 +178,31 @@ func (r *privateLinkConnectionResource) Create(ctx context.Context, req resource
 			return retry.NonRetryableError(fmt.Errorf("unable to list Private Link connections: %w", listErr))
 		}
 
-		conn = findConnectionByAzureName(connections, azureConnectionName)
+		switch cloudProvider {
+		case "AZURE":
+			conn = findConnectionByAzureName(connections, providerConnectionID)
+		case "AWS":
+			conn = findConnectionByProviderID(connections, providerConnectionID)
+		default:
+			return retry.NonRetryableError(fmt.Errorf("unsupported cloud_provider: %s", cloudProvider))
+		}
+
 		if conn != nil {
 			return nil
 		}
 
 		tflog.Info(ctx, "Connection not found yet, retrying...", map[string]interface{}{
-			"azure_connection_name": azureConnectionName,
+			"provider_connection_id": providerConnectionID,
+			"cloud_provider":         cloudProvider,
 		})
 		return retry.RetryableError(fmt.Errorf("connection not found"))
 	})
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Timeout waiting for Private Link connection",
-			fmt.Sprintf("No connection matching azure_connection_name '%s' found after %s. "+
-				"Ensure the Azure Private Endpoint is created and the authorization is approved.",
-				azureConnectionName, timeoutStr),
+			fmt.Sprintf("No connection matching provider_connection_id '%s' (cloud_provider=%s) found after %s. "+
+				"Ensure the endpoint is created and the authorization is approved.",
+				providerConnectionID, cloudProvider, timeoutStr),
 		)
 		return
 	}
@@ -240,15 +221,7 @@ func (r *privateLinkConnectionResource) Create(ctx context.Context, req resource
 		return
 	}
 
-	// Set state
-	plan.ID = types.StringValue(updatedConn.ConnectionID)
-	plan.ConnectionID = types.StringValue(updatedConn.ConnectionID)
-	plan.SubscriptionID = types.StringValue(updatedConn.SubscriptionID)
-	plan.LinkIdentifier = types.StringValue(updatedConn.LinkIdentifier)
-	plan.State = types.StringValue(updatedConn.State)
-	plan.IPAddress = types.StringValue(updatedConn.IPAddress)
-	plan.Name = types.StringValue(updatedConn.Name)
-
+	setConnectionState(&plan, updatedConn)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -278,18 +251,20 @@ func (r *privateLinkConnectionResource) Read(ctx context.Context, req resource.R
 	}
 
 	if conn == nil {
-		// Connection no longer exists
 		resp.State.RemoveResource(ctx)
 		return
 	}
 
-	// Update state — only set azure_connection_name if not already set (e.g. during import)
-	if state.AzureConnectionName.IsNull() || state.AzureConnectionName.ValueString() == "" {
-		state.AzureConnectionName = types.StringValue(conn.AzureConnectionName)
+	// Preserve user-specified provider_connection_id during import
+	if state.ProviderConnectionID.IsNull() || state.ProviderConnectionID.ValueString() == "" {
+		state.ProviderConnectionID = types.StringValue(conn.ProviderConnectionID)
 	}
+	if state.CloudProvider.IsNull() || state.CloudProvider.ValueString() == "" {
+		state.CloudProvider = types.StringValue(conn.CloudProvider)
+	}
+
 	state.ID = types.StringValue(conn.ConnectionID)
 	state.ConnectionID = types.StringValue(conn.ConnectionID)
-	state.SubscriptionID = types.StringValue(conn.SubscriptionID)
 	state.LinkIdentifier = types.StringValue(conn.LinkIdentifier)
 	state.State = types.StringValue(conn.State)
 	state.IPAddress = types.StringValue(conn.IPAddress)
@@ -327,15 +302,7 @@ func (r *privateLinkConnectionResource) Update(ctx context.Context, req resource
 		return
 	}
 
-	// Update state
-	plan.ID = types.StringValue(updatedConn.ConnectionID)
-	plan.ConnectionID = types.StringValue(updatedConn.ConnectionID)
-	plan.SubscriptionID = types.StringValue(updatedConn.SubscriptionID)
-	plan.LinkIdentifier = types.StringValue(updatedConn.LinkIdentifier)
-	plan.State = types.StringValue(updatedConn.State)
-	plan.IPAddress = types.StringValue(updatedConn.IPAddress)
-	plan.Name = types.StringValue(updatedConn.Name)
-
+	setConnectionState(&plan, updatedConn)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -359,7 +326,6 @@ func (r *privateLinkConnectionResource) Delete(ctx context.Context, req resource
 			return nil
 		}
 
-		// Retry if error is due to existing bindings
 		if strings.Contains(deleteErr.Error(), "existing bindings") {
 			tflog.Info(ctx, "Connection still has bindings, retrying...", map[string]interface{}{
 				"connection_id": connectionID,
@@ -389,10 +355,28 @@ func (r *privateLinkConnectionResource) ImportState(ctx context.Context, req res
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("connection_id"), idParts[1])...)
 }
 
+func setConnectionState(model *privateLinkConnectionResourceModel, conn *tsClient.PrivateLinkConnection) {
+	model.ID = types.StringValue(conn.ConnectionID)
+	model.ConnectionID = types.StringValue(conn.ConnectionID)
+	model.LinkIdentifier = types.StringValue(conn.LinkIdentifier)
+	model.State = types.StringValue(conn.State)
+	model.IPAddress = types.StringValue(conn.IPAddress)
+	model.Name = types.StringValue(conn.Name)
+}
+
 func findConnectionByAzureName(connections []*tsClient.PrivateLinkConnection, filter string) *tsClient.PrivateLinkConnection {
 	expectedPrefix := filter + "."
 	for _, conn := range connections {
-		if strings.HasPrefix(conn.AzureConnectionName, expectedPrefix) {
+		if strings.HasPrefix(conn.ProviderConnectionID, expectedPrefix) {
+			return conn
+		}
+	}
+	return nil
+}
+
+func findConnectionByProviderID(connections []*tsClient.PrivateLinkConnection, providerConnectionID string) *tsClient.PrivateLinkConnection {
+	for _, conn := range connections {
+		if conn.ProviderConnectionID == providerConnectionID {
 			return conn
 		}
 	}

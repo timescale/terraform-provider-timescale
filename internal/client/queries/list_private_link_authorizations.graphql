@@ -3,8 +3,9 @@ query ListPrivateLinkAuthorizations($projectId: ID!) {
         projectId: $projectId
     }) {
         projectId
-        subscriptionId
         name
+        principalId
+        cloudProvider
         createdAt
         updatedAt
     }

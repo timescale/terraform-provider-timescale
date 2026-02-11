@@ -14,17 +14,19 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 
 	server.Handle("CreatePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
-		assert.Equal(t, "test-subscription-id", vars["subscriptionId"])
+		assert.Equal(t, "test-subscription-id", vars["principalId"])
+		assert.Equal(t, "AZURE", vars["cloudProvider"])
 		assert.Equal(t, "test-authorization", vars["name"])
 		assert.Equal(t, "test-project-id", vars["projectId"])
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
 				"createPrivateLinkAuthorization": map[string]interface{}{
-					"subscriptionId": "test-subscription-id",
-					"name":           "test-authorization",
-					"createdAt":      "2024-01-01T00:00:00Z",
-					"updatedAt":      nil,
+					"principalId":   "test-subscription-id",
+					"cloudProvider": "AZURE",
+					"name":          "test-authorization",
+					"createdAt":     "2024-01-01T00:00:00Z",
+					"updatedAt":     nil,
 				},
 			},
 		}
@@ -38,10 +40,11 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 			"data": map[string]interface{}{
 				"listPrivateLinkAuthorizations": []map[string]interface{}{
 					{
-						"subscriptionId": "test-subscription-id",
-						"name":           "test-authorization",
-						"createdAt":      "2024-01-01T00:00:00Z",
-						"updatedAt":      nil,
+						"principalId":   "test-subscription-id",
+						"cloudProvider": "AZURE",
+						"name":          "test-authorization",
+						"createdAt":     "2024-01-01T00:00:00Z",
+						"updatedAt":     nil,
 					},
 				},
 			},
@@ -50,7 +53,8 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 
 	server.Handle("DeletePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
-		assert.Equal(t, "test-subscription-id", vars["subscriptionId"])
+		assert.Equal(t, "test-subscription-id", vars["principalId"])
+		assert.Equal(t, "AZURE", vars["cloudProvider"])
 		assert.Equal(t, "test-project-id", vars["projectId"])
 
 		return map[string]interface{}{
@@ -64,8 +68,9 @@ func TestAccPrivateLinkAuthorizationResource_basic(t *testing.T) {
 
 	config := ProviderConfig + `
 resource "timescale_privatelink_authorization" "test" {
-  subscription_id = "test-subscription-id"
-  name            = "test-authorization"
+  principal_id   = "test-subscription-id"
+  cloud_provider = "AZURE"
+  name           = "test-authorization"
 }
 `
 
@@ -82,7 +87,8 @@ resource "timescale_privatelink_authorization" "test" {
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "subscription_id", "test-subscription-id"),
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "principal_id", "test-subscription-id"),
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "cloud_provider", "AZURE"),
 					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "name", "test-authorization"),
 					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "id", "test-subscription-id"),
 				),
@@ -92,13 +98,96 @@ resource "timescale_privatelink_authorization" "test" {
 				ResourceName:      "timescale_privatelink_authorization.test",
 				ImportState:       true,
 				ImportStateVerify: true,
-				ImportStateId:     "test-subscription-id",
+				ImportStateId:     "AZURE,test-subscription-id",
 			},
 			// Step 4: Plan again - verify no drift (empty plan)
 			{
 				Config:             config,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+func TestAccPrivateLinkAuthorizationResource_aws(t *testing.T) {
+	server := NewMockServer(t)
+	defer server.Close()
+
+	server.Handle("CreatePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
+		vars := GetVars(req)
+		assert.Equal(t, "123456789012", vars["principalId"])
+		assert.Equal(t, "AWS", vars["cloudProvider"])
+		assert.Equal(t, "aws-test-auth", vars["name"])
+
+		return map[string]interface{}{
+			"data": map[string]interface{}{
+				"createPrivateLinkAuthorization": map[string]interface{}{
+					"principalId":   "123456789012",
+					"cloudProvider": "AWS",
+					"name":          "aws-test-auth",
+					"createdAt":     "2024-01-01T00:00:00Z",
+					"updatedAt":     nil,
+				},
+			},
+		}
+	})
+
+	server.Handle("ListPrivateLinkAuthorizations", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"data": map[string]interface{}{
+				"listPrivateLinkAuthorizations": []map[string]interface{}{
+					{
+						"principalId":   "123456789012",
+						"cloudProvider": "AWS",
+						"name":          "aws-test-auth",
+						"createdAt":     "2024-01-01T00:00:00Z",
+						"updatedAt":     nil,
+					},
+				},
+			},
+		}
+	})
+
+	server.Handle("DeletePrivateLinkAuthorization", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
+		vars := GetVars(req)
+		assert.Equal(t, "123456789012", vars["principalId"])
+		assert.Equal(t, "AWS", vars["cloudProvider"])
+
+		return map[string]interface{}{
+			"data": map[string]interface{}{
+				"deletePrivateLinkAuthorization": "OK",
+			},
+		}
+	})
+
+	server.SetupEnv(t)
+
+	config := ProviderConfig + `
+resource "timescale_privatelink_authorization" "test" {
+  principal_id   = "123456789012"
+  cloud_provider = "AWS"
+  name           = "aws-test-auth"
+}
+`
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: TestProviderFactories(),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "principal_id", "123456789012"),
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "cloud_provider", "AWS"),
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "name", "aws-test-auth"),
+					resource.TestCheckResourceAttr("timescale_privatelink_authorization.test", "id", "123456789012"),
+				),
+			},
+			{
+				ResourceName:      "timescale_privatelink_authorization.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateId:     "AWS,123456789012",
 			},
 		},
 	})
@@ -125,8 +214,9 @@ func TestAccPrivateLinkAuthorizationResource_invalidSubscription(t *testing.T) {
 			{
 				Config: ProviderConfig + `
 resource "timescale_privatelink_authorization" "test" {
-  subscription_id = "invalid-subscription"
-  name            = "test-authorization"
+  principal_id   = "invalid-subscription"
+  cloud_provider = "AZURE"
+  name           = "test-authorization"
 }
 `,
 				ExpectError: regexp.MustCompile("Invalid subscription ID format"),

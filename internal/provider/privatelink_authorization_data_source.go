@@ -22,8 +22,9 @@ type privateLinkAuthorizationDataSource struct {
 }
 
 type privateLinkAuthorizationDataSourceModel struct {
-	SubscriptionID types.String `tfsdk:"subscription_id"`
-	Name           types.String `tfsdk:"name"`
+	PrincipalID   types.String `tfsdk:"principal_id"`
+	CloudProvider types.String `tfsdk:"cloud_provider"`
+	Name          types.String `tfsdk:"name"`
 }
 
 func (d *privateLinkAuthorizationDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -32,8 +33,8 @@ func (d *privateLinkAuthorizationDataSource) Metadata(_ context.Context, req dat
 
 func (d *privateLinkAuthorizationDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Looks up an existing Azure Private Link authorization by subscription ID.",
-		MarkdownDescription: `Looks up an existing Azure Private Link authorization by subscription ID.
+		Description: "Looks up an existing Private Link authorization by principal ID and cloud provider.",
+		MarkdownDescription: `Looks up an existing Private Link authorization by principal ID and cloud provider.
 
 Use this data source to reference an authorization that was created outside of Terraform
 or in a different Terraform workspace.
@@ -42,7 +43,8 @@ or in a different Terraform workspace.
 
 ` + "```hcl" + `
 data "timescale_privatelink_authorization" "existing" {
-  subscription_id = "00000000-0000-0000-0000-000000000000"
+  principal_id   = "00000000-0000-0000-0000-000000000000"
+  cloud_provider = "AZURE"
 }
 
 output "authorization_name" {
@@ -50,9 +52,13 @@ output "authorization_name" {
 }
 ` + "```",
 		Attributes: map[string]schema.Attribute{
-			"subscription_id": schema.StringAttribute{
+			"principal_id": schema.StringAttribute{
 				Required:    true,
-				Description: "The Azure subscription ID to look up.",
+				Description: "The Azure subscription ID or AWS account ID to look up.",
+			},
+			"cloud_provider": schema.StringAttribute{
+				Required:    true,
+				Description: "The cloud provider: AZURE or AWS.",
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,
@@ -85,9 +91,11 @@ func (d *privateLinkAuthorizationDataSource) Read(ctx context.Context, req datas
 		return
 	}
 
-	subscriptionID := config.SubscriptionID.ValueString()
+	principalID := config.PrincipalID.ValueString()
+	cloudProvider := config.CloudProvider.ValueString()
 	tflog.Debug(ctx, "Looking up Private Link authorization", map[string]interface{}{
-		"subscription_id": subscriptionID,
+		"principal_id":   principalID,
+		"cloud_provider": cloudProvider,
 	})
 
 	authorizations, err := d.client.ListPrivateLinkAuthorizations(ctx)
@@ -98,7 +106,7 @@ func (d *privateLinkAuthorizationDataSource) Read(ctx context.Context, req datas
 
 	var found *tsClient.PrivateLinkAuthorization
 	for _, auth := range authorizations {
-		if auth.SubscriptionID == subscriptionID {
+		if auth.PrincipalID == principalID && auth.CloudProvider == cloudProvider {
 			found = auth
 			break
 		}
@@ -107,7 +115,7 @@ func (d *privateLinkAuthorizationDataSource) Read(ctx context.Context, req datas
 	if found == nil {
 		resp.Diagnostics.AddError(
 			"Authorization not found",
-			fmt.Sprintf("No Private Link authorization found for subscription ID '%s'.", subscriptionID),
+			fmt.Sprintf("No Private Link authorization found for principal ID '%s' (cloud_provider=%s).", principalID, cloudProvider),
 		)
 		return
 	}

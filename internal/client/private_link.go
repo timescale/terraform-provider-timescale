@@ -39,17 +39,18 @@ type DetachServiceFromPrivateLinkResponse struct {
 }
 
 type PrivateLinkConnection struct {
-	ConnectionID        string                `json:"connectionId"`
-	SubscriptionID      string                `json:"subscriptionId"`
-	LinkIdentifier      string                `json:"linkIdentifier"`
-	State               string                `json:"state"`
-	IPAddress           string                `json:"ipAddress"`
-	Name                string                `json:"name"`
-	AzureConnectionName string                `json:"azureConnectionName"`
-	Region              string                `json:"region"`
-	CreatedAt           string                `json:"createdAt"`
-	UpdatedAt           string                `json:"updatedAt"`
-	Bindings            []*PrivateLinkBinding `json:"bindings"`
+	ConnectionID         string                `json:"connectionId"`
+	LinkIdentifier       string                `json:"linkIdentifier"`
+	State                string                `json:"state"`
+	IPAddress            string                `json:"ipAddress"`
+	Name                 string                `json:"name"`
+	Region               string                `json:"region"`
+	PrincipalID          string                `json:"principalId"`
+	CloudProvider        string                `json:"cloudProvider"`
+	ProviderConnectionID string                `json:"providerConnectionId"`
+	CreatedAt            string                `json:"createdAt"`
+	UpdatedAt            string                `json:"updatedAt"`
+	Bindings             []*PrivateLinkBinding `json:"bindings"`
 }
 
 type ListPrivateLinkConnectionsResponse struct {
@@ -207,8 +208,9 @@ func (c *Client) UpdatePrivateLinkConnection(ctx context.Context, connectionID s
 }
 
 type PrivateLinkAvailableRegion struct {
-	Region                  string `json:"region"`
-	PrivateLinkServiceAlias string `json:"privateLinkServiceAlias"`
+	Region        string `json:"region"`
+	CloudProvider string `json:"cloudProvider"`
+	ServiceName   string `json:"serviceName"`
 }
 
 type ListPrivateLinkAvailableRegionsResponse struct {
@@ -261,11 +263,12 @@ func (c *Client) DeletePrivateLinkConnection(ctx context.Context, connectionID s
 // Authorization types and methods
 
 type PrivateLinkAuthorization struct {
-	ProjectID      string  `json:"projectId"`
-	SubscriptionID string  `json:"subscriptionId"`
-	Name           string  `json:"name"`
-	CreatedAt      string  `json:"createdAt"`
-	UpdatedAt      *string `json:"updatedAt"`
+	ProjectID     string  `json:"projectId"`
+	Name          string  `json:"name"`
+	PrincipalID   string  `json:"principalId"`
+	CloudProvider string  `json:"cloudProvider"`
+	CreatedAt     string  `json:"createdAt"`
+	UpdatedAt     *string `json:"updatedAt"`
 }
 
 type ListPrivateLinkAuthorizationsResponse struct {
@@ -306,16 +309,18 @@ func (c *Client) ListPrivateLinkAuthorizations(ctx context.Context) ([]*PrivateL
 	return resp.Data.Authorizations, nil
 }
 
-func (c *Client) CreatePrivateLinkAuthorization(ctx context.Context, subscriptionID, name string) (*PrivateLinkAuthorization, error) {
+func (c *Client) CreatePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider, name string) (*PrivateLinkAuthorization, error) {
 	tflog.Trace(ctx, "Client.CreatePrivateLinkAuthorization")
+	variables := map[string]interface{}{
+		"projectId":     c.projectID,
+		"name":          name,
+		"principalId":   principalID,
+		"cloudProvider": cloudProvider,
+	}
 	req := map[string]interface{}{
 		"operationName": "CreatePrivateLinkAuthorization",
 		"query":         CreatePrivateLinkAuthorizationMutation,
-		"variables": map[string]string{
-			"projectId":      c.projectID,
-			"subscriptionId": subscriptionID,
-			"name":           name,
-		},
+		"variables":     variables,
 	}
 	var resp Response[CreatePrivateLinkAuthorizationResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
@@ -330,16 +335,18 @@ func (c *Client) CreatePrivateLinkAuthorization(ctx context.Context, subscriptio
 	return resp.Data.Authorization, nil
 }
 
-func (c *Client) UpdatePrivateLinkAuthorization(ctx context.Context, subscriptionID, name string) (*PrivateLinkAuthorization, error) {
+func (c *Client) UpdatePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider, name string) (*PrivateLinkAuthorization, error) {
 	tflog.Trace(ctx, "Client.UpdatePrivateLinkAuthorization")
+	variables := map[string]interface{}{
+		"projectId":     c.projectID,
+		"name":          name,
+		"principalId":   principalID,
+		"cloudProvider": cloudProvider,
+	}
 	req := map[string]interface{}{
 		"operationName": "UpdatePrivateLinkAuthorization",
 		"query":         UpdatePrivateLinkAuthorizationMutation,
-		"variables": map[string]string{
-			"projectId":      c.projectID,
-			"subscriptionId": subscriptionID,
-			"name":           name,
-		},
+		"variables":     variables,
 	}
 	var resp Response[UpdatePrivateLinkAuthorizationResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
@@ -354,15 +361,17 @@ func (c *Client) UpdatePrivateLinkAuthorization(ctx context.Context, subscriptio
 	return resp.Data.Authorization, nil
 }
 
-func (c *Client) DeletePrivateLinkAuthorization(ctx context.Context, subscriptionID string) error {
+func (c *Client) DeletePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider string) error {
 	tflog.Trace(ctx, "Client.DeletePrivateLinkAuthorization")
+	variables := map[string]interface{}{
+		"projectId":     c.projectID,
+		"principalId":   principalID,
+		"cloudProvider": cloudProvider,
+	}
 	req := map[string]interface{}{
 		"operationName": "DeletePrivateLinkAuthorization",
 		"query":         DeletePrivateLinkAuthorizationMutation,
-		"variables": map[string]string{
-			"projectId":      c.projectID,
-			"subscriptionId": subscriptionID,
-		},
+		"variables":     variables,
 	}
 	var resp Response[DeletePrivateLinkAuthorizationResponse]
 	if err := c.do(ctx, req, &resp); err != nil {

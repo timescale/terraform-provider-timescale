@@ -6,13 +6,14 @@ mutation UpdatePrivateLinkConnection($projectId: ID!, $connectionId: ID!, $ipAdd
         name: $name
     }) {
         connectionId
-        subscriptionId
         linkIdentifier
         state
         ipAddress
         name
-        azureConnectionName
         region
+        principalId
+        cloudProvider
+        providerConnectionId
         createdAt
         updatedAt
     }

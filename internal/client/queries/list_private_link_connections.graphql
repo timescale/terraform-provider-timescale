@@ -1,13 +1,14 @@
 query ListPrivateLinkConnections($projectId: ID!, $region: String) {
     listPrivateLinkConnections(data: { projectId: $projectId, region: $region }) {
         connectionId
-        subscriptionId
         linkIdentifier
         state
         ipAddress
         name
-        azureConnectionName
         region
+        principalId
+        cloudProvider
+        providerConnectionId
         createdAt
         updatedAt
         bindings {

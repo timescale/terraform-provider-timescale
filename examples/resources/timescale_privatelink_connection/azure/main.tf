@@ -201,15 +201,16 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
 # Step 1: Authorize the Azure subscription
 resource "timescale_privatelink_authorization" "main" {
-  subscription_id = var.azure_subscription_id
-  name            = "Terraform managed - ${var.resource_prefix}"
+  principal_id   = var.azure_subscription_id
+  cloud_provider = "AZURE"
+  name           = "Terraform managed - ${var.resource_prefix}"
 }
 
-# Step 2: Get the Private Link Service alias for the region
+# Step 2: Get the service name (Private Link Service alias) for the region
 data "timescale_privatelink_available_regions" "all" {}
 
 locals {
-  private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].private_link_service_alias
+  private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].service_name
 }
 
 # =============================================================================
@@ -250,10 +251,11 @@ data "azurerm_private_endpoint_connection" "timescale" {
 # This resource syncs and waits for the Azure connection to appear,
 # then configures it with the IP address from the Azure Private Endpoint
 resource "timescale_privatelink_connection" "main" {
-  azure_connection_name = azurerm_private_endpoint.timescale.name
-  region                = var.timescale_region
-  ip_address            = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
-  name                  = "Managed by Terraform"
+  provider_connection_id = azurerm_private_endpoint.timescale.name
+  cloud_provider         = "AZURE"
+  region                 = var.timescale_region
+  ip_address             = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
+  name                   = "Managed by Terraform"
 
   depends_on = [azurerm_private_endpoint.timescale]
 

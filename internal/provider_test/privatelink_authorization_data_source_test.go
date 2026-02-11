@@ -16,16 +16,18 @@ func TestAccPrivateLinkAuthorizationDataSource_basic(t *testing.T) {
 			"data": map[string]interface{}{
 				"listPrivateLinkAuthorizations": []map[string]interface{}{
 					{
-						"subscriptionId": "sub-123",
-						"name":           "My Authorization",
-						"createdAt":      "2024-01-01T00:00:00Z",
-						"updatedAt":      nil,
+						"principalId":   "sub-123",
+						"cloudProvider": "AZURE",
+						"name":          "My Authorization",
+						"createdAt":     "2024-01-01T00:00:00Z",
+						"updatedAt":     nil,
 					},
 					{
-						"subscriptionId": "sub-456",
-						"name":           "Another Auth",
-						"createdAt":      "2024-01-02T00:00:00Z",
-						"updatedAt":      nil,
+						"principalId":   "sub-456",
+						"cloudProvider": "AZURE",
+						"name":          "Another Auth",
+						"createdAt":     "2024-01-02T00:00:00Z",
+						"updatedAt":     nil,
 					},
 				},
 			},
@@ -36,7 +38,8 @@ func TestAccPrivateLinkAuthorizationDataSource_basic(t *testing.T) {
 
 	config := ProviderConfig + `
 data "timescale_privatelink_authorization" "test" {
-  subscription_id = "sub-123"
+  principal_id   = "sub-123"
+  cloud_provider = "AZURE"
 }
 `
 
@@ -46,7 +49,8 @@ data "timescale_privatelink_authorization" "test" {
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "subscription_id", "sub-123"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "principal_id", "sub-123"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "cloud_provider", "AZURE"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "name", "My Authorization"),
 				),
 			},
@@ -63,10 +67,11 @@ func TestAccPrivateLinkAuthorizationDataSource_notFound(t *testing.T) {
 			"data": map[string]interface{}{
 				"listPrivateLinkAuthorizations": []map[string]interface{}{
 					{
-						"subscriptionId": "sub-123",
-						"name":           "My Authorization",
-						"createdAt":      "2024-01-01T00:00:00Z",
-						"updatedAt":      nil,
+						"principalId":   "sub-123",
+						"cloudProvider": "AZURE",
+						"name":          "My Authorization",
+						"createdAt":     "2024-01-01T00:00:00Z",
+						"updatedAt":     nil,
 					},
 				},
 			},
@@ -77,7 +82,8 @@ func TestAccPrivateLinkAuthorizationDataSource_notFound(t *testing.T) {
 
 	config := ProviderConfig + `
 data "timescale_privatelink_authorization" "test" {
-  subscription_id = "non-existent-subscription"
+  principal_id   = "non-existent-subscription"
+  cloud_provider = "AZURE"
 }
 `
 

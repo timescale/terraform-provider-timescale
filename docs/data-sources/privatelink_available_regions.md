@@ -3,36 +3,44 @@
 page_title: "timescale_privatelink_available_regions Data Source - timescale"
 subcategory: ""
 description: |-
-  Lists available regions for Azure Private Link.
-  This data source returns all regions where Azure Private Link is available,
-  along with the Private Link Service alias for each region. Use the alias
-  when creating Azure Private Endpoints.
+  Lists available regions for Private Link.
+  This data source returns all regions where Private Link is available,
+  along with the service name and cloud provider for each region.
   Example Usage
   
   data "timescale_privatelink_available_regions" "all" {}
   
-  # Access the alias for a specific region
+  # Access the service name for an Azure region
   locals {
-    alias = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+    azure_service = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
+  }
+  
+  # Access the service name for an AWS region
+  locals {
+    aws_service = data.timescale_privatelink_available_regions.all.regions["us-east-1"].service_name
   }
 ---
 
 # timescale_privatelink_available_regions (Data Source)
 
-Lists available regions for Azure Private Link.
+Lists available regions for Private Link.
 
-This data source returns all regions where Azure Private Link is available,
-along with the Private Link Service alias for each region. Use the alias
-when creating Azure Private Endpoints.
+This data source returns all regions where Private Link is available,
+along with the service name and cloud provider for each region.
 
 ## Example Usage
 
 ```hcl
 data "timescale_privatelink_available_regions" "all" {}
 
-# Access the alias for a specific region
+# Access the service name for an Azure region
 locals {
-  alias = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+  azure_service = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
+}
+
+# Access the service name for an AWS region
+locals {
+  aws_service = data.timescale_privatelink_available_regions.all.regions["us-east-1"].service_name
 }
 ```
 
@@ -72,19 +80,19 @@ provider "timescale" {
   project_id = var.ts_project_id
 }
 
-# List all regions where Azure Private Link is available
+# List all regions where Private Link is available
 data "timescale_privatelink_available_regions" "all" {}
 
 # Output all available regions
 output "available_regions" {
-  description = "All regions where Azure Private Link is available"
+  description = "All regions where Private Link is available"
   value       = data.timescale_privatelink_available_regions.all.regions
 }
 
-# Example: Get the alias for a specific region using map access
-output "eastus_alias" {
-  description = "Private Link Service alias for az-eastus"
-  value       = data.timescale_privatelink_available_regions.all.regions["az-eastus"].private_link_service_alias
+# Example: Get the service name for a specific region using map access
+output "eastus_service_name" {
+  description = "Private Link service name for az-eastus"
+  value       = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
 }
 ```
 
@@ -100,4 +108,5 @@ output "eastus_alias" {
 
 Read-Only:
 
-- `private_link_service_alias` (String) The Azure Private Link Service alias to use when creating a Private Endpoint.
+- `cloud_provider` (String) The cloud provider for this region (AZURE or AWS).
+- `service_name` (String) The service name to use when creating a Private Endpoint (Azure alias or AWS VPC Endpoint Service name).

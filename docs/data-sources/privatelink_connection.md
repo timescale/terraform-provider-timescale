@@ -3,10 +3,10 @@
 page_title: "timescale_privatelink_connection Data Source - timescale"
 subcategory: ""
 description: |-
-  Looks up an existing Azure Private Link connection.
+  Looks up an existing Private Link connection.
   Use this data source to reference a connection that was created outside of Terraform
   or in a different Terraform workspace. You can look up by connection_id or by
-  azure_connection_name and region.
+  provider_connection_id, cloud_provider, and region.
   Example Usage
   Look up by connection ID
   
@@ -14,21 +14,22 @@ description: |-
     connection_id = "conn-123"
   }
   
-  Look up by Azure connection name
+  Look up by provider connection ID
   
-  data "timescale_privatelink_connection" "by_name" {
-    azure_connection_name = "my-private-endpoint"
-    region                = "az-eastus2"
+  data "timescale_privatelink_connection" "by_provider_id" {
+    provider_connection_id = "my-private-endpoint"
+    cloud_provider         = "AZURE"
+    region                 = "az-eastus2"
   }
 ---
 
 # timescale_privatelink_connection (Data Source)
 
-Looks up an existing Azure Private Link connection.
+Looks up an existing Private Link connection.
 
 Use this data source to reference a connection that was created outside of Terraform
 or in a different Terraform workspace. You can look up by `connection_id` or by
-`azure_connection_name` and `region`.
+`provider_connection_id`, `cloud_provider`, and `region`.
 
 ## Example Usage
 
@@ -40,12 +41,13 @@ data "timescale_privatelink_connection" "by_id" {
 }
 ```
 
-### Look up by Azure connection name
+### Look up by provider connection ID
 
 ```hcl
-data "timescale_privatelink_connection" "by_name" {
-  azure_connection_name = "my-private-endpoint"
-  region                = "az-eastus2"
+data "timescale_privatelink_connection" "by_provider_id" {
+  provider_connection_id = "my-private-endpoint"
+  cloud_provider         = "AZURE"
+  region                 = "az-eastus2"
 }
 ```
 
@@ -73,14 +75,14 @@ output "connection_ip" {
 
 ### Optional
 
-- `azure_connection_name` (String) The Azure private endpoint name to match. Azure formats the connection name as '<pe-name>.<guid>', so this matches connections where the name starts with this value followed by a dot.
-- `connection_id` (String) The unique identifier for the connection. Either this or azure_connection_name+region must be provided.
-- `region` (String) The Timescale region (e.g., az-eastus2). Required when using azure_connection_name.
+- `cloud_provider` (String) The cloud provider: AZURE or AWS. Required when using provider_connection_id.
+- `connection_id` (String) The unique identifier for the connection. Either this or provider_connection_id+cloud_provider+region must be provided.
+- `provider_connection_id` (String) The cloud provider connection identifier to match. For Azure: the private endpoint name. For AWS: the VPC Endpoint ID.
+- `region` (String) The Timescale region. Required when using provider_connection_id.
 
 ### Read-Only
 
-- `ip_address` (String) The private IP address of the Azure Private Endpoint.
-- `link_identifier` (String) The Azure private link identifier.
+- `ip_address` (String) The private IP address of the endpoint.
+- `link_identifier` (String) The private link identifier.
 - `name` (String) The display name for the connection.
 - `state` (String) The state of the connection (e.g., APPROVED, PENDING).
-- `subscription_id` (String) The Azure subscription ID.

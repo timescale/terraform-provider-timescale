@@ -3,13 +3,14 @@
 page_title: "timescale_privatelink_authorization Data Source - timescale"
 subcategory: ""
 description: |-
-  Looks up an existing Azure Private Link authorization by subscription ID.
+  Looks up an existing Private Link authorization by principal ID and cloud provider.
   Use this data source to reference an authorization that was created outside of Terraform
   or in a different Terraform workspace.
   Example Usage
   
   data "timescale_privatelink_authorization" "existing" {
-    subscription_id = "00000000-0000-0000-0000-000000000000"
+    principal_id   = "00000000-0000-0000-0000-000000000000"
+    cloud_provider = "AZURE"
   }
   
   output "authorization_name" {
@@ -19,7 +20,7 @@ description: |-
 
 # timescale_privatelink_authorization (Data Source)
 
-Looks up an existing Azure Private Link authorization by subscription ID.
+Looks up an existing Private Link authorization by principal ID and cloud provider.
 
 Use this data source to reference an authorization that was created outside of Terraform
 or in a different Terraform workspace.
@@ -28,7 +29,8 @@ or in a different Terraform workspace.
 
 ```hcl
 data "timescale_privatelink_authorization" "existing" {
-  subscription_id = "00000000-0000-0000-0000-000000000000"
+  principal_id   = "00000000-0000-0000-0000-000000000000"
+  cloud_provider = "AZURE"
 }
 
 output "authorization_name" {
@@ -54,7 +56,8 @@ output "authorization_name" {
 
 ### Required
 
-- `subscription_id` (String) The Azure subscription ID to look up.
+- `cloud_provider` (String) The cloud provider: AZURE or AWS.
+- `principal_id` (String) The Azure subscription ID or AWS account ID to look up.
 
 ### Read-Only
 

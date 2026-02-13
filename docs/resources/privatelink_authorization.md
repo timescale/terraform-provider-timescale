@@ -3,26 +3,26 @@
 page_title: "timescale_privatelink_authorization Resource - timescale"
 subcategory: ""
 description: |-
-  Authorizes an Azure subscription to connect via Private Link.
-  This resource authorizes an Azure subscription to create Private Endpoint connections
-  to the Timescale Private Link Service. Once authorized, Private Endpoint connections
-  from this subscription will be auto-approved.
+  Authorizes a cloud account to connect via Private Link.
+  This resource authorizes an Azure subscription or AWS account to create Private Endpoint
+  or VPC Endpoint connections to the Timescale Private Link Service. Once authorized,
+  connections from this account will be auto-approved.
   Workflow
-  Create this authorization resource with your Azure subscription IDCreate an Azure Private Endpoint pointing to the Timescale Private Link Service aliasThe connection will be automatically approvedUse timescale_privatelink_connection to configure the connection
+  Create this authorization resource with your principal ID and cloud providerCreate an Azure Private Endpoint or AWS VPC Endpoint pointing to the Timescale serviceThe connection will be automatically approvedUse timescale_privatelink_connection to configure the connection
 ---
 
 # timescale_privatelink_authorization (Resource)
 
-Authorizes an Azure subscription to connect via Private Link.
+Authorizes a cloud account to connect via Private Link.
 
-This resource authorizes an Azure subscription to create Private Endpoint connections
-to the Timescale Private Link Service. Once authorized, Private Endpoint connections
-from this subscription will be auto-approved.
+This resource authorizes an Azure subscription or AWS account to create Private Endpoint
+or VPC Endpoint connections to the Timescale Private Link Service. Once authorized,
+connections from this account will be auto-approved.
 
 ## Workflow
 
-1. Create this authorization resource with your Azure subscription ID
-2. Create an Azure Private Endpoint pointing to the Timescale Private Link Service alias
+1. Create this authorization resource with your principal ID and cloud provider
+2. Create an Azure Private Endpoint or AWS VPC Endpoint pointing to the Timescale service
 3. The connection will be automatically approved
 4. Use `timescale_privatelink_connection` to configure the connection
 
@@ -41,9 +41,10 @@ resource "timescale_privatelink_authorization" "example" {
 
 ### Required
 
+- `cloud_provider` (String) The cloud provider: AZURE or AWS.
 - `name` (String) A friendly name for this authorization.
-- `subscription_id` (String) The Azure subscription ID to authorize.
+- `principal_id` (String) The Azure subscription ID or AWS account ID to authorize.
 
 ### Read-Only
 
-- `id` (String) Resource identifier (same as subscription_id).
+- `id` (String) Resource identifier (same as principal_id).

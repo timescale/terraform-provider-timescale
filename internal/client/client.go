@@ -113,9 +113,9 @@ var (
 	//go:embed queries/list_private_link_bindings.graphql
 	ListPrivateLinkBindingsQuery string
 	//go:embed queries/attach_service_to_private_link.graphql
-	AttachServiceToPrivateLinkMutation string
+	AttachServiceToPrivateLinkConnectionMutation string
 	//go:embed queries/detach_service_from_private_link.graphql
-	DetachServiceFromPrivateLinkMutation string
+	DetachServiceFromPrivateLinkConnectionMutation string
 	//go:embed queries/list_private_link_connections.graphql
 	ListPrivateLinkConnectionsQuery string
 	//go:embed queries/sync_private_link_connections.graphql

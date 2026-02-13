@@ -98,19 +98,19 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 		}
 	})
 
-	server.Handle("AttachServiceToPrivateLink", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
+	server.Handle("AttachServiceToPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-		attachedConnectionID = GetString(vars, "privateEndpointConnectionId")
+		attachedConnectionID = GetString(vars, "connectionId")
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
-				"attachServiceToPrivateEndpointConnection": "OK",
+				"attachServiceToPrivateLinkConnection": "OK",
 			},
 		}
 	})
 
-	server.Handle("DetachServiceFromPrivateLink", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
+	server.Handle("DetachServiceFromPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
 
@@ -118,7 +118,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
-				"detachServiceFromPrivateEndpointConnection": "OK",
+				"detachServiceFromPrivateLinkConnection": "OK",
 			},
 		}
 	})

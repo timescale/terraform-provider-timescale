@@ -501,7 +501,7 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 
 	// Private Link
 	if !plan.PrivateEndpointConnectionID.IsNull() {
-		err := r.client.AttachServiceToPrivateLink(ctx, service.ID, plan.PrivateEndpointConnectionID.ValueString())
+		err := r.client.AttachServiceToPrivateLinkConnection(ctx, service.ID, plan.PrivateEndpointConnectionID.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("error attaching service to private link", err.Error())
 			return
@@ -803,7 +803,7 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plan.PrivateEndpointConnectionID.Equal(state.PrivateEndpointConnectionID) {
 		// Detach old if exists
 		if !state.PrivateEndpointConnectionID.IsNull() && !state.PrivateEndpointConnectionID.IsUnknown() {
-			if err := r.client.DetachServiceFromPrivateLink(ctx, serviceID, state.PrivateEndpointConnectionID.ValueString()); err != nil {
+			if err := r.client.DetachServiceFromPrivateLinkConnection(ctx, serviceID, state.PrivateEndpointConnectionID.ValueString()); err != nil {
 				resp.Diagnostics.AddError("Failed to detach service from private link", err.Error())
 				return
 			}
@@ -811,7 +811,7 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		// Attach new if specified (with retry for async detach completion)
 		if !plan.PrivateEndpointConnectionID.IsNull() && !plan.PrivateEndpointConnectionID.IsUnknown() {
 			err := retry.RetryContext(ctx, 2*time.Minute, func() *retry.RetryError {
-				attachErr := r.client.AttachServiceToPrivateLink(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString())
+				attachErr := r.client.AttachServiceToPrivateLinkConnection(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString())
 				if attachErr == nil {
 					return nil
 				}

@@ -1,4 +1,4 @@
-mutation DeletePrivateLinkAuthorization($projectId: ID!, $principalId: String, $cloudProvider: PrivateLinkCloudProvider) {
+mutation DeletePrivateLinkAuthorization($projectId: ID!, $principalId: String!, $cloudProvider: PrivateLinkCloudProvider!) {
     deletePrivateLinkAuthorization(data: {
         projectId: $projectId
         principalId: $principalId

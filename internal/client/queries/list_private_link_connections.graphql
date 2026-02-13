@@ -14,7 +14,7 @@ query ListPrivateLinkConnections($projectId: ID!, $region: String) {
         bindings {
             projectId
             serviceId
-            privateEndpointConnectionId
+            connectionId
             bindingType
             port
             hostname

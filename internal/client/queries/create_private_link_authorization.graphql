@@ -1,4 +1,4 @@
-mutation CreatePrivateLinkAuthorization($projectId: ID!, $name: String!, $principalId: String, $cloudProvider: PrivateLinkCloudProvider) {
+mutation CreatePrivateLinkAuthorization($projectId: ID!, $name: String!, $principalId: String!, $cloudProvider: PrivateLinkCloudProvider!) {
     createPrivateLinkAuthorization(data: {
         projectId: $projectId
         name: $name

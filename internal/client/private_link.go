@@ -17,25 +17,25 @@ const (
 )
 
 type PrivateLinkBinding struct {
-	ProjectID                   string                 `json:"projectId"`
-	ServiceID                   string                 `json:"serviceId"`
-	PrivateEndpointConnectionID string                 `json:"privateEndpointConnectionId"`
-	BindingType                 PrivateLinkBindingType `json:"bindingType"`
-	Port                        int                    `json:"port"`
-	Hostname                    string                 `json:"hostname"`
-	CreatedAt                   string                 `json:"createdAt"`
+	ProjectID    string                 `json:"projectId"`
+	ServiceID    string                 `json:"serviceId"`
+	ConnectionID string                 `json:"connectionId"`
+	BindingType  PrivateLinkBindingType `json:"bindingType"`
+	Port         int                    `json:"port"`
+	Hostname     string                 `json:"hostname"`
+	CreatedAt    string                 `json:"createdAt"`
 }
 
 type ListPrivateLinkBindingsResponse struct {
 	Bindings []*PrivateLinkBinding `json:"listPrivateLinkBindings"`
 }
 
-type AttachServiceToPrivateLinkResponse struct {
-	Result string `json:"attachServiceToPrivateLink"`
+type AttachServiceToPrivateLinkConnectionResponse struct {
+	Result string `json:"attachServiceToPrivateLinkConnection"`
 }
 
-type DetachServiceFromPrivateLinkResponse struct {
-	Result string `json:"detachServiceFromPrivateLink"`
+type DetachServiceFromPrivateLinkConnectionResponse struct {
+	Result string `json:"detachServiceFromPrivateLinkConnection"`
 }
 
 type PrivateLinkConnection struct {
@@ -80,18 +80,18 @@ func (c *Client) ListPrivateLinkBindings(ctx context.Context, serviceID string) 
 	return resp.Data.Bindings, nil
 }
 
-func (c *Client) AttachServiceToPrivateLink(ctx context.Context, serviceID, privateEndpointConnectionID string) error {
-	tflog.Trace(ctx, "Client.AttachServiceToPrivateLink")
+func (c *Client) AttachServiceToPrivateLinkConnection(ctx context.Context, serviceID, connectionID string) error {
+	tflog.Trace(ctx, "Client.AttachServiceToPrivateLinkConnection")
 	req := map[string]interface{}{
-		"operationName": "AttachServiceToPrivateLink",
-		"query":         AttachServiceToPrivateLinkMutation,
+		"operationName": "AttachServiceToPrivateLinkConnection",
+		"query":         AttachServiceToPrivateLinkConnectionMutation,
 		"variables": map[string]string{
-			"projectId":                   c.projectID,
-			"serviceId":                   serviceID,
-			"privateEndpointConnectionId": privateEndpointConnectionID,
+			"projectId":    c.projectID,
+			"serviceId":    serviceID,
+			"connectionId": connectionID,
 		},
 	}
-	var resp Response[AttachServiceToPrivateLinkResponse]
+	var resp Response[AttachServiceToPrivateLinkConnectionResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return err
 	}
@@ -104,18 +104,18 @@ func (c *Client) AttachServiceToPrivateLink(ctx context.Context, serviceID, priv
 	return nil
 }
 
-func (c *Client) DetachServiceFromPrivateLink(ctx context.Context, serviceID, privateEndpointConnectionID string) error {
-	tflog.Trace(ctx, "Client.DetachServiceFromPrivateLink")
+func (c *Client) DetachServiceFromPrivateLinkConnection(ctx context.Context, serviceID, connectionID string) error {
+	tflog.Trace(ctx, "Client.DetachServiceFromPrivateLinkConnection")
 	req := map[string]interface{}{
-		"operationName": "DetachServiceFromPrivateLink",
-		"query":         DetachServiceFromPrivateLinkMutation,
+		"operationName": "DetachServiceFromPrivateLinkConnection",
+		"query":         DetachServiceFromPrivateLinkConnectionMutation,
 		"variables": map[string]string{
-			"projectId":                   c.projectID,
-			"serviceId":                   serviceID,
-			"privateEndpointConnectionId": privateEndpointConnectionID,
+			"projectId":    c.projectID,
+			"serviceId":    serviceID,
+			"connectionId": connectionID,
 		},
 	}
-	var resp Response[DetachServiceFromPrivateLinkResponse]
+	var resp Response[DetachServiceFromPrivateLinkConnectionResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return err
 	}

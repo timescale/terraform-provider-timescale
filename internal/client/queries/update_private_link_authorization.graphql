@@ -1,4 +1,4 @@
-mutation UpdatePrivateLinkAuthorization($projectId: ID!, $name: String!, $principalId: String, $cloudProvider: PrivateLinkCloudProvider) {
+mutation UpdatePrivateLinkAuthorization($projectId: ID!, $name: String!, $principalId: String!, $cloudProvider: PrivateLinkCloudProvider!) {
     updatePrivateLinkAuthorization(data: {
         projectId: $projectId
         name: $name

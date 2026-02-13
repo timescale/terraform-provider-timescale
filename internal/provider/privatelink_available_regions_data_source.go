@@ -65,7 +65,7 @@ locals {
 					Attributes: map[string]schema.Attribute{
 						"cloud_provider": schema.StringAttribute{
 							Computed:    true,
-							Description: "The cloud provider for this region (AZURE or AWS).",
+							Description: "The cloud provider for this region (azure or aws).",
 						},
 						"service_name": schema.StringAttribute{
 							Computed:    true,

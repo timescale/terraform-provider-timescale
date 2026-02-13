@@ -41,7 +41,7 @@ resource "timescale_privatelink_authorization" "example" {
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider: AZURE or AWS.
+- `cloud_provider` (String) The cloud provider: azure or aws.
 - `name` (String) A friendly name for this authorization.
 - `principal_id` (String) The Azure subscription ID or AWS account ID to authorize.
 

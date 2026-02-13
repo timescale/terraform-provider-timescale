@@ -62,7 +62,7 @@ data "timescale_privatelink_connection" "by_id" {
 ` + "```hcl" + `
 data "timescale_privatelink_connection" "by_provider_id" {
   provider_connection_id = "my-private-endpoint"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
 }
 ` + "```",
@@ -81,7 +81,7 @@ data "timescale_privatelink_connection" "by_provider_id" {
 			"cloud_provider": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "The cloud provider: AZURE or AWS. Required when using provider_connection_id.",
+				Description: "The cloud provider: azure or aws. Required when using provider_connection_id.",
 			},
 			"region": schema.StringAttribute{
 				Optional:    true,
@@ -94,7 +94,7 @@ data "timescale_privatelink_connection" "by_provider_id" {
 			},
 			"state": schema.StringAttribute{
 				Computed:    true,
-				Description: "The state of the connection (e.g., APPROVED, PENDING).",
+				Description: "The state of the connection (e.g., approved, pending).",
 			},
 			"ip_address": schema.StringAttribute{
 				Computed:    true,
@@ -222,7 +222,7 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 		}
 
 		switch cloudProvider {
-		case "AZURE":
+		case "azure":
 			expectedPrefix := providerConnID + "."
 			for _, conn := range connections {
 				if strings.HasPrefix(conn.ProviderConnectionID, expectedPrefix) {
@@ -230,7 +230,7 @@ func (d *privateLinkConnectionDataSource) Read(ctx context.Context, req datasour
 					break
 				}
 			}
-		case "AWS":
+		case "aws":
 			for _, conn := range connections {
 				if conn.ProviderConnectionID == providerConnID {
 					found = conn

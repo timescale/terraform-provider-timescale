@@ -75,7 +75,7 @@ output "connection_ip" {
 
 ### Optional
 
-- `cloud_provider` (String) The cloud provider: AZURE or AWS. Required when using provider_connection_id.
+- `cloud_provider` (String) The cloud provider: azure or aws. Required when using provider_connection_id.
 - `connection_id` (String) The unique identifier for the connection. Either this or provider_connection_id+cloud_provider+region must be provided.
 - `provider_connection_id` (String) The cloud provider connection identifier to match. For Azure: the private endpoint name. For AWS: the VPC Endpoint ID.
 - `region` (String) The Timescale region. Required when using provider_connection_id.
@@ -85,4 +85,4 @@ output "connection_ip" {
 - `ip_address` (String) The private IP address of the endpoint.
 - `link_identifier` (String) The private link identifier.
 - `name` (String) The display name for the connection.
-- `state` (String) The state of the connection (e.g., APPROVED, PENDING).
+- `state` (String) The state of the connection (e.g., approved, pending).

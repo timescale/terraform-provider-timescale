@@ -17,14 +17,14 @@ func TestAccPrivateLinkAuthorizationDataSource_basic(t *testing.T) {
 				"listPrivateLinkAuthorizations": []map[string]interface{}{
 					{
 						"principalId":   "sub-123",
-						"cloudProvider": "AZURE",
+						"cloudProvider": "azure",
 						"name":          "My Authorization",
 						"createdAt":     "2024-01-01T00:00:00Z",
 						"updatedAt":     nil,
 					},
 					{
 						"principalId":   "sub-456",
-						"cloudProvider": "AZURE",
+						"cloudProvider": "azure",
 						"name":          "Another Auth",
 						"createdAt":     "2024-01-02T00:00:00Z",
 						"updatedAt":     nil,
@@ -39,7 +39,7 @@ func TestAccPrivateLinkAuthorizationDataSource_basic(t *testing.T) {
 	config := ProviderConfig + `
 data "timescale_privatelink_authorization" "test" {
   principal_id   = "sub-123"
-  cloud_provider = "AZURE"
+  cloud_provider = "azure"
 }
 `
 
@@ -50,7 +50,7 @@ data "timescale_privatelink_authorization" "test" {
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "principal_id", "sub-123"),
-					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "cloud_provider", "AZURE"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "cloud_provider", "azure"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_authorization.test", "name", "My Authorization"),
 				),
 			},
@@ -68,7 +68,7 @@ func TestAccPrivateLinkAuthorizationDataSource_notFound(t *testing.T) {
 				"listPrivateLinkAuthorizations": []map[string]interface{}{
 					{
 						"principalId":   "sub-123",
-						"cloudProvider": "AZURE",
+						"cloudProvider": "azure",
 						"name":          "My Authorization",
 						"createdAt":     "2024-01-01T00:00:00Z",
 						"updatedAt":     nil,
@@ -83,7 +83,7 @@ func TestAccPrivateLinkAuthorizationDataSource_notFound(t *testing.T) {
 	config := ProviderConfig + `
 data "timescale_privatelink_authorization" "test" {
   principal_id   = "non-existent-subscription"
-  cloud_provider = "AZURE"
+  cloud_provider = "azure"
 }
 `
 

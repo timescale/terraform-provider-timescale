@@ -61,13 +61,13 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 
 ### Azure
 1. Create an Azure Private Endpoint pointing to the Timescale Private Link Service
-2. Use this resource with ` + "`provider_connection_id`" + ` set to the private endpoint name and ` + "`cloud_provider = \"AZURE\"`" + `
+2. Use this resource with ` + "`provider_connection_id`" + ` set to the private endpoint name and ` + "`cloud_provider = \"azure\"`" + `
 3. The resource will sync and wait for the connection to appear
 4. Set ` + "`ip_address`" + ` to the private IP from the Azure Private Endpoint
 
 ### AWS
 1. Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint Service
-2. Use this resource with ` + "`provider_connection_id`" + ` set to the VPC Endpoint ID and ` + "`cloud_provider = \"AWS\"`" + `
+2. Use this resource with ` + "`provider_connection_id`" + ` set to the VPC Endpoint ID and ` + "`cloud_provider = \"aws\"`" + `
 3. The resource will sync and find the connection`,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -84,7 +84,7 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 			},
 			"cloud_provider": schema.StringAttribute{
 				Required:    true,
-				Description: "The cloud provider: AZURE or AWS.",
+				Description: "The cloud provider: azure or aws.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -121,7 +121,7 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 			},
 			"state": schema.StringAttribute{
 				Computed:    true,
-				Description: "The state of the connection (e.g., APPROVED, PENDING).",
+				Description: "The state of the connection (e.g., approved, pending).",
 			},
 		},
 	}
@@ -179,9 +179,9 @@ func (r *privateLinkConnectionResource) Create(ctx context.Context, req resource
 		}
 
 		switch cloudProvider {
-		case "AZURE":
+		case "azure":
 			conn = findConnectionByAzureName(connections, providerConnectionID)
-		case "AWS":
+		case "aws":
 			conn = findConnectionByProviderID(connections, providerConnectionID)
 		default:
 			return retry.NonRetryableError(fmt.Errorf("unsupported cloud_provider: %s", cloudProvider))

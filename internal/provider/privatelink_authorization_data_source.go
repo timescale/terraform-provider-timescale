@@ -44,7 +44,7 @@ or in a different Terraform workspace.
 ` + "```hcl" + `
 data "timescale_privatelink_authorization" "existing" {
   principal_id   = "00000000-0000-0000-0000-000000000000"
-  cloud_provider = "AZURE"
+  cloud_provider = "azure"
 }
 
 output "authorization_name" {
@@ -58,7 +58,7 @@ output "authorization_name" {
 			},
 			"cloud_provider": schema.StringAttribute{
 				Required:    true,
-				Description: "The cloud provider: AZURE or AWS.",
+				Description: "The cloud provider: azure or aws.",
 			},
 			"name": schema.StringAttribute{
 				Computed:    true,

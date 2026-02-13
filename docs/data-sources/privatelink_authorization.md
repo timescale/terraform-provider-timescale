@@ -10,7 +10,7 @@ description: |-
   
   data "timescale_privatelink_authorization" "existing" {
     principal_id   = "00000000-0000-0000-0000-000000000000"
-    cloud_provider = "AZURE"
+    cloud_provider = "azure"
   }
   
   output "authorization_name" {
@@ -30,7 +30,7 @@ or in a different Terraform workspace.
 ```hcl
 data "timescale_privatelink_authorization" "existing" {
   principal_id   = "00000000-0000-0000-0000-000000000000"
-  cloud_provider = "AZURE"
+  cloud_provider = "azure"
 }
 
 output "authorization_name" {
@@ -56,7 +56,7 @@ output "authorization_name" {
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider: AZURE or AWS.
+- `cloud_provider` (String) The cloud provider: azure or aws.
 - `principal_id` (String) The Azure subscription ID or AWS account ID to look up.
 
 ### Read-Only

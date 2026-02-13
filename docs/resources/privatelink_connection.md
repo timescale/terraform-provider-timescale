@@ -8,9 +8,9 @@ description: |-
   or AWS VPC Endpoint) and allows you to configure its IP address and name.
   Workflow
   Azure
-  Create an Azure Private Endpoint pointing to the Timescale Private Link ServiceUse this resource with provider_connection_id set to the private endpoint name and cloud_provider = "AZURE"The resource will sync and wait for the connection to appearSet ip_address to the private IP from the Azure Private Endpoint
+  Create an Azure Private Endpoint pointing to the Timescale Private Link ServiceUse this resource with provider_connection_id set to the private endpoint name and cloud_provider = "azure"The resource will sync and wait for the connection to appearSet ip_address to the private IP from the Azure Private Endpoint
   AWS
-  Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint ServiceUse this resource with provider_connection_id set to the VPC Endpoint ID and cloud_provider = "AWS"The resource will sync and find the connection
+  Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint ServiceUse this resource with provider_connection_id set to the VPC Endpoint ID and cloud_provider = "aws"The resource will sync and find the connection
 ---
 
 # timescale_privatelink_connection (Resource)
@@ -24,13 +24,13 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 
 ### Azure
 1. Create an Azure Private Endpoint pointing to the Timescale Private Link Service
-2. Use this resource with `provider_connection_id` set to the private endpoint name and `cloud_provider = "AZURE"`
+2. Use this resource with `provider_connection_id` set to the private endpoint name and `cloud_provider = "azure"`
 3. The resource will sync and wait for the connection to appear
 4. Set `ip_address` to the private IP from the Azure Private Endpoint
 
 ### AWS
 1. Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint Service
-2. Use this resource with `provider_connection_id` set to the VPC Endpoint ID and `cloud_provider = "AWS"`
+2. Use this resource with `provider_connection_id` set to the VPC Endpoint ID and `cloud_provider = "aws"`
 3. The resource will sync and find the connection
 
 
@@ -40,7 +40,7 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider: AZURE or AWS.
+- `cloud_provider` (String) The cloud provider: azure or aws.
 - `ip_address` (String) The private IP address of the Private Endpoint or VPC Endpoint. Required to enable services to connect via this private link.
 - `provider_connection_id` (String) The cloud provider connection identifier. For Azure: the private endpoint name. For AWS: the VPC Endpoint ID (vpce-...).
 - `region` (String) The Timescale region (e.g., az-eastus2, us-east-1).
@@ -55,4 +55,4 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 - `connection_id` (String) The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.
 - `id` (String) Resource identifier (same as connection_id).
 - `link_identifier` (String) The private link identifier.
-- `state` (String) The state of the connection (e.g., APPROVED, PENDING).
+- `state` (String) The state of the connection (e.g., approved, pending).

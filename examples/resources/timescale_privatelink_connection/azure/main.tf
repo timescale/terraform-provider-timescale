@@ -202,7 +202,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
 # Step 1: Authorize the Azure subscription
 resource "timescale_privatelink_authorization" "main" {
   principal_id   = var.azure_subscription_id
-  cloud_provider = "AZURE"
+  cloud_provider = "azure"
   name           = "Terraform managed - ${var.resource_prefix}"
 }
 
@@ -252,7 +252,7 @@ data "azurerm_private_endpoint_connection" "timescale" {
 # then configures it with the IP address from the Azure Private Endpoint
 resource "timescale_privatelink_connection" "main" {
   provider_connection_id = azurerm_private_endpoint.timescale.name
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = var.timescale_region
   ip_address             = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
   name                   = "Managed by Terraform"

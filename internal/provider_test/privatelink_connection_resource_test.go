@@ -39,10 +39,10 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-pe.abc-guid-123",
-						"cloudProvider":         "AZURE",
+						"cloudProvider":         "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
-						"state":                "APPROVED",
+						"state":                "approved",
 						"ipAddress":            ipAddress,
 						"name":                 name,
 						"createdAt":            "2024-01-01T00:00:00Z",
@@ -66,10 +66,10 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-123",
 					"providerConnectionId": "my-pe.abc-guid-123",
-					"cloudProvider":         "AZURE",
+					"cloudProvider":         "azure",
 					"region":               "az-eastus2",
 					"linkIdentifier":       "link-789",
-					"state":                "APPROVED",
+					"state":                "approved",
 					"ipAddress":            "10.0.0.5",
 					"name":                 "My Connection",
 					"createdAt":            "2024-01-01T00:00:00Z",
@@ -95,7 +95,7 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 	config := ProviderConfig + `
 resource "timescale_privatelink_connection" "test" {
   provider_connection_id = "my-pe"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
   ip_address             = "10.0.0.5"
   name                   = "My Connection"
@@ -110,9 +110,9 @@ resource "timescale_privatelink_connection" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "connection_id", "conn-123"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "provider_connection_id", "my-pe"),
-					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "cloud_provider", "AZURE"),
+					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "cloud_provider", "azure"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "region", "az-eastus2"),
-					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "state", "APPROVED"),
+					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "state", "approved"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "ip_address", "10.0.0.5"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "name", "My Connection"),
 				),
@@ -160,10 +160,10 @@ func TestAccPrivateLinkConnectionResource_aws(t *testing.T) {
 					{
 						"connectionId":         "conn-aws-456",
 						"providerConnectionId": "vpce-0123456789abcdef0",
-						"cloudProvider":         "AWS",
+						"cloudProvider":         "aws",
 						"region":               "us-east-1",
 						"linkIdentifier":       "link-aws-789",
-						"state":                "APPROVED",
+						"state":                "approved",
 						"ipAddress":            ipAddress,
 						"name":                 name,
 
@@ -188,10 +188,10 @@ func TestAccPrivateLinkConnectionResource_aws(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-aws-456",
 					"providerConnectionId": "vpce-0123456789abcdef0",
-					"cloudProvider":         "AWS",
+					"cloudProvider":         "aws",
 					"region":               "us-east-1",
 					"linkIdentifier":       "link-aws-789",
-					"state":                "APPROVED",
+					"state":                "approved",
 					"ipAddress":            "10.0.1.10",
 					"name":                 "AWS Connection",
 					"createdAt":            "2024-01-01T00:00:00Z",
@@ -214,7 +214,7 @@ func TestAccPrivateLinkConnectionResource_aws(t *testing.T) {
 	config := ProviderConfig + `
 resource "timescale_privatelink_connection" "test" {
   provider_connection_id = "vpce-0123456789abcdef0"
-  cloud_provider         = "AWS"
+  cloud_provider         = "aws"
   region                 = "us-east-1"
   ip_address             = "10.0.1.10"
   name                   = "AWS Connection"
@@ -229,9 +229,9 @@ resource "timescale_privatelink_connection" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "connection_id", "conn-aws-456"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "provider_connection_id", "vpce-0123456789abcdef0"),
-					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "cloud_provider", "AWS"),
+					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "cloud_provider", "aws"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "region", "us-east-1"),
-					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "state", "APPROVED"),
+					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "state", "approved"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "ip_address", "10.0.1.10"),
 					resource.TestCheckResourceAttr("timescale_privatelink_connection.test", "name", "AWS Connection"),
 				),
@@ -263,10 +263,10 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-pe.abc-guid-123",
-						"cloudProvider":         "AZURE",
+						"cloudProvider":         "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
-						"state":                "APPROVED",
+						"state":                "approved",
 						"ipAddress":            currentIP,
 						"name":                 currentName,
 						"createdAt":            "2024-01-01T00:00:00Z",
@@ -287,10 +287,10 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-123",
 					"providerConnectionId": "my-pe.abc-guid-123",
-					"cloudProvider":         "AZURE",
+					"cloudProvider":         "azure",
 					"region":               "az-eastus2",
 					"linkIdentifier":       "link-789",
-					"state":                "APPROVED",
+					"state":                "approved",
 					"ipAddress":            currentIP,
 					"name":                 currentName,
 					"createdAt":            "2024-01-01T00:00:00Z",
@@ -313,7 +313,7 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 	configInitial := ProviderConfig + `
 resource "timescale_privatelink_connection" "test" {
   provider_connection_id = "my-pe"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
   ip_address             = "10.0.0.5"
   name                   = "Initial Name"
@@ -323,7 +323,7 @@ resource "timescale_privatelink_connection" "test" {
 	configUpdated := ProviderConfig + `
 resource "timescale_privatelink_connection" "test" {
   provider_connection_id = "my-pe"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
   ip_address             = "10.0.0.99"
   name                   = "Updated Name"

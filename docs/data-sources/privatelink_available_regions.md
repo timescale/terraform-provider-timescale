@@ -108,5 +108,5 @@ output "eastus_service_name" {
 
 Read-Only:
 
-- `cloud_provider` (String) The cloud provider for this region (AZURE or AWS).
+- `cloud_provider` (String) The cloud provider for this region (azure or aws).
 - `service_name` (String) The service name to use when creating a Private Endpoint (Azure alias or AWS VPC Endpoint Service name).

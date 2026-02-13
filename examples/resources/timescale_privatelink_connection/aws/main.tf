@@ -191,7 +191,7 @@ resource "aws_security_group" "vm" {
 
 resource "timescale_privatelink_authorization" "main" {
   principal_id   = data.aws_caller_identity.current.account_id
-  cloud_provider = "AWS"
+  cloud_provider = "aws"
   name           = "Terraform managed - ${var.resource_prefix}"
 }
 
@@ -228,7 +228,7 @@ data "aws_network_interface" "endpoint" {
 
 resource "timescale_privatelink_connection" "main" {
   provider_connection_id = aws_vpc_endpoint.timescale.id
-  cloud_provider         = "AWS"
+  cloud_provider         = "aws"
   region                 = var.timescale_region
   ip_address             = data.aws_network_interface.endpoint.private_ip
   name                   = "Managed by Terraform"

@@ -19,10 +19,10 @@ func TestAccPrivateLinkConnectionDataSource_byProviderConnectionID(t *testing.T)
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-endpoint.abc-123",
-						"cloudProvider":         "AZURE",
+						"cloudProvider":         "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
-						"state":                "APPROVED",
+						"state":                "approved",
 						"ipAddress":            "10.0.0.5",
 						"name":                 "My Connection",
 						"createdAt":            "2024-01-01T00:00:00Z",
@@ -38,7 +38,7 @@ func TestAccPrivateLinkConnectionDataSource_byProviderConnectionID(t *testing.T)
 	config := ProviderConfig + `
 data "timescale_privatelink_connection" "test" {
   provider_connection_id = "my-endpoint"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
 }
 `
@@ -51,9 +51,9 @@ data "timescale_privatelink_connection" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "connection_id", "conn-123"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "provider_connection_id", "my-endpoint.abc-123"),
-					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "cloud_provider", "AZURE"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "cloud_provider", "azure"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "region", "az-eastus2"),
-					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "state", "APPROVED"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "state", "approved"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "ip_address", "10.0.0.5"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "name", "My Connection"),
 				),
@@ -71,7 +71,7 @@ func TestAccPrivateLinkConnectionDataSource_bothSpecified(t *testing.T) {
 data "timescale_privatelink_connection" "test" {
   connection_id          = "conn-123"
   provider_connection_id = "my-endpoint"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
 }
 `
@@ -95,8 +95,8 @@ func TestAccPrivateLinkConnectionDataSource_byConnectionID(t *testing.T) {
 		return map[string]interface{}{
 			"data": map[string]interface{}{
 				"listPrivateLinkAvailableRegions": []map[string]interface{}{
-					{"region": "az-eastus", "cloudProvider": "AZURE", "serviceName": "alias-eastus"},
-					{"region": "az-eastus2", "cloudProvider": "AZURE", "serviceName": "alias-eastus2"},
+					{"region": "az-eastus", "cloudProvider": "azure", "serviceName": "alias-eastus"},
+					{"region": "az-eastus2", "cloudProvider": "azure", "serviceName": "alias-eastus2"},
 				},
 			},
 		}
@@ -121,10 +121,10 @@ func TestAccPrivateLinkConnectionDataSource_byConnectionID(t *testing.T) {
 					{
 						"connectionId":         "conn-456",
 						"providerConnectionId": "other-endpoint.xyz-789",
-						"cloudProvider":         "AZURE",
+						"cloudProvider":         "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-def",
-						"state":                "APPROVED",
+						"state":                "approved",
 						"ipAddress":            "10.0.1.10",
 						"name":                 "Found Connection",
 						"createdAt":            "2024-01-01T00:00:00Z",
@@ -151,9 +151,9 @@ data "timescale_privatelink_connection" "test" {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "connection_id", "conn-456"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "provider_connection_id", "other-endpoint.xyz-789"),
-					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "cloud_provider", "AZURE"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "cloud_provider", "azure"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "region", "az-eastus2"),
-					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "state", "APPROVED"),
+					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "state", "approved"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "ip_address", "10.0.1.10"),
 					resource.TestCheckResourceAttr("data.timescale_privatelink_connection.test", "name", "Found Connection"),
 				),

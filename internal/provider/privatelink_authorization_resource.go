@@ -42,7 +42,7 @@ func (r *privateLinkAuthorizationResource) Metadata(_ context.Context, req resou
 
 func (r *privateLinkAuthorizationResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Authorizes a cloud account to connect via Private Link. Import using `cloud_provider,principal_id` format: `terraform import timescale_privatelink_authorization.example AZURE,<principal_id>`.",
+		Description: "Authorizes a cloud account to connect via Private Link. Import using `cloud_provider,principal_id` format: `terraform import timescale_privatelink_authorization.example azure,<principal_id>`.",
 		MarkdownDescription: `Authorizes a cloud account to connect via Private Link.
 
 This resource authorizes an Azure subscription or AWS account to create Private Endpoint
@@ -69,7 +69,7 @@ connections from this account will be auto-approved.
 			},
 			"cloud_provider": schema.StringAttribute{
 				Required:    true,
-				Description: "The cloud provider: AZURE or AWS.",
+				Description: "The cloud provider: azure or aws.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -208,7 +208,7 @@ func (r *privateLinkAuthorizationResource) ImportState(ctx context.Context, req 
 	if len(idParts) != 2 || idParts[0] == "" || idParts[1] == "" {
 		resp.Diagnostics.AddError(
 			"Unexpected Import Identifier",
-			fmt.Sprintf("Expected import identifier with format: cloud_provider,principal_id (e.g. AZURE,<principal_id> or AWS,<account_id>). Got: %q", req.ID),
+			fmt.Sprintf("Expected import identifier with format: cloud_provider,principal_id (e.g. azure,<principal_id> or aws,<account_id>). Got: %q", req.ID),
 		)
 		return
 	}

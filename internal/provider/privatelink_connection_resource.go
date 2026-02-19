@@ -73,6 +73,9 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Resource identifier (same as connection_id).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"provider_connection_id": schema.StringAttribute{
 				Required: true,
@@ -105,6 +108,9 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 				Optional:    true,
 				Computed:    true,
 				Description: "Optional display name for the connection.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"timeout": schema.StringAttribute{
 				Optional: true,
@@ -114,14 +120,23 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 			"connection_id": schema.StringAttribute{
 				Computed:    true,
 				Description: "The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"link_identifier": schema.StringAttribute{
 				Computed:    true,
 				Description: "The private link identifier.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"state": schema.StringAttribute{
 				Computed:    true,
 				Description: "The state of the connection (e.g., approved, pending).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}

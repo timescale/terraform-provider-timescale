@@ -656,11 +656,6 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if plan.Username != state.Username {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support username change")
-		return
-	}
-
 	if plan.Paused != state.Paused {
 		status := "ACTIVE"
 		if plan.Paused.ValueBool() {

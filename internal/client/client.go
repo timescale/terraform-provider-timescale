@@ -108,6 +108,32 @@ var (
 	GetS3ConnectorQuery string
 	//go:embed queries/connector_s3_delete.graphql
 	DeleteS3ConnectorMutation string
+
+	// Private Link
+	//go:embed queries/list_private_link_bindings.graphql
+	ListPrivateLinkBindingsQuery string
+	//go:embed queries/attach_service_to_private_link.graphql
+	AttachServiceToPrivateLinkConnectionMutation string
+	//go:embed queries/detach_service_from_private_link.graphql
+	DetachServiceFromPrivateLinkConnectionMutation string
+	//go:embed queries/list_private_link_connections.graphql
+	ListPrivateLinkConnectionsQuery string
+	//go:embed queries/sync_private_link_connections.graphql
+	SyncPrivateLinkConnectionsMutation string
+	//go:embed queries/update_private_link_connection.graphql
+	UpdatePrivateLinkConnectionMutation string
+	//go:embed queries/list_private_link_available_regions.graphql
+	ListPrivateLinkAvailableRegionsQuery string
+	//go:embed queries/delete_private_link_connection.graphql
+	DeletePrivateLinkConnectionMutation string
+	//go:embed queries/list_private_link_authorizations.graphql
+	ListPrivateLinkAuthorizationsQuery string
+	//go:embed queries/create_private_link_authorization.graphql
+	CreatePrivateLinkAuthorizationMutation string
+	//go:embed queries/update_private_link_authorization.graphql
+	UpdatePrivateLinkAuthorizationMutation string
+	//go:embed queries/delete_private_link_authorization.graphql
+	DeletePrivateLinkAuthorizationMutation string
 )
 
 type Client struct {

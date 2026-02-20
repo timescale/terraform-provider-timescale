@@ -1,0 +1,20 @@
+mutation UpdatePrivateLinkConnection($projectId: ID!, $connectionId: ID!, $ipAddress: String, $name: String) {
+    updatePrivateLinkConnection(data: {
+        projectId: $projectId
+        connectionId: $connectionId
+        ipAddress: $ipAddress
+        name: $name
+    }) {
+        connectionId
+        linkIdentifier
+        state
+        ipAddress
+        name
+        region
+        principalId
+        cloudProvider
+        providerConnectionId
+        createdAt
+        updatedAt
+    }
+}

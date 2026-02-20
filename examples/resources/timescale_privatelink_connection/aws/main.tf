@@ -146,22 +146,6 @@ resource "aws_route_table_association" "vm" {
   route_table_id = aws_route_table.public.id
 }
 
-resource "aws_security_group" "endpoint" {
-  name_prefix = "${var.resource_prefix}-vpce-"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  tags = {
-    Name = "${var.resource_prefix}-vpce-sg"
-  }
-}
-
 resource "aws_security_group" "vm" {
   name_prefix = "${var.resource_prefix}-vm-"
   vpc_id      = aws_vpc.main.id
@@ -200,12 +184,10 @@ resource "timescale_privatelink_authorization" "main" {
 # =============================================================================
 
 resource "aws_vpc_endpoint" "timescale" {
-  vpc_id              = aws_vpc.main.id
-  service_name        = local.vpc_endpoint_service_name
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.endpoint.id]
-  security_group_ids  = [aws_security_group.endpoint.id]
-  private_dns_enabled = false
+  vpc_id            = aws_vpc.main.id
+  service_name      = local.vpc_endpoint_service_name
+  vpc_endpoint_type = "GatewayLoadBalancer"
+  subnet_ids        = [aws_subnet.endpoint.id]
 
   tags = {
     Name = "${var.resource_prefix}-vpce"
@@ -280,7 +262,7 @@ resource "aws_instance" "vm" {
   associate_public_ip_address = true
   key_name                    = aws_key_pair.vm.key_name
 
-  user_data = base64encode(<<-EOF
+  user_data_base64 = base64encode(<<-EOF
     #!/bin/bash
     set -e
     export DEBIAN_FRONTEND=noninteractive
@@ -339,7 +321,7 @@ output "vpc_endpoint_service_name" {
 }
 
 output "private_endpoint_ip" {
-  description = "Private IP of the VPC Endpoint ENI"
+  description = "Private IP of the VPC Endpoint"
   value       = data.aws_network_interface.endpoint.private_ip
 }
 

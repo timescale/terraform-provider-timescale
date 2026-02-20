@@ -225,7 +225,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Hostname of the HA-Replica of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesString("ha_replicas"),
 				},
 			},
 			"replica_port": schema.Int64Attribute{
@@ -233,7 +233,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Port of the HA-Replica of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesInt64("ha_replicas"),
 				},
 			},
 			"pooler_hostname": schema.StringAttribute{
@@ -241,7 +241,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Hostname of the pooler of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesString("connection_pooler_enabled"),
 				},
 			},
 			"pooler_port": schema.Int64Attribute{
@@ -249,7 +249,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Port of the pooler of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesInt64("connection_pooler_enabled"),
 				},
 			},
 			"connection_pooler_enabled": schema.BoolAttribute{

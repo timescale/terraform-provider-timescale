@@ -155,8 +155,8 @@ type Error struct {
 	Message string `json:"message"`
 }
 
-func NewClient(token, projectID, env, terraformVersion string) *Client {
-	url := getURL(env)
+func NewClient(token, projectID, version, terraformVersion string) *Client {
+	url := getURL()
 
 	// Configure retryable HTTP client
 	retryClient := retryablehttp.NewClient()
@@ -174,12 +174,12 @@ func NewClient(token, projectID, env, terraformVersion string) *Client {
 		token:            token,
 		projectID:        projectID,
 		url:              url,
-		version:          env,
+		version:          version,
 		terraformVersion: terraformVersion,
 	}
 }
 
-func getURL(_ string) string {
+func getURL() string {
 	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
 		return value
 	}

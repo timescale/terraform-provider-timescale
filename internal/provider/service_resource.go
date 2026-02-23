@@ -153,6 +153,9 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.",
 				Optional:            true,
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.Int64{
 					int64validator.Between(0, 2),
 				},
@@ -162,6 +165,9 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Number of synchronous replicas (0 or 1). Set to 1 to enable 'High data integrity mode' (1 Sync and 1 Async replicas). To set sync_replicas to 1, you must also set ha_replicas to 2.",
 				Optional:            true,
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.Int64{
 					int64validator.Between(0, 1),
 				},
@@ -202,31 +208,49 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "The hostname for this service",
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"port": schema.Int64Attribute{
 				Description:         "The port for this service",
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"replica_hostname": schema.StringAttribute{
 				MarkdownDescription: "Hostname of the HA-Replica of this service.",
 				Description:         "Hostname of the HA-Replica of this service.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					useStateUnlessToggleChangesString("ha_replicas"),
+				},
 			},
 			"replica_port": schema.Int64Attribute{
 				MarkdownDescription: "Port of the HA-Replica of this service.",
 				Description:         "Port of the HA-Replica of this service.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					useStateUnlessToggleChangesInt64("ha_replicas"),
+				},
 			},
 			"pooler_hostname": schema.StringAttribute{
 				MarkdownDescription: "Hostname of the pooler of this service.",
 				Description:         "Hostname of the pooler of this service.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.String{
+					useStateUnlessToggleChangesString("connection_pooler_enabled"),
+				},
 			},
 			"pooler_port": schema.Int64Attribute{
 				MarkdownDescription: "Port of the pooler of this service.",
 				Description:         "Port of the pooler of this service.",
 				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					useStateUnlessToggleChangesInt64("connection_pooler_enabled"),
+				},
 			},
 			"connection_pooler_enabled": schema.BoolAttribute{
 				MarkdownDescription: "Set connection pooler status for this service.",
@@ -270,9 +294,6 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         `The VpcID this service is tied to, only supported in AWS for now.`,
 				MarkdownDescription: `The VpcID this service is tied to, only supported in AWS for now.`,
 				Optional:            true,
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 			"paused": schema.BoolAttribute{
 				Description:         `Paused status of the service.`,
@@ -635,21 +656,6 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	if !plan.Hostname.IsUnknown() {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support hostname change")
-		return
-	}
-
-	if plan.Username != state.Username {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support username change")
-		return
-	}
-
-	if !plan.Port.IsUnknown() {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support port change")
-		return
-	}
-
 	if plan.Paused != state.Paused {
 		status := "ACTIVE"
 		if plan.Paused.ValueBool() {
@@ -673,14 +679,6 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 			resp.Diagnostics.AddError("Failed to set environment tag", err.Error())
 			return
 		}
-	}
-	if !plan.PoolerHostname.IsUnknown() {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support pooler hostname change")
-		return
-	}
-	if !plan.PoolerPort.IsUnknown() {
-		resp.Diagnostics.AddError(ErrUpdateService, "Do not support pooler port change")
-		return
 	}
 
 	// HA Replica ////////////////////////////////////////
@@ -895,6 +893,8 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	}
 	if s.Metadata != nil {
 		model.EnvironmentTag = types.StringValue(s.Metadata.Environment)
+	} else {
+		model.EnvironmentTag = types.StringNull()
 	}
 	if s.ForkSpec != nil && s.ForkSpec.IsStandby {
 		model.ReadReplicaSource = types.StringValue(s.ForkSpec.ServiceID)

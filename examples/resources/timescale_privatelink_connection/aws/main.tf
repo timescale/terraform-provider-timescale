@@ -51,6 +51,12 @@ variable "resource_prefix" {
   default     = "tspl-demo"
 }
 
+variable "enable_private_link" {
+  type        = bool
+  description = "Enable private link connection to the Timescale service. Set to false to disconnect."
+  default     = true
+}
+
 # =============================================================================
 # Providers
 # =============================================================================
@@ -174,6 +180,8 @@ resource "aws_security_group" "vm" {
 # =============================================================================
 
 resource "timescale_privatelink_authorization" "main" {
+  count = var.enable_private_link ? 1 : 0
+
   principal_id   = data.aws_caller_identity.current.account_id
   cloud_provider = "aws"
   name           = "Terraform managed - ${var.resource_prefix}"
@@ -184,6 +192,8 @@ resource "timescale_privatelink_authorization" "main" {
 # =============================================================================
 
 resource "aws_vpc_endpoint" "timescale" {
+  count = var.enable_private_link ? 1 : 0
+
   vpc_id            = aws_vpc.main.id
   service_name      = local.vpc_endpoint_service_name
   vpc_endpoint_type = "GatewayLoadBalancer"
@@ -201,7 +211,9 @@ resource "aws_vpc_endpoint" "timescale" {
 # =============================================================================
 
 data "aws_network_interface" "endpoint" {
-  id = one(aws_vpc_endpoint.timescale.network_interface_ids)
+  count = var.enable_private_link ? 1 : 0
+
+  id = one(aws_vpc_endpoint.timescale[0].network_interface_ids)
 }
 
 # =============================================================================
@@ -209,10 +221,12 @@ data "aws_network_interface" "endpoint" {
 # =============================================================================
 
 resource "timescale_privatelink_connection" "main" {
-  provider_connection_id = aws_vpc_endpoint.timescale.id
+  count = var.enable_private_link ? 1 : 0
+
+  provider_connection_id = aws_vpc_endpoint.timescale[0].id
   cloud_provider         = "aws"
   region                 = var.timescale_region
-  ip_address             = data.aws_network_interface.endpoint.private_ip
+  ip_address             = data.aws_network_interface.endpoint[0].private_ip
   name                   = "Managed by Terraform"
 
   depends_on = [aws_vpc_endpoint.timescale]
@@ -232,7 +246,7 @@ resource "timescale_service" "main" {
   memory_gb   = 2
   region_code = var.timescale_region
 
-  private_endpoint_connection_id = timescale_privatelink_connection.main.connection_id
+  private_endpoint_connection_id = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : null
 }
 
 # =============================================================================
@@ -282,7 +296,7 @@ resource "aws_instance" "vm" {
 
 output "vpc_endpoint_id" {
   description = "AWS VPC Endpoint ID"
-  value       = aws_vpc_endpoint.timescale.id
+  value       = var.enable_private_link ? aws_vpc_endpoint.timescale[0].id : "N/A (private link disabled)"
 }
 
 output "vm_public_ip" {
@@ -307,12 +321,12 @@ output "timescale_port" {
 
 output "private_link_connection_id" {
   description = "Connection ID for use with timescale_service"
-  value       = timescale_privatelink_connection.main.connection_id
+  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : "N/A (private link disabled)"
 }
 
 output "private_link_connection_state" {
   description = "State of the Private Link connection"
-  value       = timescale_privatelink_connection.main.state
+  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].state : "N/A (private link disabled)"
 }
 
 output "vpc_endpoint_service_name" {
@@ -322,12 +336,12 @@ output "vpc_endpoint_service_name" {
 
 output "private_endpoint_ip" {
   description = "Private IP of the VPC Endpoint"
-  value       = data.aws_network_interface.endpoint.private_ip
+  value       = var.enable_private_link ? data.aws_network_interface.endpoint[0].private_ip : "N/A (private link disabled)"
 }
 
 output "connection_test_command" {
   description = "psql command to test from VM using private IP (run after SSH)"
-  value       = "PGPASSWORD='${timescale_service.main.password}' psql -h ${data.aws_network_interface.endpoint.private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
+  value       = var.enable_private_link ? "PGPASSWORD='${timescale_service.main.password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb" : "N/A (private link disabled)"
   sensitive   = true
 }
 

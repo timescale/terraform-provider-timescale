@@ -56,6 +56,12 @@ variable "resource_prefix" {
   default     = "tspl-demo"
 }
 
+variable "enable_private_link" {
+  type        = bool
+  description = "Enable private link connection to the Timescale service. Set to false to disconnect."
+  default     = true
+}
+
 # =============================================================================
 # Providers
 # =============================================================================
@@ -201,6 +207,8 @@ resource "azurerm_linux_virtual_machine" "vm" {
 
 # Step 1: Authorize the Azure subscription
 resource "timescale_privatelink_authorization" "main" {
+  count = var.enable_private_link ? 1 : 0
+
   principal_id   = var.azure_subscription_id
   cloud_provider = "azure"
   name           = "Terraform managed - ${var.resource_prefix}"
@@ -218,6 +226,8 @@ locals {
 # =============================================================================
 
 resource "azurerm_private_endpoint" "timescale" {
+  count = var.enable_private_link ? 1 : 0
+
   name                = "${var.resource_prefix}-pe"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
@@ -240,7 +250,9 @@ resource "azurerm_private_endpoint" "timescale" {
 
 # Data source to get the connection status (not available on the resource itself)
 data "azurerm_private_endpoint_connection" "timescale" {
-  name                = azurerm_private_endpoint.timescale.name
+  count = var.enable_private_link ? 1 : 0
+
+  name                = azurerm_private_endpoint.timescale[0].name
   resource_group_name = azurerm_resource_group.main.name
 }
 
@@ -251,16 +263,18 @@ data "azurerm_private_endpoint_connection" "timescale" {
 # This resource syncs and waits for the Azure connection to appear,
 # then configures it with the IP address from the Azure Private Endpoint
 resource "timescale_privatelink_connection" "main" {
-  provider_connection_id = azurerm_private_endpoint.timescale.name
+  count = var.enable_private_link ? 1 : 0
+
+  provider_connection_id = azurerm_private_endpoint.timescale[0].name
   cloud_provider         = "azure"
   region                 = var.timescale_region
-  ip_address             = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
+  ip_address             = azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address
   name                   = "Managed by Terraform"
 
   depends_on = [azurerm_private_endpoint.timescale]
 
   lifecycle {
-    ## This is needed because we need to attach to the new connection before we can destroy the old one.action_trigger 
+    ## This is needed because we need to attach to the new connection before we can destroy the old one.action_trigger
     ## only useful in the scenario when we move between connections
     create_before_destroy = true
   }
@@ -276,7 +290,7 @@ resource "timescale_service" "main" {
   memory_gb   = 2
   region_code = var.timescale_region
 
-  private_endpoint_connection_id = timescale_privatelink_connection.main.connection_id
+  private_endpoint_connection_id = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : null
 }
 
 # =============================================================================
@@ -295,7 +309,7 @@ output "vm_ssh_command" {
 
 output "private_endpoint_ip" {
   description = "Private IP of the Private Endpoint"
-  value       = azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address
+  value       = var.enable_private_link ? azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address : "N/A (private link disabled)"
 }
 
 output "timescale_hostname" {
@@ -315,7 +329,7 @@ output "timescale_username" {
 
 output "connection_test_command_private_ip" {
   description = "Command to test connection from VM using private IP (run after SSH)"
-  value       = "PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale.private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
+  value       = var.enable_private_link ? "PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb" : "N/A (private link disabled)"
   sensitive   = true
 }
 
@@ -327,22 +341,22 @@ output "connection_test_command_hostname" {
 
 output "private_link_connection_state" {
   description = "State of the Private Link connection"
-  value       = timescale_privatelink_connection.main.state
+  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].state : "N/A (private link disabled)"
 }
 
 output "azure_private_endpoint_status" {
   description = "Azure Private Endpoint connection status (Pending, Approved, Rejected, Disconnected)"
-  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].status
+  value       = var.enable_private_link ? data.azurerm_private_endpoint_connection.timescale[0].private_service_connection[0].status : "N/A (private link disabled)"
 }
 
 output "azure_private_endpoint_message" {
   description = "Azure Private Endpoint connection request/response message"
-  value       = data.azurerm_private_endpoint_connection.timescale.private_service_connection[0].request_response
+  value       = var.enable_private_link ? data.azurerm_private_endpoint_connection.timescale[0].private_service_connection[0].request_response : "N/A (private link disabled)"
 }
 
 output "private_link_connection_id" {
   description = "Connection ID for use with timescale_service"
-  value       = timescale_privatelink_connection.main.connection_id
+  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : "N/A (private link disabled)"
 }
 
 output "service_id" {

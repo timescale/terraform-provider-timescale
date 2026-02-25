@@ -95,6 +95,8 @@ jobs:
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
           PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PL_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PL_AWS_SECRET_ACCESS_KEY }}
         run: go test ./internal/provider/ -v -timeout=30m -sweep=all
       - env:
           TF_ACC: "1"
@@ -106,4 +108,6 @@ jobs:
           PEER_VPC_ID: ${{ secrets.PEER_VPC_ID }}
           PEER_TGW_ID: ${{ secrets.PEER_TGW_ID }}
           PEER_REGION: ${{ secrets.PEER_REGION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.PL_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PL_AWS_SECRET_ACCESS_KEY }}
         run: go test ./internal/provider/ -v -cover -timeout=60m

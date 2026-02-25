@@ -69,10 +69,16 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 
 func testAccPrivateLinkAzureBaseConfig() string {
 	subscriptionID := os.Getenv("ARM_SUBSCRIPTION_ID")
+	clientID := os.Getenv("ARM_CLIENT_ID")
+	clientSecret := os.Getenv("ARM_CLIENT_SECRET")
+	tenantID := os.Getenv("ARM_TENANT_ID")
 	return providerConfig + fmt.Sprintf(`
 provider "azurerm" {
   features {}
   subscription_id = %q
+  client_id       = %q
+  client_secret   = %q
+  tenant_id       = %q
 }
 
 data "timescale_privatelink_available_regions" "all" {}
@@ -118,7 +124,7 @@ resource "azurerm_private_endpoint" "test" {
 
   depends_on = [timescale_privatelink_authorization.test]
 }
-`, subscriptionID, subscriptionID)
+`, subscriptionID, clientID, clientSecret, tenantID, subscriptionID)
 }
 
 func testAccPrivateLinkAzureConnectionConfig(name string) string {

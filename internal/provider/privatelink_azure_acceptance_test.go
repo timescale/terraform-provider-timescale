@@ -11,8 +11,12 @@ import (
 func testAccPrivateLinkAzurePreCheck(t *testing.T) {
 	testAccPreCheck(t)
 	for _, env := range []string{"ARM_CLIENT_ID", "ARM_CLIENT_SECRET", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID"} {
-		if _, ok := os.LookupEnv(env); !ok {
+		v, ok := os.LookupEnv(env)
+		if !ok {
 			t.Skipf("%s not set, skipping Azure Private Link test", env)
+		}
+		if v == "" {
+			t.Skipf("%s is empty, skipping Azure Private Link test", env)
 		}
 	}
 }
@@ -26,7 +30,7 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 		ExternalProviders: map[string]resource.ExternalProvider{
 			"azurerm": {
 				Source:            "hashicorp/azurerm",
-				VersionConstraint: ">= 3.70.0",
+				VersionConstraint: ">= 4.0",
 			},
 		},
 		PreCheck: func() { testAccPrivateLinkAzurePreCheck(t) },

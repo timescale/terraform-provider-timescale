@@ -11,19 +11,19 @@ type EndpointBindingType string
 
 const (
 	EndpointBindingTypeUnspecified EndpointBindingType = "unspecified"
-	EndpointBindingTypePrimary    EndpointBindingType = "primary"
-	EndpointBindingTypeReplica    EndpointBindingType = "replica"
-	EndpointBindingTypePooler     EndpointBindingType = "pooler"
+	EndpointBindingTypePrimary     EndpointBindingType = "primary"
+	EndpointBindingTypeReplica     EndpointBindingType = "replica"
+	EndpointBindingTypePooler      EndpointBindingType = "pooler"
 )
 
 type PrivateLinkBinding struct {
-	ProjectID    string                 `json:"projectId"`
-	ServiceID    string                 `json:"serviceId"`
+	ProjectID    string              `json:"projectId"`
+	ServiceID    string              `json:"serviceId"`
 	ConnectionID string              `json:"connectionId"`
 	BindingType  EndpointBindingType `json:"bindingType"`
-	Port         int                    `json:"port"`
-	Hostname     string                 `json:"hostname"`
-	CreatedAt    string                 `json:"createdAt"`
+	Port         int                 `json:"port"`
+	Hostname     string              `json:"hostname"`
+	CreatedAt    string              `json:"createdAt"`
 }
 
 type ListPrivateLinkBindingsResponse struct {

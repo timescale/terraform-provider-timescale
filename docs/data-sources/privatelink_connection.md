@@ -18,7 +18,7 @@ description: |-
   
   data "timescale_privatelink_connection" "by_provider_id" {
     provider_connection_id = "my-private-endpoint"
-    cloud_provider         = "AZURE"
+    cloud_provider         = "azure"
     region                 = "az-eastus2"
   }
 ---
@@ -46,7 +46,7 @@ data "timescale_privatelink_connection" "by_id" {
 ```hcl
 data "timescale_privatelink_connection" "by_provider_id" {
   provider_connection_id = "my-private-endpoint"
-  cloud_provider         = "AZURE"
+  cloud_provider         = "azure"
   region                 = "az-eastus2"
 }
 ```

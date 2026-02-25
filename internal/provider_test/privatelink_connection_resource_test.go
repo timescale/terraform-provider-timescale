@@ -39,7 +39,7 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-pe.abc-guid-123",
-						"cloudProvider":         "azure",
+						"cloudProvider":        "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
 						"state":                "approved",
@@ -66,7 +66,7 @@ func TestAccPrivateLinkConnectionResource_basic(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-123",
 					"providerConnectionId": "my-pe.abc-guid-123",
-					"cloudProvider":         "azure",
+					"cloudProvider":        "azure",
 					"region":               "az-eastus2",
 					"linkIdentifier":       "link-789",
 					"state":                "approved",
@@ -160,15 +160,15 @@ func TestAccPrivateLinkConnectionResource_aws(t *testing.T) {
 					{
 						"connectionId":         "conn-aws-456",
 						"providerConnectionId": "vpce-0123456789abcdef0",
-						"cloudProvider":         "aws",
+						"cloudProvider":        "aws",
 						"region":               "us-east-1",
 						"linkIdentifier":       "link-aws-789",
 						"state":                "approved",
 						"ipAddress":            ipAddress,
 						"name":                 name,
 
-						"createdAt":            "2024-01-01T00:00:00Z",
-						"updatedAt":            "2024-01-01T00:00:00Z",
+						"createdAt": "2024-01-01T00:00:00Z",
+						"updatedAt": "2024-01-01T00:00:00Z",
 					},
 				},
 			},
@@ -188,7 +188,7 @@ func TestAccPrivateLinkConnectionResource_aws(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-aws-456",
 					"providerConnectionId": "vpce-0123456789abcdef0",
-					"cloudProvider":         "aws",
+					"cloudProvider":        "aws",
 					"region":               "us-east-1",
 					"linkIdentifier":       "link-aws-789",
 					"state":                "approved",
@@ -263,7 +263,7 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-pe.abc-guid-123",
-						"cloudProvider":         "azure",
+						"cloudProvider":        "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
 						"state":                "approved",
@@ -287,7 +287,7 @@ func TestAccPrivateLinkConnectionResource_update(t *testing.T) {
 				"updatePrivateLinkConnection": map[string]interface{}{
 					"connectionId":         "conn-123",
 					"providerConnectionId": "my-pe.abc-guid-123",
-					"cloudProvider":         "azure",
+					"cloudProvider":        "azure",
 					"region":               "az-eastus2",
 					"linkIdentifier":       "link-789",
 					"state":                "approved",

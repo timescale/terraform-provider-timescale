@@ -19,7 +19,7 @@ func TestAccPrivateLinkConnectionDataSource_byProviderConnectionID(t *testing.T)
 					{
 						"connectionId":         "conn-123",
 						"providerConnectionId": "my-endpoint.abc-123",
-						"cloudProvider":         "azure",
+						"cloudProvider":        "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-789",
 						"state":                "approved",
@@ -121,7 +121,7 @@ func TestAccPrivateLinkConnectionDataSource_byConnectionID(t *testing.T) {
 					{
 						"connectionId":         "conn-456",
 						"providerConnectionId": "other-endpoint.xyz-789",
-						"cloudProvider":         "azure",
+						"cloudProvider":        "azure",
 						"region":               "az-eastus2",
 						"linkIdentifier":       "link-def",
 						"state":                "approved",

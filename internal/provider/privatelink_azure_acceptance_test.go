@@ -42,7 +42,7 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 					resource.TestCheckResourceAttrSet(connectionName, "state"),
 					resource.TestCheckResourceAttr(connectionName, "name", "Managed by Terraform"),
 					resource.TestCheckResourceAttr(connectionName, "cloud_provider", "azure"),
-					resource.TestCheckResourceAttr(connectionName, "region", "az-eastus"),
+					resource.TestCheckResourceAttr(connectionName, "region", "az-eastus2"),
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
 					resource.TestCheckResourceAttrSet(serviceName, "hostname"),
 					resource.TestCheckResourceAttrSet(serviceName, "private_endpoint_connection_id"),
@@ -89,7 +89,7 @@ data "timescale_privatelink_available_regions" "all" {}
 
 resource "azurerm_resource_group" "test" {
   name     = "tf-acc-test-pl-rg"
-  location = "eastus"
+  location = "eastus2"
 }
 
 resource "azurerm_virtual_network" "test" {
@@ -121,7 +121,7 @@ resource "azurerm_private_endpoint" "test" {
 
   private_service_connection {
     name                              = "tf-acc-test-pl-psc"
-    private_connection_resource_alias = data.timescale_privatelink_available_regions.all.regions["az-eastus"].service_name
+    private_connection_resource_alias = data.timescale_privatelink_available_regions.all.regions["az-eastus2"].service_name
     is_manual_connection              = true
     request_message                   = var.ts_project_id
   }
@@ -136,7 +136,7 @@ func testAccPrivateLinkAzureConnectionConfig(name string) string {
 resource "timescale_privatelink_connection" "test" {
   provider_connection_id = azurerm_private_endpoint.test.name
   cloud_provider         = "azure"
-  region                 = "az-eastus"
+  region                 = "az-eastus2"
   ip_address             = azurerm_private_endpoint.test.private_service_connection[0].private_ip_address
   name                   = %q
   timeout                = "5m"
@@ -160,7 +160,7 @@ resource "timescale_service" "test" {
   name        = "tf-acc-test-pl-azure-svc"
   milli_cpu   = 500
   memory_gb   = 2
-  region_code = "az-eastus"
+  region_code = "az-eastus2"
   timeouts = {
     create = "15m"
   }%s

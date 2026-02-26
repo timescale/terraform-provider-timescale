@@ -55,7 +55,7 @@ func TestAccPrivateLinkConnection_aws_e2e(t *testing.T) {
 				Config: testAccPrivateLinkAWSFullConfig("Updated Name", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
-					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_id", ""),
+					resource.TestCheckNoResourceAttr(serviceName, "private_endpoint_connection_id"),
 				),
 			},
 			{

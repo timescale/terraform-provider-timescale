@@ -66,31 +66,32 @@ type serviceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                      types.String   `tfsdk:"id"`
-	Name                    types.String   `tfsdk:"name"`
-	Timeouts                timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU                types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB               types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB                types.Int64    `tfsdk:"memory_gb"`
-	Password                types.String   `tfsdk:"password"`
-	Hostname                types.String   `tfsdk:"hostname"`
-	Port                    types.Int64    `tfsdk:"port"`
-	ReplicaHostname         types.String   `tfsdk:"replica_hostname"`
-	ReplicaPort             types.Int64    `tfsdk:"replica_port"`
-	PoolerHostname          types.String   `tfsdk:"pooler_hostname"`
-	PoolerPort              types.Int64    `tfsdk:"pooler_port"`
-	Username                types.String   `tfsdk:"username"`
-	RegionCode              types.String   `tfsdk:"region_code"`
-	EnableHAReplica         types.Bool     `tfsdk:"enable_ha_replica"`
-	HAReplicas              types.Int64    `tfsdk:"ha_replicas"`
-	SyncReplicas            types.Int64    `tfsdk:"sync_replicas"`
-	Paused                  types.Bool     `tfsdk:"paused"`
-	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
-	VpcID                   types.Int64    `tfsdk:"vpc_id"`
-	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
-	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
-	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
-	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
+	ID                          types.String   `tfsdk:"id"`
+	Name                        types.String   `tfsdk:"name"`
+	Timeouts                    timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU                    types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB                   types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB                    types.Int64    `tfsdk:"memory_gb"`
+	Password                    types.String   `tfsdk:"password"`
+	Hostname                    types.String   `tfsdk:"hostname"`
+	Port                        types.Int64    `tfsdk:"port"`
+	ReplicaHostname             types.String   `tfsdk:"replica_hostname"`
+	ReplicaPort                 types.Int64    `tfsdk:"replica_port"`
+	PoolerHostname              types.String   `tfsdk:"pooler_hostname"`
+	PoolerPort                  types.Int64    `tfsdk:"pooler_port"`
+	Username                    types.String   `tfsdk:"username"`
+	RegionCode                  types.String   `tfsdk:"region_code"`
+	EnableHAReplica             types.Bool     `tfsdk:"enable_ha_replica"`
+	HAReplicas                  types.Int64    `tfsdk:"ha_replicas"`
+	SyncReplicas                types.Int64    `tfsdk:"sync_replicas"`
+	Paused                      types.Bool     `tfsdk:"paused"`
+	ReadReplicaSource           types.String   `tfsdk:"read_replica_source"`
+	VpcID                       types.Int64    `tfsdk:"vpc_id"`
+	ConnectionPoolerEnabled     types.Bool     `tfsdk:"connection_pooler_enabled"`
+	EnvironmentTag              types.String   `tfsdk:"environment_tag"`
+	MetricExporterID            types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID               types.String   `tfsdk:"log_exporter_id"`
+	PrivateEndpointConnectionID types.String   `tfsdk:"private_endpoint_connection_id"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -209,7 +210,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesString("vpc_id", "private_endpoint_connection_id"),
 				},
 			},
 			"port": schema.Int64Attribute{
@@ -217,7 +218,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesInt64("vpc_id", "private_endpoint_connection_id"),
 				},
 			},
 			"replica_hostname": schema.StringAttribute{
@@ -316,6 +317,14 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: `The Log Exporter ID attached to this service, only supported in AWS for now.
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
+			},
+			"private_endpoint_connection_id": schema.StringAttribute{
+				Description:         "The Private Endpoint Connection ID to attach this service to (Azure Private Link).",
+				MarkdownDescription: "The Private Endpoint Connection ID to attach this service to (Azure Private Link).",
+				Optional:            true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -507,6 +516,20 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		service, err = r.client.GetService(ctx, service.ID)
 		if err != nil {
 			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
+			return
+		}
+	}
+
+	// Private Link
+	if !plan.PrivateEndpointConnectionID.IsNull() {
+		err := r.client.AttachServiceToPrivateLinkConnection(ctx, service.ID, plan.PrivateEndpointConnectionID.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("error attaching service to private link", err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("error refreshing service after attaching to private link", err.Error())
 			return
 		}
 	}
@@ -774,6 +797,38 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	// Private Link ////////////////////////////////////////
+	if !plan.PrivateEndpointConnectionID.Equal(state.PrivateEndpointConnectionID) {
+		// Detach old if exists
+		if !state.PrivateEndpointConnectionID.IsNull() && !state.PrivateEndpointConnectionID.IsUnknown() {
+			if err := r.client.DetachServiceFromPrivateLinkConnection(ctx, serviceID, state.PrivateEndpointConnectionID.ValueString()); err != nil {
+				resp.Diagnostics.AddError("Failed to detach service from private link", err.Error())
+				return
+			}
+		}
+		// Attach new if specified (with retry for async detach completion)
+		if !plan.PrivateEndpointConnectionID.IsNull() && !plan.PrivateEndpointConnectionID.IsUnknown() {
+			err := retry.RetryContext(ctx, 2*time.Minute, func() *retry.RetryError {
+				attachErr := r.client.AttachServiceToPrivateLinkConnection(ctx, serviceID, plan.PrivateEndpointConnectionID.ValueString())
+				if attachErr == nil {
+					return nil
+				}
+				// Retry if service is still detaching from previous connection
+				if strings.Contains(attachErr.Error(), "already attached") {
+					tflog.Info(ctx, "Service still detaching from previous private link, retrying attach...", map[string]interface{}{
+						"service_id": serviceID,
+					})
+					return retry.RetryableError(attachErr)
+				}
+				return retry.NonRetryableError(attachErr)
+			})
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to attach service to private link", err.Error())
+				return
+			}
+		}
+	}
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -922,6 +977,12 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	}
 	if s.ServiceSpec.GenericExporterID != nil {
 		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
+	}
+
+	if s.PrivateLinkEndpointConnectionID != nil {
+		model.PrivateEndpointConnectionID = types.StringValue(*s.PrivateLinkEndpointConnectionID)
+	} else {
+		model.PrivateEndpointConnectionID = types.StringNull()
 	}
 
 	return model

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -12,23 +13,23 @@ import (
 )
 
 // useStateUnlessToggleChangesString returns a plan modifier that preserves the
-// prior state value (like UseStateForUnknown) unless the attribute at togglePath
-// has changed, in which case the value is left as unknown so the provider can
-// populate it after apply.
-func useStateUnlessToggleChangesString(togglePath string) planmodifier.String {
-	return &stringTogglePlanModifier{togglePath: togglePath}
+// prior state value (like UseStateForUnknown) unless any of the attributes at
+// togglePaths have changed, in which case the value is left as unknown so the
+// provider can populate it after apply.
+func useStateUnlessToggleChangesString(togglePaths ...string) planmodifier.String {
+	return &stringTogglePlanModifier{togglePaths: togglePaths}
 }
 
-func useStateUnlessToggleChangesInt64(togglePath string) planmodifier.Int64 {
-	return &int64TogglePlanModifier{togglePath: togglePath}
+func useStateUnlessToggleChangesInt64(togglePaths ...string) planmodifier.Int64 {
+	return &int64TogglePlanModifier{togglePaths: togglePaths}
 }
 
 type stringTogglePlanModifier struct {
-	togglePath string
+	togglePaths []string
 }
 
 func (m *stringTogglePlanModifier) Description(_ context.Context) string {
-	return "Use state value unless " + m.togglePath + " changes"
+	return "Use state value unless " + strings.Join(m.togglePaths, " or ") + " changes"
 }
 
 func (m *stringTogglePlanModifier) MarkdownDescription(ctx context.Context) string {
@@ -44,7 +45,7 @@ func (m *stringTogglePlanModifier) PlanModifyString(ctx context.Context, req pla
 		return
 	}
 
-	if toggleChanged(ctx, req.State, req.Plan, m.togglePath) {
+	if anyToggleChanged(ctx, req.State, req.Plan, m.togglePaths) {
 		resp.PlanValue = types.StringUnknown()
 		return
 	}
@@ -53,11 +54,11 @@ func (m *stringTogglePlanModifier) PlanModifyString(ctx context.Context, req pla
 }
 
 type int64TogglePlanModifier struct {
-	togglePath string
+	togglePaths []string
 }
 
 func (m *int64TogglePlanModifier) Description(_ context.Context) string {
-	return "Use state value unless " + m.togglePath + " changes"
+	return "Use state value unless " + strings.Join(m.togglePaths, " or ") + " changes"
 }
 
 func (m *int64TogglePlanModifier) MarkdownDescription(ctx context.Context) string {
@@ -73,12 +74,21 @@ func (m *int64TogglePlanModifier) PlanModifyInt64(ctx context.Context, req planm
 		return
 	}
 
-	if toggleChanged(ctx, req.State, req.Plan, m.togglePath) {
+	if anyToggleChanged(ctx, req.State, req.Plan, m.togglePaths) {
 		resp.PlanValue = types.Int64Unknown()
 		return
 	}
 
 	resp.PlanValue = req.StateValue
+}
+
+func anyToggleChanged(ctx context.Context, state tfsdk.State, plan tfsdk.Plan, togglePaths []string) bool {
+	for _, togglePath := range togglePaths {
+		if toggleChanged(ctx, state, plan, togglePath) {
+			return true
+		}
+	}
+	return false
 }
 
 func toggleChanged(ctx context.Context, state tfsdk.State, plan tfsdk.Plan, togglePath string) bool {

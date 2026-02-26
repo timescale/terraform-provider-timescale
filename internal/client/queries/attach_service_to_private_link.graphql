@@ -1,0 +1,7 @@
+mutation AttachServiceToPrivateLinkConnection($projectId: ID!, $serviceId: ID!, $connectionId: ID!) {
+    attachServiceToPrivateLinkConnection(data: {
+        projectId: $projectId
+        serviceId: $serviceId
+        connectionId: $connectionId
+    })
+}

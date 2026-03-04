@@ -58,7 +58,10 @@ func buildTFValues(t *testing.T, s schema.Schema, values map[string]tftypes.Valu
 // UseStateForUnknown instead of useStateUnlessToggleChangesString("vpc_id").
 func TestServiceSchema_HostnameRefreshesOnVpcChange(t *testing.T) {
 	s := getServiceSchema(t)
-	hostnameAttr := s.Attributes["hostname"].(schema.StringAttribute)
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
 
 	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
 		"hostname": tftypes.NewValue(tftypes.String, "old-host.example.com"),
@@ -92,7 +95,10 @@ func TestServiceSchema_HostnameRefreshesOnVpcChange(t *testing.T) {
 // TestServiceSchema_PortRefreshesOnVpcChange is the same test for the port attribute.
 func TestServiceSchema_PortRefreshesOnVpcChange(t *testing.T) {
 	s := getServiceSchema(t)
-	portAttr := s.Attributes["port"].(schema.Int64Attribute)
+	portAttr, ok := s.Attributes["port"].(schema.Int64Attribute)
+	if !ok {
+		t.Fatal("port attribute is not an Int64Attribute")
+	}
 
 	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
 		"port":   tftypes.NewValue(tftypes.Number, 5432),
@@ -127,7 +133,10 @@ func TestServiceSchema_PortRefreshesOnVpcChange(t *testing.T) {
 // preserved from state when vpc_id does not change.
 func TestServiceSchema_HostnamePreservedWhenVpcUnchanged(t *testing.T) {
 	s := getServiceSchema(t)
-	hostnameAttr := s.Attributes["hostname"].(schema.StringAttribute)
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
 
 	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
 		"hostname": tftypes.NewValue(tftypes.String, "my-host.example.com"),

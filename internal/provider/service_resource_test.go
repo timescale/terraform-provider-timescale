@@ -698,7 +698,7 @@ func TestServiceResource_PasswordConflict(t *testing.T) {
 						password_wo         = "test456789012"
 						password_wo_version = 1
 					}`,
-				ExpectError: regexp.MustCompile(`Conflicting configuration`),
+				ExpectError: regexp.MustCompile(`Invalid Attribute Combination`),
 			},
 		},
 	})

@@ -73,6 +73,8 @@ type serviceResourceModel struct {
 	StorageGB               types.Int64    `tfsdk:"storage_gb"`
 	MemoryGB                types.Int64    `tfsdk:"memory_gb"`
 	Password                types.String   `tfsdk:"password"`
+	PasswordWo              types.String   `tfsdk:"password_wo"`
+	PasswordWoVersion       types.Int64    `tfsdk:"password_wo_version"`
 	Hostname                types.String   `tfsdk:"hostname"`
 	Port                    types.Int64    `tfsdk:"port"`
 	ReplicaHostname         types.String   `tfsdk:"replica_hostname"`
@@ -203,6 +205,24 @@ The change has been taken into account but must still be propagated. You can run
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("password_wo")),
+					stringvalidator.PreferWriteOnlyAttribute(path.MatchRoot("password_wo")),
+				},
+			},
+			"password_wo": schema.StringAttribute{
+				Description:         "Write-only alternative to password. The value will not be stored in Terraform state. Conflicts with password. Requires Terraform 1.11+.",
+				MarkdownDescription: "Write-only alternative to `password`. The value will **not** be stored in Terraform state. Conflicts with `password`. Requires Terraform 1.11+.",
+				Optional:            true,
+				WriteOnly:           true,
+				Validators: []validator.String{
+					stringvalidator.ConflictsWith(path.MatchRoot("password")),
+				},
+			},
+			"password_wo_version": schema.Int64Attribute{
+				Description:         "A version number for password_wo. Incrementing this value will trigger a password update on the next apply.",
+				MarkdownDescription: "A version number for `password_wo`. Incrementing this value will trigger a password update on the next apply.",
+				Optional:            true,
 			},
 			"hostname": schema.StringAttribute{
 				Description:         "The hostname for this service",
@@ -446,13 +466,19 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// Read write-only password from config (write-only values are always null in plan/state)
+	var passwordWo types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("password_wo"), &passwordWo)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// Set the password to the initial password if not provided by the user
-	if plan.Password.IsNull() || plan.Password.IsUnknown() {
+	if !passwordWo.IsNull() && passwordWo.ValueString() != "" {
+		// Using write-only password: don't store password in state
+		plan.Password = types.StringNull()
+	} else if plan.Password.IsNull() || plan.Password.IsUnknown() {
 		if readReplicaSource != "" {
-			// Read replicas synchronize their password with the parent service
-			// The API returns a fake password that doesn't match reality
-			// Store null since we cannot know the actual password
-			// Users should explicitly set the password attribute to match the parent
 			plan.Password = types.StringNull()
 		} else {
 			plan.Password = types.StringValue(response.InitialPassword)
@@ -469,9 +495,15 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Check if a user-specified password was provided and update it if so, but only if the service is not a read replica
-	if !plan.Password.IsNull() && plan.Password.ValueString() != response.InitialPassword && readReplicaSource == "" {
-		err = r.client.ResetServicePassword(ctx, service.ID, plan.Password.ValueString())
+	// Set the password via API if user specified one different from the initial password
+	effectivePassword := ""
+	if !passwordWo.IsNull() && passwordWo.ValueString() != "" {
+		effectivePassword = passwordWo.ValueString()
+	} else if !plan.Password.IsNull() {
+		effectivePassword = plan.Password.ValueString()
+	}
+	if effectivePassword != "" && effectivePassword != response.InitialPassword && readReplicaSource == "" {
+		err = r.client.ResetServicePassword(ctx, service.ID, effectivePassword)
 		if err != nil {
 			resp.Diagnostics.AddError("Setting the password failed", fmt.Sprintf("Unable to set user configured password, got error: %s", err))
 
@@ -802,8 +834,23 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Update Password if it has changed and if it's not a read replica
-	if !plan.Password.Equal(state.Password) && !plan.Password.IsNull() && readReplicaSource == "" {
+	// Update Password
+	var passwordWo types.String
+	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("password_wo"), &passwordWo)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if !passwordWo.IsNull() && passwordWo.ValueString() != "" && readReplicaSource == "" {
+		// Write-only password: trigger update when password_wo_version changes
+		if !plan.PasswordWoVersion.Equal(state.PasswordWoVersion) {
+			err := r.client.ResetServicePassword(ctx, serviceID, passwordWo.ValueString())
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to update password", fmt.Sprintf("Unable to update password, got error: %s", err))
+				return
+			}
+		}
+	} else if !plan.Password.Equal(state.Password) && !plan.Password.IsNull() && readReplicaSource == "" {
 		err := r.client.ResetServicePassword(ctx, serviceID, plan.Password.ValueString())
 		if err != nil {
 			resp.Diagnostics.AddError("Failed to update password", fmt.Sprintf("Unable to update password, got error: %s", err))
@@ -855,6 +902,8 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	model := serviceResourceModel{
 		ID:                      types.StringValue(s.ID),
 		Password:                state.Password,
+		PasswordWo:              types.StringNull(),
+		PasswordWoVersion:       state.PasswordWoVersion,
 		Name:                    types.StringValue(s.Name),
 		MilliCPU:                types.Int64Value(s.Resources[0].Spec.MilliCPU),
 		MemoryGB:                types.Int64Value(s.Resources[0].Spec.MemoryGB),

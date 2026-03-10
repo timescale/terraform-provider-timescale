@@ -119,7 +119,7 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 			},
 			"connection_id": schema.StringAttribute{
 				Computed:    true,
-				Description: "The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.",
+				Description: "The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_ids.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

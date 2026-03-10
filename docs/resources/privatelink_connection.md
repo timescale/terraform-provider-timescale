@@ -52,7 +52,7 @@ or AWS VPC Endpoint) and allows you to configure its IP address and name.
 
 ### Read-Only
 
-- `connection_id` (String) The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_id.
+- `connection_id` (String) The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_ids.
 - `id` (String) Resource identifier (same as connection_id).
 - `link_identifier` (String) The private link identifier.
 - `state` (String) The state of the connection (e.g., approved, pending).

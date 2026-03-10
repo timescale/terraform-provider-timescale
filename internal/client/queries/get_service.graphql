@@ -42,7 +42,7 @@ query GetService($projectId: ID!, $serviceId: ID!) {
             port
             vpcId
         }
-        privateLinkEndpointConnectionId
+        privateLinkConnectionIds
         forkedFromId {
             projectId
             serviceId

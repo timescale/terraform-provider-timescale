@@ -45,7 +45,7 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 					resource.TestCheckResourceAttr(connectionName, "region", "az-eastus2"),
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
 					resource.TestCheckResourceAttrSet(serviceName, "hostname"),
-					resource.TestCheckResourceAttrSet(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
 			},
 			{
@@ -58,13 +58,13 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 				Config: testAccPrivateLinkAzureFullConfig("Updated Name", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
-					resource.TestCheckNoResourceAttr(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "0"),
 				),
 			},
 			{
 				Config: testAccPrivateLinkAzureFullConfig("Updated Name", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
 			},
 		},

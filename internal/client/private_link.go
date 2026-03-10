@@ -80,15 +80,15 @@ func (c *Client) ListPrivateLinkBindings(ctx context.Context, serviceID string) 
 	return resp.Data.Bindings, nil
 }
 
-func (c *Client) AttachServiceToPrivateLinkConnection(ctx context.Context, serviceID, connectionID string) error {
+func (c *Client) AttachServiceToPrivateLinkConnection(ctx context.Context, serviceID string, connectionIDs []string) error {
 	tflog.Trace(ctx, "Client.AttachServiceToPrivateLinkConnection")
 	req := map[string]interface{}{
 		"operationName": "AttachServiceToPrivateLinkConnection",
 		"query":         AttachServiceToPrivateLinkConnectionMutation,
-		"variables": map[string]string{
-			"projectId":    c.projectID,
-			"serviceId":    serviceID,
-			"connectionId": connectionID,
+		"variables": map[string]interface{}{
+			"projectId":     c.projectID,
+			"serviceId":     serviceID,
+			"connectionIds": connectionIDs,
 		},
 	}
 	var resp Response[AttachServiceToPrivateLinkConnectionResponse]
@@ -104,15 +104,15 @@ func (c *Client) AttachServiceToPrivateLinkConnection(ctx context.Context, servi
 	return nil
 }
 
-func (c *Client) DetachServiceFromPrivateLinkConnection(ctx context.Context, serviceID, connectionID string) error {
+func (c *Client) DetachServiceFromPrivateLinkConnection(ctx context.Context, serviceID string, connectionIDs []string) error {
 	tflog.Trace(ctx, "Client.DetachServiceFromPrivateLinkConnection")
 	req := map[string]interface{}{
 		"operationName": "DetachServiceFromPrivateLinkConnection",
 		"query":         DetachServiceFromPrivateLinkConnectionMutation,
-		"variables": map[string]string{
-			"projectId":    c.projectID,
-			"serviceId":    serviceID,
-			"connectionId": connectionID,
+		"variables": map[string]interface{}{
+			"projectId":     c.projectID,
+			"serviceId":     serviceID,
+			"connectionIds": connectionIDs,
 		},
 	}
 	var resp Response[DetachServiceFromPrivateLinkConnectionResponse]

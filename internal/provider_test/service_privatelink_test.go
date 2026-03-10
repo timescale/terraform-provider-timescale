@@ -13,7 +13,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 
 	// Track service state
 	serviceCreated := false
-	attachedConnectionID := ""
+	attachedConnectionIDs := map[string]bool{}
 
 	server.Handle("CreateService", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
@@ -62,6 +62,11 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 			}
 		}
 
+		ids := []string{}
+		for id := range attachedConnectionIDs {
+			ids = append(ids, id)
+		}
+
 		result := map[string]interface{}{
 			"id":            "svc-123",
 			"name":          "test-service",
@@ -85,10 +90,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 				"port":                    5432,
 				"connectionPoolerEnabled": false,
 			},
-		}
-
-		if attachedConnectionID != "" {
-			result["privateLinkEndpointConnectionId"] = attachedConnectionID
+			"privateLinkConnectionIds": ids,
 		}
 
 		return map[string]interface{}{
@@ -101,7 +103,10 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	server.Handle("AttachServiceToPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-		attachedConnectionID = GetString(vars, "connectionId")
+		connIDs := vars["connectionIds"].([]interface{})
+		for _, id := range connIDs {
+			attachedConnectionIDs[id.(string)] = true
+		}
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
@@ -113,8 +118,10 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	server.Handle("DetachServiceFromPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-
-		attachedConnectionID = ""
+		connIDs := vars["connectionIds"].([]interface{})
+		for _, id := range connIDs {
+			delete(attachedConnectionIDs, id.(string))
+		}
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
@@ -125,7 +132,7 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 
 	server.Handle("DeleteService", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		serviceCreated = false
-		attachedConnectionID = ""
+		attachedConnectionIDs = map[string]bool{}
 
 		return map[string]interface{}{
 			"data": map[string]interface{}{
@@ -141,22 +148,33 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 
 	server.SetupEnv(t)
 
-	configWithPrivateLink := ProviderConfig + `
+	configWithOneConnection := ProviderConfig + `
 resource "timescale_service" "test" {
-  name                           = "test-service"
-  milli_cpu                      = 500
-  memory_gb                      = 2
-  region_code                    = "az-eastus2"
-  private_endpoint_connection_id = "conn-123"
+  name                            = "test-service"
+  milli_cpu                       = 500
+  memory_gb                       = 2
+  region_code                     = "az-eastus2"
+  private_endpoint_connection_ids = ["conn-123"]
+}
+`
+
+	configWithTwoConnections := ProviderConfig + `
+resource "timescale_service" "test" {
+  name                            = "test-service"
+  milli_cpu                       = 500
+  memory_gb                       = 2
+  region_code                     = "az-eastus2"
+  private_endpoint_connection_ids = ["conn-123", "conn-456"]
 }
 `
 
 	configWithoutPrivateLink := ProviderConfig + `
 resource "timescale_service" "test" {
-  name        = "test-service"
-  milli_cpu   = 500
-  memory_gb   = 2
-  region_code = "az-eastus2"
+  name                            = "test-service"
+  milli_cpu                       = 500
+  memory_gb                       = 2
+  region_code                     = "az-eastus2"
+  private_endpoint_connection_ids = []
 }
 `
 
@@ -165,50 +183,61 @@ resource "timescale_service" "test" {
 		Steps: []resource.TestStep{
 			// Step 1: Plan - verify create will happen
 			{
-				Config:             configWithPrivateLink,
+				Config:             configWithOneConnection,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
 			},
-			// Step 2: Apply - create service with private link attached
+			// Step 2: Apply - create service with one private link attached
 			{
-				Config: configWithPrivateLink,
+				Config: configWithOneConnection,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.test", "id", "svc-123"),
 					resource.TestCheckResourceAttr("timescale_service.test", "name", "test-service"),
-					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_id", "conn-123"),
+					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_ids.#", "1"),
+					resource.TestCheckTypeSetElemAttr("timescale_service.test", "private_endpoint_connection_ids.*", "conn-123"),
 				),
 			},
 			// Step 3: Plan - verify no drift
 			{
-				Config:             configWithPrivateLink,
+				Config:             configWithOneConnection,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
-			// Step 4: Plan - verify detach will happen
+			// Step 4: Apply - add a second connection
 			{
-				Config:             configWithoutPrivateLink,
-				PlanOnly:           true,
-				ExpectNonEmptyPlan: true,
+				Config: configWithTwoConnections,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_ids.#", "2"),
+					resource.TestCheckTypeSetElemAttr("timescale_service.test", "private_endpoint_connection_ids.*", "conn-123"),
+					resource.TestCheckTypeSetElemAttr("timescale_service.test", "private_endpoint_connection_ids.*", "conn-456"),
+				),
 			},
-			// Step 5: Apply - detach private link
+			// Step 5: Plan - verify no drift with two connections
+			{
+				Config:             configWithTwoConnections,
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+			// Step 6: Apply - detach all private links
 			{
 				Config: configWithoutPrivateLink,
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.test", "id", "svc-123"),
-					resource.TestCheckNoResourceAttr("timescale_service.test", "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_ids.#", "0"),
 				),
 			},
-			// Step 6: Plan - verify no drift after detach
+			// Step 7: Plan - verify no drift after detach
 			{
 				Config:             configWithoutPrivateLink,
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
-			// Step 7: Apply - re-attach private link
+			// Step 8: Apply - re-attach private link
 			{
-				Config: configWithPrivateLink,
+				Config: configWithOneConnection,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_id", "conn-123"),
+					resource.TestCheckResourceAttr("timescale_service.test", "private_endpoint_connection_ids.#", "1"),
+					resource.TestCheckTypeSetElemAttr("timescale_service.test", "private_endpoint_connection_ids.*", "conn-123"),
 				),
 			},
 		},

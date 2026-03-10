@@ -42,7 +42,7 @@ func TestAccPrivateLinkConnection_aws_e2e(t *testing.T) {
 					resource.TestCheckResourceAttr(connectionName, "region", "us-east-1"),
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
 					resource.TestCheckResourceAttrSet(serviceName, "hostname"),
-					resource.TestCheckResourceAttrSet(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
 			},
 			{
@@ -55,13 +55,13 @@ func TestAccPrivateLinkConnection_aws_e2e(t *testing.T) {
 				Config: testAccPrivateLinkAWSFullConfig("Updated Name", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
-					resource.TestCheckNoResourceAttr(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "0"),
 				),
 			},
 			{
 				Config: testAccPrivateLinkAWSFullConfig("Updated Name", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(serviceName, "private_endpoint_connection_id"),
+					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
 			},
 		},

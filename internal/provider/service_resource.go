@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -20,6 +21,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -66,31 +68,32 @@ type serviceResource struct {
 
 // serviceResourceModel maps the resource schema data.
 type serviceResourceModel struct {
-	ID                      types.String   `tfsdk:"id"`
-	Name                    types.String   `tfsdk:"name"`
-	Timeouts                timeouts.Value `tfsdk:"timeouts"`
-	MilliCPU                types.Int64    `tfsdk:"milli_cpu"`
-	StorageGB               types.Int64    `tfsdk:"storage_gb"`
-	MemoryGB                types.Int64    `tfsdk:"memory_gb"`
-	Password                types.String   `tfsdk:"password"`
-	Hostname                types.String   `tfsdk:"hostname"`
-	Port                    types.Int64    `tfsdk:"port"`
-	ReplicaHostname         types.String   `tfsdk:"replica_hostname"`
-	ReplicaPort             types.Int64    `tfsdk:"replica_port"`
-	PoolerHostname          types.String   `tfsdk:"pooler_hostname"`
-	PoolerPort              types.Int64    `tfsdk:"pooler_port"`
-	Username                types.String   `tfsdk:"username"`
-	RegionCode              types.String   `tfsdk:"region_code"`
-	EnableHAReplica         types.Bool     `tfsdk:"enable_ha_replica"`
-	HAReplicas              types.Int64    `tfsdk:"ha_replicas"`
-	SyncReplicas            types.Int64    `tfsdk:"sync_replicas"`
-	Paused                  types.Bool     `tfsdk:"paused"`
-	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
-	VpcID                   types.Int64    `tfsdk:"vpc_id"`
-	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
-	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
-	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
-	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
+	ID                           types.String   `tfsdk:"id"`
+	Name                         types.String   `tfsdk:"name"`
+	Timeouts                     timeouts.Value `tfsdk:"timeouts"`
+	MilliCPU                     types.Int64    `tfsdk:"milli_cpu"`
+	StorageGB                    types.Int64    `tfsdk:"storage_gb"`
+	MemoryGB                     types.Int64    `tfsdk:"memory_gb"`
+	Password                     types.String   `tfsdk:"password"`
+	Hostname                     types.String   `tfsdk:"hostname"`
+	Port                         types.Int64    `tfsdk:"port"`
+	ReplicaHostname              types.String   `tfsdk:"replica_hostname"`
+	ReplicaPort                  types.Int64    `tfsdk:"replica_port"`
+	PoolerHostname               types.String   `tfsdk:"pooler_hostname"`
+	PoolerPort                   types.Int64    `tfsdk:"pooler_port"`
+	Username                     types.String   `tfsdk:"username"`
+	RegionCode                   types.String   `tfsdk:"region_code"`
+	EnableHAReplica              types.Bool     `tfsdk:"enable_ha_replica"`
+	HAReplicas                   types.Int64    `tfsdk:"ha_replicas"`
+	SyncReplicas                 types.Int64    `tfsdk:"sync_replicas"`
+	Paused                       types.Bool     `tfsdk:"paused"`
+	ReadReplicaSource            types.String   `tfsdk:"read_replica_source"`
+	VpcID                        types.Int64    `tfsdk:"vpc_id"`
+	ConnectionPoolerEnabled      types.Bool     `tfsdk:"connection_pooler_enabled"`
+	EnvironmentTag               types.String   `tfsdk:"environment_tag"`
+	MetricExporterID             types.String   `tfsdk:"metric_exporter_id"`
+	LogExporterID                types.String   `tfsdk:"log_exporter_id"`
+	PrivateEndpointConnectionIDs types.Set      `tfsdk:"private_endpoint_connection_ids"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -209,7 +212,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesString("vpc_id", "private_endpoint_connection_ids"),
 				},
 			},
 			"port": schema.Int64Attribute{
@@ -217,7 +220,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesInt64("vpc_id", "private_endpoint_connection_ids"),
 				},
 			},
 			"replica_hostname": schema.StringAttribute{
@@ -316,6 +319,16 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: `The Log Exporter ID attached to this service, only supported in AWS for now.
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
+			},
+			"private_endpoint_connection_ids": schema.SetAttribute{
+				Description:         "The set of Private Endpoint Connection IDs to attach this service to.",
+				MarkdownDescription: "The set of Private Endpoint Connection IDs to attach this service to.",
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -508,6 +521,26 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		if err != nil {
 			resp.Diagnostics.AddError(errAttachExporter, "unable to refresh service after attaching exporter")
 			return
+		}
+	}
+
+	// Private Link
+	if !plan.PrivateEndpointConnectionIDs.IsNull() && !plan.PrivateEndpointConnectionIDs.IsUnknown() {
+		var connectionIDs []string
+		resp.Diagnostics.Append(plan.PrivateEndpointConnectionIDs.ElementsAs(ctx, &connectionIDs, false)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if err := r.client.AttachServiceToPrivateLinkConnection(ctx, service.ID, connectionIDs); err != nil {
+			resp.Diagnostics.AddError("error attaching service to private link", err.Error())
+			return
+		}
+		if len(connectionIDs) > 0 {
+			service, err = r.waitForPrivateLinkIDs(ctx, service.ID, connectionIDs)
+			if err != nil {
+				resp.Diagnostics.AddError("error refreshing service after attaching to private link", err.Error())
+				return
+			}
 		}
 	}
 
@@ -774,6 +807,82 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	// Private Link ////////////////////////////////////////
+	if !plan.PrivateEndpointConnectionIDs.Equal(state.PrivateEndpointConnectionIDs) {
+		var oldIDs, newIDs []string
+		if !state.PrivateEndpointConnectionIDs.IsNull() && !state.PrivateEndpointConnectionIDs.IsUnknown() {
+			resp.Diagnostics.Append(state.PrivateEndpointConnectionIDs.ElementsAs(ctx, &oldIDs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+		if !plan.PrivateEndpointConnectionIDs.IsNull() && !plan.PrivateEndpointConnectionIDs.IsUnknown() {
+			resp.Diagnostics.Append(plan.PrivateEndpointConnectionIDs.ElementsAs(ctx, &newIDs, false)...)
+			if resp.Diagnostics.HasError() {
+				return
+			}
+		}
+
+		newSet := make(map[string]bool, len(newIDs))
+		for _, id := range newIDs {
+			newSet[id] = true
+		}
+		oldSet := make(map[string]bool, len(oldIDs))
+		for _, id := range oldIDs {
+			oldSet[id] = true
+		}
+
+		// Detach connections that were removed
+		var toDetach []string
+		for _, id := range oldIDs {
+			if !newSet[id] {
+				toDetach = append(toDetach, id)
+			}
+		}
+		if len(toDetach) > 0 {
+			if err := r.client.DetachServiceFromPrivateLinkConnection(ctx, serviceID, toDetach); err != nil {
+				resp.Diagnostics.AddError("Failed to detach service from private link", err.Error())
+				return
+			}
+		}
+
+		// Attach connections that were added (with retry for async detach completion)
+		var toAttach []string
+		for _, id := range newIDs {
+			if !oldSet[id] {
+				toAttach = append(toAttach, id)
+			}
+		}
+		if len(toAttach) > 0 {
+			err := retry.RetryContext(ctx, 2*time.Minute, func() *retry.RetryError {
+				attachErr := r.client.AttachServiceToPrivateLinkConnection(ctx, serviceID, toAttach)
+				if attachErr == nil {
+					return nil
+				}
+				if strings.Contains(attachErr.Error(), "already attached") {
+					tflog.Info(ctx, "Service still detaching from previous private link, retrying attach...", map[string]interface{}{
+						"service_id": serviceID,
+					})
+					return retry.RetryableError(attachErr)
+				}
+				return retry.NonRetryableError(attachErr)
+			})
+			if err != nil {
+				resp.Diagnostics.AddError("Failed to attach service to private link", err.Error())
+				return
+			}
+		}
+
+		// Wait for GetService to reflect the expected private link connection IDs
+		if len(newIDs) > 0 {
+			_, err := r.waitForPrivateLinkIDs(ctx, serviceID, newIDs)
+			if err != nil {
+				resp.Diagnostics.AddError("error waiting for private link connection IDs after update", err.Error())
+				return
+			}
+		}
+	}
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -845,6 +954,37 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *serviceResource) waitForPrivateLinkIDs(ctx context.Context, serviceID string, expectedIDs []string) (*tsClient.Service, error) {
+	expectedSet := make(map[string]bool, len(expectedIDs))
+	for _, id := range expectedIDs {
+		expectedSet[id] = true
+	}
+
+	var service *tsClient.Service
+	err := retry.RetryContext(ctx, 2*time.Minute, func() *retry.RetryError {
+		s, err := r.client.GetService(ctx, serviceID)
+		if err != nil {
+			return retry.NonRetryableError(err)
+		}
+		actualSet := make(map[string]bool, len(s.PrivateLinkConnectionIDs))
+		for _, id := range s.PrivateLinkConnectionIDs {
+			actualSet[id] = true
+		}
+		for id := range expectedSet {
+			if !actualSet[id] {
+				tflog.Info(ctx, "Waiting for private link connection IDs to appear in service", map[string]interface{}{
+					"service_id": serviceID,
+					"missing_id": id,
+				})
+				return retry.RetryableError(fmt.Errorf("private link connection %s not yet visible on service", id))
+			}
+		}
+		service = s
+		return nil
+	})
+	return service, err
 }
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
@@ -922,6 +1062,20 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	}
 	if s.ServiceSpec.GenericExporterID != nil {
 		model.LogExporterID = types.StringValue(*s.ServiceSpec.GenericExporterID)
+	}
+
+	if len(s.PrivateLinkConnectionIDs) > 0 {
+		elems := make([]attr.Value, len(s.PrivateLinkConnectionIDs))
+		for i, id := range s.PrivateLinkConnectionIDs {
+			elems[i] = types.StringValue(id)
+		}
+		setValue, setDiags := types.SetValue(types.StringType, elems)
+		diag.Append(setDiags...)
+		model.PrivateEndpointConnectionIDs = setValue
+	} else if !state.PrivateEndpointConnectionIDs.IsNull() {
+		model.PrivateEndpointConnectionIDs = types.SetValueMust(types.StringType, []attr.Value{})
+	} else {
+		model.PrivateEndpointConnectionIDs = types.SetNull(types.StringType)
 	}
 
 	return model

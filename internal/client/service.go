@@ -28,6 +28,9 @@ type Service struct {
 
 	// Endpoints contains the all service endpoints
 	Endpoints *ServiceEndpoints `json:"endpoints,omitempty"`
+
+	// PrivateLinkConnectionIDs is the list of private link connection IDs the service is attached to
+	PrivateLinkConnectionIDs []string `json:"privateLinkConnectionIds"`
 }
 
 type ServiceSpec struct {

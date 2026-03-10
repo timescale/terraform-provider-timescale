@@ -1,0 +1,3 @@
+mutation SyncPrivateLinkConnections($projectId: ID!) {
+    syncPrivateLinkConnections(data: { projectId: $projectId })
+}

@@ -209,7 +209,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesString("vpc_id"),
 				},
 			},
 			"port": schema.Int64Attribute{
@@ -217,7 +217,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The port for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					useStateUnlessToggleChangesInt64("vpc_id"),
 				},
 			},
 			"replica_hostname": schema.StringAttribute{

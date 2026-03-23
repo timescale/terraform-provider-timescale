@@ -38,3 +38,20 @@ resource "timescale_service" "test" {
 resource "timescale_service" "read_replica" {
   read_replica_source = timescale_service.test.id
 }
+
+# Service with write-only password (Terraform 1.11+)
+# The password is sent to the API but never stored in Terraform state.
+# Increment password_wo_version to trigger a password change.
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+resource "timescale_service" "secure" {
+  name                = "secure-service"
+  milli_cpu           = 1000
+  memory_gb           = 4
+  region_code         = "us-east-1"
+  password_wo         = var.db_password
+  password_wo_version = 1
+}

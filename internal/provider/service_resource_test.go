@@ -500,6 +500,8 @@ type ServiceConfig struct {
 	Pooler            bool
 	Environment       string
 	Password          string
+	PasswordWo        string
+	PasswordWoVersion *int64
 	MetricExporterID  string
 	LogExporterID     string
 }
@@ -569,6 +571,12 @@ func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
 	return c
 }
 
+func (c *ServiceConfig) WithPasswordWo(password string, version int64) *ServiceConfig {
+	c.PasswordWo = password
+	c.PasswordWoVersion = &version
+	return c
+}
+
 func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -611,6 +619,12 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	if c.LogExporterID != "" {
 		write("log_exporter_id = %s \n", c.LogExporterID)
 	}
+	if c.PasswordWo != "" {
+		write("password_wo = %q \n", c.PasswordWo)
+	}
+	if c.PasswordWoVersion != nil {
+		write("password_wo_version = %d \n", *c.PasswordWoVersion)
+	}
 	write(`
 			milli_cpu  = %d
 			memory_gb  = %d
@@ -642,4 +656,50 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 		res.WriteString(cfg.String(t))
 	}
 	return res.String()
+}
+
+func TestServiceResource_WriteOnlyPassword(t *testing.T) {
+	config := &ServiceConfig{
+		Name:         "tf-wo-pw-test",
+		ResourceName: "wo_password",
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: getServiceConfig(t, config.WithPasswordWo("initial-password-123", 1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("timescale_service.wo_password", "id"),
+					resource.TestCheckResourceAttrSet("timescale_service.wo_password", "hostname"),
+					resource.TestCheckResourceAttr("timescale_service.wo_password", "password_wo_version", "1"),
+				),
+			},
+			{
+				Config: getServiceConfig(t, config.WithPasswordWo("updated-password-456", 2)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.wo_password", "password_wo_version", "2"),
+				),
+			},
+		},
+	})
+}
+
+func TestServiceResource_PasswordConflict(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + `
+					resource "timescale_service" "conflict" {
+						name                = "tf-pw-conflict-test"
+						password            = "test123456789"
+						password_wo         = "test456789012"
+						password_wo_version = 1
+					}`,
+				ExpectError: regexp.MustCompile(`Invalid Attribute Combination`),
+			},
+		},
+	})
 }

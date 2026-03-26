@@ -1,6 +1,6 @@
 # Timescale Terraform Provider
 
-The Terraform provider for [Timescale](https://www.timescale.com/cloud).
+The Terraform provider for [Timescale](https://www.tigerdata.com/cloud).
 
 ## Requirements
 

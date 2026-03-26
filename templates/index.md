@@ -1,5 +1,5 @@
 # Timescale Terraform Provider
-The Terraform provider for [Timescale](https://www.timescale.com/cloud).
+The Terraform provider for [Timescale](https://www.tigerdata.com/cloud).
 
 ## Requirements
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
@@ -7,10 +7,10 @@ The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 ## Quick Start
 
 ### Authorization
-When you log in to your [Timescale Account](https://console.cloud.timescale.com/), click on your project name on the upper left-hand side of the page and go to the `Project settings` page.
+When you log in to your [Timescale Account](https://console.cloud.tigerdata.com/), click on your project name on the upper left-hand side of the page and go to the `Project settings` page.
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
-Find more information on creating Client Credentials in the [Timescale docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
+Find more information on creating Client Credentials in the [Timescale docs](https://docs.tigerdata.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
 
 ### Project ID
 
@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.8"
+      version = "~> 2.9"
     }
   }
 }
@@ -143,7 +143,7 @@ terraform {
      required_providers {
           timescale = {
                source  = "timescale/timescale"
-               version = "~> 2.8"
+               version = "~> 2.9"
           }
      }
 }
@@ -214,10 +214,10 @@ resource "aws_vpc_peering_connection_accepter" "peer" {
 
 ### Storage
 Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
-See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
+See more info in our [blogpost](https://www.tigerdata.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
 
 ### Regions
-Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regions/) for a list of currently supported regions.
+Please reference the [docs](https://docs.tigerdata.com/use-timescale/latest/regions/) for a list of currently supported regions.
 
 ## Supported Operations
 ✅ Create service <br />

@@ -157,7 +157,7 @@ func getURL() string {
 	if value, ok := os.LookupEnv("TIMESCALE_DEV_URL"); ok {
 		return value
 	}
-	return "https://console.cloud.timescale.com/api/query"
+	return "https://console.cloud.tigerdata.com/api/query"
 }
 
 func getEnvInt(key string, defaultValue int) int {

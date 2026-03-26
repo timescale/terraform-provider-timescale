@@ -1,3 +1,8 @@
+## 2.9.0 (March 26, 2026)
+
+- Update API domain.
+
+
 ## 2.8.0 (January 23, 2026)
 
 FEATURES:

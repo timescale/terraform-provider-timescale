@@ -108,6 +108,32 @@ var (
 	GetS3ConnectorQuery string
 	//go:embed queries/connector_s3_delete.graphql
 	DeleteS3ConnectorMutation string
+
+	// PgSrc Connectors
+	//go:embed queries/pgsrc_create_ssh_tunnel.graphql
+	CreateSSHTunnelConfigMutation string
+	//go:embed queries/pgsrc_update_ssh_tunnel.graphql
+	UpdateSSHTunnelConfigMutation string
+	//go:embed queries/pgsrc_get_ssh_tunnel.graphql
+	GetSSHTunnelConfigQuery string
+	//go:embed queries/pgsrc_create_config.graphql
+	CreatePgSrcConfigMutation string
+	//go:embed queries/pgsrc_update_config.graphql
+	UpdatePgSrcConfigMutation string
+	//go:embed queries/pgsrc_get_config.graphql
+	GetPgSrcConfigQuery string
+	//go:embed queries/pgsrc_validate_config.graphql
+	ValidatePgSrcConfigMutation string
+	//go:embed queries/pgsrc_create_connector.graphql
+	CreatePgSrcConnectorMutation string
+	//go:embed queries/pgsrc_get_connector.graphql
+	GetPgSrcConnectorQuery string
+	//go:embed queries/pgsrc_update_connector.graphql
+	UpdatePgSrcConnectorMutation string
+	//go:embed queries/pgsrc_get_target_tables.graphql
+	GetPgSrcConnectorTargetTablesQuery string
+	//go:embed queries/pgsrc_delete_connector.graphql
+	DeletePgSrcConnectorMutation string
 )
 
 type Client struct {

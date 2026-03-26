@@ -1,0 +1,23 @@
+mutation CreateSSHTunnelConfig($projectId: String!, $name: String!, $username: String, $host: String, $port: Int) {
+    createSSHTunnelConfig(
+        data: {
+            projectId: $projectId
+            name: $name
+            username: $username
+            host: $host
+            port: $port
+        }
+    ) {
+        sshTunnelConfig {
+            sshTunnelId
+            projectId
+            name
+            publicKey
+            username
+            host
+            port
+            createdAt
+            updatedAt
+        }
+    }
+}

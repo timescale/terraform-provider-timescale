@@ -1,0 +1,20 @@
+query GetSSHTunnelConfig($projectId: String!, $sshTunnelId: String!) {
+    getSSHTunnelConfig(
+        data: {
+            projectId: $projectId
+            sshTunnelId: $sshTunnelId
+        }
+    ) {
+        sshTunnelConfig {
+            sshTunnelId
+            projectId
+            name
+            publicKey
+            username
+            host
+            port
+            createdAt
+            updatedAt
+        }
+    }
+}

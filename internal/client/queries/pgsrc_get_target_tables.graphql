@@ -1,0 +1,28 @@
+query GetPgSrcConnectorTargetTables($projectId: String!, $serviceId: String!, $connectorId: String!) {
+    getPgSrcConnectorTargetTables(
+        data: {
+            projectId: $projectId
+            serviceId: $serviceId
+            connectorId: $connectorId
+        }
+    ) {
+        tables {
+            table {
+                table {
+                    schemaName
+                    tableName
+                }
+                tableMapping {
+                    schemaName
+                    tableName
+                }
+            }
+            state
+            rowsCopied
+            bytesCopied
+            approximateRows
+            approximateSize
+            lastError
+        }
+    }
+}

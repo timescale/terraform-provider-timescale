@@ -1,0 +1,24 @@
+mutation UpdateSSHTunnelConfig($projectId: String!, $sshTunnelId: String!, $name: String, $username: String, $host: String, $port: Int) {
+    updateSSHTunnelConfig(
+        data: {
+            projectId: $projectId
+            sshTunnelId: $sshTunnelId
+            name: $name
+            username: $username
+            host: $host
+            port: $port
+        }
+    ) {
+        sshTunnelConfig {
+            sshTunnelId
+            projectId
+            name
+            publicKey
+            username
+            host
+            port
+            createdAt
+            updatedAt
+        }
+    }
+}

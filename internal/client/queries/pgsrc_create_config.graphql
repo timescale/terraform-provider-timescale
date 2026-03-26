@@ -1,0 +1,20 @@
+mutation CreatePgSrcConfig($projectId: String!, $name: String!, $connectionString: String!, $sshTunnelId: String) {
+    createPgSrcConfig(
+        data: {
+            projectId: $projectId
+            name: $name
+            connectionString: $connectionString
+            sshTunnelId: $sshTunnelId
+        }
+    ) {
+        sourceConfig {
+            sourceId
+            projectId
+            name
+            sshTunnelId
+            connectionString
+            createdAt
+            updatedAt
+        }
+    }
+}

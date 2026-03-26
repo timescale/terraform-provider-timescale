@@ -1,0 +1,14 @@
+mutation ValidateConnectorConfigPgSrc($projectId: String!, $serviceId: String!, $connectionString: String!, $sshTunnelId: String) {
+    validateConnectorConfigPgSrc(
+        data: {
+            projectId: $projectId
+            serviceId: $serviceId
+            connectionString: $connectionString
+            sshTunnelId: $sshTunnelId
+        }
+    ) {
+        valid
+        errors
+        warnings
+    }
+}

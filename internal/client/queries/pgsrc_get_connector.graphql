@@ -1,0 +1,26 @@
+query GetConnector($projectId: String!, $serviceId: String!, $connectorId: String!) {
+    getConnector(
+        data: {
+            projectId: $projectId
+            serviceId: $serviceId
+            connectorId: $connectorId
+        }
+    ) {
+        connector {
+            displayName
+            projectId
+            serviceId
+            state
+            stateMessage
+            created
+            pgsrc {
+                id
+                sourceConfigId
+                enabled
+                tableSyncWorkers
+                publicationNames
+                createdAt
+            }
+        }
+    }
+}

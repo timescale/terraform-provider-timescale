@@ -1,0 +1,18 @@
+query GetPgSrcConfig($projectId: String!, $sourceId: String!) {
+    getPgSrcConfig(
+        data: {
+            projectId: $projectId
+            sourceId: $sourceId
+        }
+    ) {
+        sourceConfig {
+            sourceId
+            projectId
+            name
+            sshTunnelId
+            connectionString
+            createdAt
+            updatedAt
+        }
+    }
+}

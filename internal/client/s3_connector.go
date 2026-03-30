@@ -126,19 +126,27 @@ type S3ConnectorUpdateRequest struct {
 
 // Response types.
 type CreateS3ConnectorResponse struct {
-	CreateS3LiveSync string `json:"createS3LiveSync"`
+	Connectors struct {
+		CreateS3LiveSync string `json:"createS3LiveSync"`
+	} `json:"connectors"`
 }
 
 type UpdateS3ConnectorResponse struct {
-	Connector *S3Connector `json:"updateS3LiveSync"`
+	Connectors struct {
+		Connector *S3Connector `json:"updateS3LiveSync"`
+	} `json:"connectors"`
 }
 
 type GetS3ConnectorResponse struct {
-	Connector *S3Connector `json:"getS3LiveSync"`
+	Connectors struct {
+		Connector *S3Connector `json:"getS3LiveSync"`
+	} `json:"connectors"`
 }
 
 type DeleteS3ConnectorResponse struct {
-	DeleteS3LiveSync string `json:"deleteS3LiveSync"`
+	Connectors struct {
+		DeleteS3LiveSync string `json:"deleteS3LiveSync"`
+	} `json:"connectors"`
 }
 
 // CreateS3Connector creates a new S3 connector (returns success only).
@@ -214,11 +222,11 @@ func (c *Client) UpdateS3Connector(ctx context.Context, id, projectID, serviceID
 	if len(resp.Errors) > 0 {
 		return nil, fmt.Errorf("API returned an error: %w", resp.Errors[0])
 	}
-	if resp.Data == nil || resp.Data.Connector == nil {
+	if resp.Data == nil || resp.Data.Connectors.Connector == nil {
 		return nil, errors.New("API response did not contain connector data")
 	}
 
-	return resp.Data.Connector, nil
+	return resp.Data.Connectors.Connector, nil
 }
 
 // GetS3Connector retrieves an S3 connector by ID.
@@ -242,11 +250,11 @@ func (c *Client) GetS3Connector(ctx context.Context, id, projectID, serviceID st
 	if len(resp.Errors) > 0 {
 		return nil, fmt.Errorf("API returned an error: %w", resp.Errors[0])
 	}
-	if resp.Data == nil || resp.Data.Connector == nil {
+	if resp.Data == nil || resp.Data.Connectors.Connector == nil {
 		return nil, errors.New("connector not found")
 	}
 
-	return resp.Data.Connector, nil
+	return resp.Data.Connectors.Connector, nil
 }
 
 // DeleteS3Connector deletes an S3 connector.

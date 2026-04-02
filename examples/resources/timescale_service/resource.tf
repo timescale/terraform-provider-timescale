@@ -2,7 +2,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.9"
+      version = "~> 2.10"
     }
   }
 }
@@ -34,9 +34,16 @@ resource "timescale_service" "test" {
   region_code = "us-east-1"
 }
 
-# Read replica
+# Read replica (single node, default)
 resource "timescale_service" "read_replica" {
   read_replica_source = timescale_service.test.id
+}
+
+# Read replica with multiple nodes (1-10)
+resource "timescale_service" "read_replica_multi" {
+  name                = "multi-node-replica"
+  read_replica_source = timescale_service.test.id
+  read_replica_nodes  = 3
 }
 
 # Service with write-only password (Terraform 1.11+)

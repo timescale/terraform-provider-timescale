@@ -35,19 +35,20 @@ var _ resource.Resource = &serviceResource{}
 var _ resource.ResourceWithImportState = &serviceResource{}
 
 const (
-	ErrCreateTimeout            = "Error waiting for service creation"
-	ErrUpdateService            = "Error updating service"
-	ErrInvalidAttribute         = "Invalid Attribute Value"
-	errReplicaFromFork          = "cannot create a read replica from a read replica or fork"
-	errReplicaWithHA            = "cannot create a read replica with HA enabled"
-	errUpdateReplicaSource      = "cannot update read replica source"
-	errAttachExporter           = "error attaching exporter to service"
-	errDetachExporter           = "error detaching exporter form service"
-	errHAFieldConflict          = "cannot set enable_ha_replica as false together with ha_replicas > 0"
-	errHAFieldConflict2         = "cannot set enable_ha_replica as true together with ha_replicas = 0"
-	errSyncReplicaInvalidConfig = "sync_replicas can only be 1 when ha_replicas = 2"
-	DefaultMilliCPU             = 500
-	DefaultMemoryGB             = 2
+	ErrCreateTimeout              = "Error waiting for service creation"
+	ErrUpdateService              = "Error updating service"
+	ErrInvalidAttribute           = "Invalid Attribute Value"
+	errReplicaFromFork            = "cannot create a read replica from a read replica or fork"
+	errReplicaWithHA              = "cannot create a read replica with HA enabled"
+	errUpdateReplicaSource        = "cannot update read replica source"
+	errAttachExporter             = "error attaching exporter to service"
+	errDetachExporter             = "error detaching exporter form service"
+	errHAFieldConflict            = "cannot set enable_ha_replica as false together with ha_replicas > 0"
+	errHAFieldConflict2           = "cannot set enable_ha_replica as true together with ha_replicas = 0"
+	errSyncReplicaInvalidConfig   = "sync_replicas can only be 1 when ha_replicas = 2"
+	errReadReplicaNodesWithoutSrc = "read_replica_nodes can only be set when read_replica_source is specified"
+	DefaultMilliCPU               = 500
+	DefaultMemoryGB               = 2
 )
 
 var (
@@ -88,6 +89,7 @@ type serviceResourceModel struct {
 	SyncReplicas            types.Int64    `tfsdk:"sync_replicas"`
 	Paused                  types.Bool     `tfsdk:"paused"`
 	ReadReplicaSource       types.String   `tfsdk:"read_replica_source"`
+	ReadReplicaNodes        types.Int64    `tfsdk:"read_replica_nodes"`
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
@@ -178,6 +180,18 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
 				Description:         "If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider",
 				Optional:            true,
+			},
+			"read_replica_nodes": schema.Int64Attribute{
+				MarkdownDescription: "Number of read replica nodes (1-10). Only applicable when read_replica_source is set. Defaults to 1.",
+				Description:         "Number of read replica nodes (1-10). Only applicable when read_replica_source is set. Defaults to 1.",
+				Optional:            true,
+				Computed:            true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.Int64{
+					int64validator.Between(1, 10),
+				},
 			},
 			"storage_gb": schema.Int64Attribute{
 				MarkdownDescription: "Deprecated: Storage GB",
@@ -397,6 +411,12 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
+	// Validate read_replica_nodes is only used with read_replica_source
+	if !plan.ReadReplicaNodes.IsNull() && !plan.ReadReplicaNodes.IsUnknown() && plan.ReadReplicaSource.ValueString() == "" {
+		resp.Diagnostics.AddError(ErrInvalidAttribute, errReadReplicaNodesWithoutSrc)
+		return
+	}
+
 	var replicaCount, syncReplicaCount int64
 	if !plan.HAReplicas.IsNull() {
 		// Use the new ha_replicas field
@@ -445,6 +465,13 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		if len(primary.Resources) > 0 {
 			request.StorageGB = strconv.FormatInt(primary.Resources[0].Spec.StorageGB, 10)
 		}
+		// Set replica count based on read_replica_nodes (API expects nodes - 1)
+		readReplicaNodes := plan.ReadReplicaNodes.ValueInt64()
+		if readReplicaNodes == 0 {
+			readReplicaNodes = 1 // Default to 1 node
+		}
+		request.ReplicaCount = strconv.FormatInt(readReplicaNodes-1, 10)
+		request.SyncReplicaCount = "0" // Read replicas don't support sync replicas
 	}
 
 	if !plan.VpcID.IsNull() {
@@ -688,6 +715,12 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	// Validate read_replica_nodes is only used with read_replica_source
+	if !plan.ReadReplicaNodes.IsNull() && !plan.ReadReplicaNodes.IsUnknown() && readReplicaSource == "" {
+		resp.Diagnostics.AddError(ErrInvalidAttribute, errReadReplicaNodesWithoutSrc)
+		return
+	}
+
 	if plan.Paused != state.Paused {
 		status := "ACTIVE"
 		if plan.Paused.ValueBool() {
@@ -736,10 +769,24 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		planSyncReplicaCount = 0
 	}
 
-	// Update the replica count if it has changed
-	if planReplicaCount != stateReplicaCount || planSyncReplicaCount != stateSyncReplicaCount {
+	// Update the replica count if it has changed (for non-read-replica services)
+	if readReplicaSource == "" && (planReplicaCount != stateReplicaCount || planSyncReplicaCount != stateSyncReplicaCount) {
 		if err := r.client.SetReplicaCount(ctx, serviceID, int(planReplicaCount), int(planSyncReplicaCount)); err != nil {
 			resp.Diagnostics.AddError("Failed to update HA replicas", err.Error())
+			return
+		}
+	}
+
+	// Read Replica Nodes ////////////////////////////////////////
+	// For read replicas, update the replica count based on read_replica_nodes
+	if readReplicaSource != "" && !plan.ReadReplicaNodes.Equal(state.ReadReplicaNodes) {
+		readReplicaNodes := plan.ReadReplicaNodes.ValueInt64()
+		if readReplicaNodes == 0 {
+			readReplicaNodes = 1 // Default to 1 node
+		}
+		// API expects nodes - 1
+		if err := r.client.SetReplicaCount(ctx, serviceID, int(readReplicaNodes-1), 0); err != nil {
+			resp.Diagnostics.AddError("Failed to update read replica nodes", err.Error())
 			return
 		}
 	}
@@ -899,6 +946,20 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	replicaCount := s.Resources[0].Spec.ReplicaCount
 	syncReplicaCount := s.Resources[0].Spec.SyncReplicaCount
 
+	// Check if this is a read replica
+	isReadReplica := s.ForkSpec != nil && s.ForkSpec.IsStandby
+
+	// For read replicas, replicaCount is used for read_replica_nodes, not HA
+	// For normal services, replicaCount is used for ha_replicas
+	var haReplicas, readReplicaNodes types.Int64
+	if isReadReplica {
+		haReplicas = types.Int64Value(0)
+		readReplicaNodes = types.Int64Value(replicaCount + 1)
+	} else {
+		haReplicas = types.Int64Value(replicaCount)
+		readReplicaNodes = types.Int64Null()
+	}
+
 	model := serviceResourceModel{
 		ID:                      types.StringValue(s.ID),
 		Password:                state.Password,
@@ -910,10 +971,11 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		Username:                types.StringValue(s.ServiceSpec.Username),
 		RegionCode:              types.StringValue(s.RegionCode),
 		Timeouts:                state.Timeouts,
-		HAReplicas:              types.Int64Value(replicaCount),
+		HAReplicas:              haReplicas,
 		SyncReplicas:            types.Int64Value(syncReplicaCount),
 		Paused:                  types.BoolValue(s.Status == "PAUSED" || s.Status == "PAUSING"),
 		ReadReplicaSource:       state.ReadReplicaSource,
+		ReadReplicaNodes:        readReplicaNodes,
 		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
 		EnableHAReplica:         types.BoolNull(),
 		Hostname:                types.StringNull(),
@@ -926,7 +988,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 
 	// If the user was using the deprecated has_ha_replica field, populate it from the API for backwards compatibility
 	if !state.EnableHAReplica.IsNull() {
-		if replicaCount > 0 {
+		if haReplicas.ValueInt64() > 0 {
 			model.EnableHAReplica = types.BoolValue(true)
 		} else {
 			model.EnableHAReplica = types.BoolValue(false)
@@ -945,7 +1007,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 	} else {
 		model.EnvironmentTag = types.StringNull()
 	}
-	if s.ForkSpec != nil && s.ForkSpec.IsStandby {
+	if isReadReplica {
 		model.ReadReplicaSource = types.StringValue(s.ForkSpec.ServiceID)
 	}
 

@@ -1,0 +1,46 @@
+query GetPgSrcConnectorTargetTables($projectId: String!, $serviceId: String!, $connectorId: String!) {
+    connectors {
+        getPgSrcConnectorTargetTables(
+            data: {
+                projectId: $projectId
+                serviceId: $serviceId
+                connectorId: $connectorId
+            }
+        ) {
+            tables {
+                table {
+                    table {
+                        schemaName
+                        tableName
+                    }
+                    tableMapping {
+                        schemaName
+                        tableName
+                    }
+                    hypertableSpec {
+                        primaryDimension {
+                            columnName
+                            partitionInterval
+                        }
+                        secondaryDimensions {
+                            range {
+                                columnName
+                                partitionInterval
+                            }
+                            hash {
+                                columnName
+                                numberPartitions
+                            }
+                        }
+                    }
+                }
+                state
+                rowsCopied
+                bytesCopied
+                approximateRows
+                approximateSize
+                lastError
+            }
+        }
+    }
+}

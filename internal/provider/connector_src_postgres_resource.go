@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
@@ -250,6 +252,12 @@ func (r *connectorSrcPostgresResource) Schema(_ context.Context, _ resource.Sche
 									Optional:            true,
 									MarkdownDescription: "Optional secondary dimensions for the hypertable.",
 									NestedObject: schema.NestedAttributeObject{
+										Validators: []validator.Object{
+											objectvalidator.ExactlyOneOf(
+												path.MatchRelative().AtName("range"),
+												path.MatchRelative().AtName("hash"),
+											),
+										},
 										Attributes: map[string]schema.Attribute{
 											"range": schema.SingleNestedAttribute{
 												Optional:            true,
@@ -390,12 +398,12 @@ func (r *connectorSrcPostgresResource) Create(ctx context.Context, req resource.
 		_, err = r.client.UpdatePgSrcConnector(ctx, serviceID, connectorID, *updateOpts)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to configure connector", err.Error())
-			// Cleanup: delete the partially configured connector
-			deleteErr := r.client.DeletePgSrcConnector(ctx, serviceID, connectorID)
-			if deleteErr != nil {
+			// Attempt to clean up the partially configured connector.
+			// Orphaned source configs and SSH tunnels are cleaned up automatically by the control plane.
+			if cleanupErr := r.client.DeletePgSrcConnector(ctx, serviceID, connectorID); cleanupErr != nil {
 				resp.Diagnostics.AddError(
 					"Connector was created but failed to be configured. Cleanup failed. Connector exists in inconsistent state and needs to be manually deleted",
-					deleteErr.Error(),
+					cleanupErr.Error(),
 				)
 			}
 			return
@@ -467,12 +475,13 @@ func (r *connectorSrcPostgresResource) Update(ctx context.Context, req resource.
 	serviceID := plan.ServiceID.ValueString()
 	connectorID := state.ID.ValueString()
 	sourceID := state.SourceID.ValueString()
-	sshTunnelID := ""
 
-	// Step 1: Handle SSH tunnel changes
-	if state.SSHTunnel != nil {
-		sshTunnelID = state.SSHTunnel.SSHTunnelID.ValueString()
-	}
+	// Step 1: Handle SSH tunnel changes.
+	// sshTunnelIDUpdate tracks whether to update the tunnel link on the source config:
+	//   nil    = no change (don't send sshTunnelId to the API)
+	//   &""    = unlink (send empty string to clear)
+	//   &uuid  = link to this tunnel
+	var sshTunnelIDUpdate *string
 
 	if plan.SSHTunnel != nil && state.SSHTunnel == nil {
 		// SSH tunnel added
@@ -487,13 +496,13 @@ func (r *connectorSrcPostgresResource) Update(ctx context.Context, req resource.
 			resp.Diagnostics.AddError("Unable to create SSH tunnel config", err.Error())
 			return
 		}
-		sshTunnelID = tunnel.SSHTunnelID
+		sshTunnelIDUpdate = &tunnel.SSHTunnelID
 	} else if plan.SSHTunnel != nil && state.SSHTunnel != nil {
-		// SSH tunnel changed
-		sshTunnelID = state.SSHTunnel.SSHTunnelID.ValueString()
+		// SSH tunnel fields changed — update the tunnel config itself
+		tunnelID := state.SSHTunnel.SSHTunnelID.ValueString()
 		_, err := r.client.UpdateSSHTunnelConfig(
 			ctx,
-			sshTunnelID,
+			tunnelID,
 			plan.SSHTunnel.Name.ValueString(),
 			plan.SSHTunnel.Username.ValueString(),
 			plan.SSHTunnel.Host.ValueString(),
@@ -503,24 +512,37 @@ func (r *connectorSrcPostgresResource) Update(ctx context.Context, req resource.
 			resp.Diagnostics.AddError("Unable to update SSH tunnel config", err.Error())
 			return
 		}
+		// Tunnel ID hasn't changed, no need to update the source config link
 	} else if plan.SSHTunnel == nil && state.SSHTunnel != nil {
-		// SSH tunnel removed - unlink from source config
-		sshTunnelID = ""
+		// SSH tunnel removed — unlink from source config
+		empty := ""
+		sshTunnelIDUpdate = &empty
 	}
 
-	// Step 2: Update PgSrc config if connection_string, name, or sshTunnelId changed
-	configChanged := plan.Name.ValueString() != state.Name.ValueString() ||
-		plan.ConnectionString.ValueString() != state.ConnectionString.ValueString() ||
-		(plan.SSHTunnel == nil) != (state.SSHTunnel == nil) ||
-		(plan.SSHTunnel != nil && state.SSHTunnel == nil)
+	// Step 2: Update PgSrc config if connection_string, name, or sshTunnelId changed.
+	// Only send fields that actually changed — the API validates the connection string
+	// with SSH when connectionString is present, which would fail if the tunnel key
+	// hasn't been injected into the bastion yet.
+	nameChanged := plan.Name.ValueString() != state.Name.ValueString()
+	connStringChanged := plan.ConnectionString.ValueString() != state.ConnectionString.ValueString()
+	configChanged := nameChanged || connStringChanged || sshTunnelIDUpdate != nil
 
 	if configChanged {
+		name := ""
+		if nameChanged {
+			name = plan.Name.ValueString()
+		}
+		connectionString := ""
+		if connStringChanged {
+			connectionString = plan.ConnectionString.ValueString()
+		}
+
 		_, err := r.client.UpdatePgSrcConfig(
 			ctx,
 			sourceID,
-			plan.Name.ValueString(),
-			plan.ConnectionString.ValueString(),
-			sshTunnelID,
+			name,
+			connectionString,
+			sshTunnelIDUpdate,
 		)
 		if err != nil {
 			resp.Diagnostics.AddError("Unable to update PostgreSQL source config", err.Error())
@@ -538,6 +560,16 @@ func (r *connectorSrcPostgresResource) Update(ctx context.Context, req resource.
 		len(addTables) > 0 || len(dropTables) > 0
 
 	if connectorChanged {
+		// Drop tables first in a separate call so the API doesn't see an add for a table
+		// that still exists (e.g. when a table is reconfigured via drop + re-add).
+		if len(dropTables) > 0 {
+			dropOpts := tsClient.UpdatePgSrcConnectorOpts{DropTables: dropTables}
+			if _, err := r.client.UpdatePgSrcConnector(ctx, serviceID, connectorID, dropOpts); err != nil {
+				resp.Diagnostics.AddError("Unable to drop tables from connector", err.Error())
+				return
+			}
+		}
+
 		opts := tsClient.UpdatePgSrcConnectorOpts{}
 		displayName := plan.DisplayName.ValueString()
 		opts.DisplayName = &displayName
@@ -549,9 +581,6 @@ func (r *connectorSrcPostgresResource) Update(ctx context.Context, req resource.
 			opts.TableSyncWorkers = &workers
 		}
 
-		if len(dropTables) > 0 {
-			opts.DropTables = dropTables
-		}
 		if len(addTables) > 0 {
 			opts.AddTables = addTables
 		}
@@ -591,6 +620,8 @@ func (r *connectorSrcPostgresResource) Delete(ctx context.Context, req resource.
 		return
 	}
 
+	// Only delete the connector itself. Orphaned source configs and SSH tunnel configs
+	// are cleaned up automatically by the control plane's background cleaner.
 	err := r.client.DeletePgSrcConnector(ctx, state.ServiceID.ValueString(), state.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error deleting connector", err.Error())
@@ -625,6 +656,13 @@ func (r *connectorSrcPostgresResource) ModifyPlan(ctx context.Context, req resou
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// When SSH tunnel is being added, mark computed fields as unknown since they'll
+	// be populated by the API after creation.
+	if plan.SSHTunnel != nil && state.SSHTunnel == nil {
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("ssh_tunnel").AtName("ssh_tunnel_id"), types.StringUnknown())...)
+		resp.Diagnostics.Append(resp.Plan.SetAttribute(ctx, path.Root("ssh_tunnel").AtName("public_key"), types.StringUnknown())...)
 	}
 
 	// Warn about tables being dropped

@@ -262,11 +262,16 @@ func (c *Client) UpdateSSHTunnelConfig(ctx context.Context, sshTunnelID, name, u
 	if name != "" {
 		variables["name"] = name
 	}
+	// Send nil to allow clearing optional fields that were previously set.
 	if username != "" {
 		variables["username"] = username
+	} else {
+		variables["username"] = nil
 	}
 	if host != "" {
 		variables["host"] = host
+	} else {
+		variables["host"] = nil
 	}
 	if port > 0 {
 		variables["port"] = port
@@ -350,7 +355,11 @@ func (c *Client) CreatePgSrcConfig(ctx context.Context, name, connectionString, 
 	return resp.Data.Connectors.CreatePgSrcConfig.SourceConfig, nil
 }
 
-func (c *Client) UpdatePgSrcConfig(ctx context.Context, sourceID, name, connectionString, sshTunnelID string) (*PgSrcConfig, error) {
+// UpdatePgSrcConfig updates a PostgreSQL source configuration.
+// All string fields use empty-string-means-skip semantics (the API uses nullable fields).
+// sshTunnelID follows pointer semantics: nil means "don't change", non-nil means "set to this value"
+// (where an empty string clears the tunnel link).
+func (c *Client) UpdatePgSrcConfig(ctx context.Context, sourceID, name, connectionString string, sshTunnelID *string) (*PgSrcConfig, error) {
 	tflog.Trace(ctx, "Client.UpdatePgSrcConfig")
 
 	variables := map[string]any{
@@ -363,8 +372,12 @@ func (c *Client) UpdatePgSrcConfig(ctx context.Context, sourceID, name, connecti
 	if connectionString != "" {
 		variables["connectionString"] = connectionString
 	}
-	if sshTunnelID != "" {
-		variables["sshTunnelId"] = sshTunnelID
+	if sshTunnelID != nil {
+		if *sshTunnelID != "" {
+			variables["sshTunnelId"] = *sshTunnelID
+		} else {
+			variables["sshTunnelId"] = ""
+		}
 	}
 
 	request := map[string]any{

@@ -1,0 +1,31 @@
+mutation UpdateConnectorV2($projectId: String!, $serviceId: String!, $connectorId: String!, $displayName: String, $enabled: Boolean, $pgsrc: UpdatePgSrcSpecInput) {
+    connectors {
+        updateConnectorV2(
+            data: {
+                projectId: $projectId
+                serviceId: $serviceId
+                connectorId: $connectorId
+                displayName: $displayName
+                enabled: $enabled
+                pgsrc: $pgsrc
+            }
+        ) {
+            connector {
+                displayName
+                projectId
+                serviceId
+                state
+                stateMessage
+                created
+                pgsrc {
+                    id
+                    sourceConfigId
+                    enabled
+                    tableSyncWorkers
+                    publicationNames
+                    createdAt
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+mutation DeleteConnector($projectId: String!, $serviceId: String!, $connectorId: String!) {
+    connectors {
+        deleteConnector(
+            data: {
+                projectId: $projectId
+                serviceId: $serviceId
+                connectorId: $connectorId
+            }
+        ) {
+            success
+        }
+    }
+}

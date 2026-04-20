@@ -111,6 +111,7 @@ resource "timescale_service" "secure" {
 - `password_wo` (String, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Write-only alternative to `password`. The value will **not** be stored in Terraform state. Conflicts with `password`. Requires Terraform 1.11+.
 - `password_wo_version` (Number) A version number for `password_wo`. Incrementing this value will trigger a password update on the next apply.
 - `paused` (Boolean) Paused status of the service.
+- `private_endpoint_connection_ids` (Set of String) The set of Private Endpoint Connection IDs to attach this service to.
 - `read_replica_nodes` (Number) Number of read replica nodes (1-10). Only applicable when read_replica_source is set. Defaults to 1.
 - `read_replica_source` (String) If set, this database will be a read replica of the provided source database. The region must be the same as the source, or if omitted will be handled by the provider
 - `region_code` (String) The region for this service.

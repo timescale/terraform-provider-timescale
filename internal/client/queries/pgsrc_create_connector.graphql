@@ -1,0 +1,34 @@
+mutation CreateConnector($projectId: String!, $serviceId: String!, $displayName: String!, $sourceConfigId: String!) {
+    connectors {
+        createConnector(
+            data: {
+                projectId: $projectId
+                serviceId: $serviceId
+                displayName: $displayName
+                spec: {
+                    pgsrc: {
+                        sourceConfigId: $sourceConfigId
+                    }
+                }
+            }
+        ) {
+            id
+            connector {
+                displayName
+                projectId
+                serviceId
+                state
+                stateMessage
+                created
+                pgsrc {
+                    id
+                    sourceConfigId
+                    enabled
+                    tableSyncWorkers
+                    publicationNames
+                    createdAt
+                }
+            }
+        }
+    }
+}

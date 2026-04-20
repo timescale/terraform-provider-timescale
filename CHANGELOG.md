@@ -1,3 +1,13 @@
+## 2.10.0 (April 2, 2026)
+
+- Add support for read replica sets nodes.
+
+
+## 2.9.0 (March 26, 2026)
+
+- Update API domain.
+
+
 ## 2.8.0 (January 23, 2026)
 
 FEATURES:

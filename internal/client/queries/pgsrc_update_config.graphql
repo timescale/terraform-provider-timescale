@@ -1,0 +1,23 @@
+mutation UpdatePgSrcConfig($projectId: String!, $sourceId: String!, $name: String, $connectionString: String, $sshTunnelId: String) {
+    connectors {
+        updatePgSrcConfig(
+            data: {
+                projectId: $projectId
+                sourceId: $sourceId
+                name: $name
+                connectionString: $connectionString
+                sshTunnelId: $sshTunnelId
+            }
+        ) {
+            sourceConfig {
+                sourceId
+                projectId
+                name
+                sshTunnelId
+                connectionString
+                createdAt
+                updatedAt
+            }
+        }
+    }
+}

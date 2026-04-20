@@ -1,5 +1,5 @@
 # Timescale Terraform Provider
-The Terraform provider for [Timescale](https://www.timescale.com/cloud).
+The Terraform provider for [TigerData](https://www.tigerdata.com/cloud).
 
 ## Requirements
 - [Terraform](https://www.terraform.io/downloads.html) >= 1.0
@@ -7,10 +7,10 @@ The Terraform provider for [Timescale](https://www.timescale.com/cloud).
 ## Quick Start
 
 ### Authorization
-When you log in to your [Timescale Account](https://console.cloud.timescale.com/), click on your project name on the upper left-hand side of the page and go to the `Project settings` page.
+When you log in to your [TigerData Account](https://console.cloud.tigerdata.com/), click on your project name on the upper left-hand side of the page and go to the `Project settings` page.
 From here, you can create client credentials for programmatic usage. Click the `Create credentials` button to generate a new public/secret key pair.
 
-Find more information on creating Client Credentials in the [Timescale docs](https://docs.timescale.com/use-timescale/latest/security/client-credentials/#creating-client-credentials).
+Find more information on creating Client Credentials in the [TigerData docs](https://www.tigerdata.com/docs/use-timescale/latest/security/client-credentials#creating-client-credentials).
 
 ### Project ID
 
@@ -23,13 +23,13 @@ To view the project ID, click on your project name on the upper left-hand side o
 > [!NOTE]  
 > The example file creates:
 >  * A single instance called `tf-test` that contains:
->    * 0.5 CPUs
+     >    * 0.5 CPUs
 >    * 2GB of RAM
 >    * the region set to `us-west-2`
 >    * an HA replica
 >    * the connection pooler enabled
 >  * Outputs to display the connection info for:
->    * the primary hostname and port
+     >    * the primary hostname and port
 >    * the ha-replica hostname and port
 >    * the pooler hostname and port
 
@@ -39,13 +39,13 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.8"
+      version = "~> 2.10"
     }
   }
 }
 
 # Authenticate using client credentials.
-# They are issued through the Timescale UI.
+# They are issued through the TigerData UI.
 # When required, they will exchange for a short-lived JWT to do the calls.
 provider "timescale" {
   project_id = var.ts_project_id
@@ -130,44 +130,44 @@ terraform plan --var-file=secrets.tfvars
 
 > [!NOTE]  
 > The example file creates:
->  * A Timescale VPC with name `tf-test` in `us-east-1`
+>  * A TigerData VPC with name `tf-test` in `us-east-1`
 >  * An AWS VPC in eu-central-1
 >  * A Peering connection between them (request and accept automatically)
-> 
+>
 > IMPORTANT: Update region, account ID and CIDRs as needed
 
 Create a `main.tf` configuration file with the following content.
 
 ```hcl
 terraform {
-     required_providers {
-          timescale = {
-               source  = "timescale/timescale"
-               version = "~> 2.8"
-          }
-     }
+  required_providers {
+    timescale = {
+      source  = "timescale/timescale"
+      version = "~> 2.10"
+    }
+  }
 }
 
 # Authenticate using client credentials.
-# They are issued through the Timescale UI.
+# They are issued through the TigerData UI.
 # When required, they will exchange for a short-lived JWT to do the calls.
 provider "timescale" {
-     project_id = var.ts_project_id
-     access_key = var.ts_access_key
-     secret_key = var.ts_secret_key
+  project_id = var.ts_project_id
+  access_key = var.ts_access_key
+  secret_key = var.ts_secret_key
 }
 
 variable "ts_project_id" {
-     type = string
+  type = string
 }
 
 variable "ts_access_key" {
-     type = string
+  type = string
 }
 
 variable "ts_secret_key" {
-     type      = string
-     sensitive = true
+  type      = string
+  sensitive = true
 }
 
 resource "timescale_vpcs" "ts-test" {
@@ -186,7 +186,7 @@ resource "aws_vpc" "main" {
   cidr_block = "11.0.0.0/24"
 }
 
-# Requester's side of the peering connection (Timescale).
+# Requester's side of the peering connection (TigerData).
 resource "timescale_peering_connection" "peer" {
   peer_account_id  = "000000000000"
   peer_region_code = "eu-central-1"
@@ -214,10 +214,10 @@ resource "aws_vpc_peering_connection_accepter" "peer" {
 
 ### Storage
 Since June 2023, you no longer need to allocate a fixed storage volume or worry about managing your disk size, and you'll be billed only for the storage you actually use.
-See more info in our [blogpost](https://www.timescale.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
+See more info in our [blogpost](https://www.tigerdata.com/blog/savings-unlocked-why-we-switched-to-a-pay-for-what-you-store-database-storage-model/)
 
 ### Regions
-Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regions/) for a list of currently supported regions.
+Please reference the [docs](https://docs.tigerdata.com/use-timescale/latest/regions/) for a list of currently supported regions.
 
 ## Supported Operations
 ✅ Create service <br />
@@ -227,7 +227,7 @@ Please reference the [docs](https://docs.timescale.com/use-timescale/latest/regi
 ✅ Delete service <br />
 ✅ Import service <br />
 ✅ Enable High Availability replicas (all modes supported) <br />
-✅ Enable read replicas <br />
+✅ Create Read Replicas Sets with multiple nodes <br />
 ✅ VPC peering <br />
 ✅ AWS Transit Gateway peering <br />
 ✅ Connection pooling <br />

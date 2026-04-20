@@ -17,7 +17,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.8"
+      version = "~> 2.10"
     }
     aws = {
       source  = "hashicorp/aws"

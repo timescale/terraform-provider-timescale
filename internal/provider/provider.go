@@ -56,7 +56,7 @@ func (p *timescaleProvider) Metadata(ctx context.Context, _ provider.MetadataReq
 func (p *timescaleProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	tflog.Trace(ctx, "TimescaleProvider.Schema")
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "The Terraform provider for [Timescale](https://console.cloud.timescale.com/).",
+		MarkdownDescription: "The Terraform provider for [Timescale](https://console.cloud.tigerdata.com/).",
 		Attributes: map[string]schema.Attribute{
 			"access_token": schema.StringAttribute{
 				MarkdownDescription: "Access Token",
@@ -151,5 +151,6 @@ func (p *timescaleProvider) Resources(ctx context.Context) []func() resource.Res
 		NewConnectorS3Resource,
 		NewPrivateLinkConnectionResource,
 		NewPrivateLinkAuthorizationResource,
+		NewConnectorSrcPostgresResource,
 	}
 }

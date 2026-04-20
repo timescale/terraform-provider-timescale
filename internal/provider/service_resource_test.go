@@ -245,6 +245,74 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 	})
 }
 
+func TestServiceResource_Read_Replica_Nodes(t *testing.T) {
+	const (
+		primaryName = "primary"
+		replicaName = "read_replica"
+		primaryFQID = "timescale_service." + primaryName
+		replicaFQID = "timescale_service." + replicaName
+	)
+	var (
+		primaryConfig = &ServiceConfig{
+			ResourceName: primaryName,
+			Name:         "primary-for-read-replica",
+		}
+		replicaConfig = &ServiceConfig{
+			ResourceName:      replicaName,
+			ReadReplicaSource: primaryFQID + ".id",
+			MilliCPU:          500,
+			MemoryGB:          2,
+		}
+	)
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			// Create read replica with 2 nodes
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithReadReplicaNodes(2)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(replicaFQID, "id"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "hostname"),
+					resource.TestCheckResourceAttr(replicaFQID, "read_replica_nodes", "2"),
+					resource.TestCheckResourceAttrSet(replicaFQID, "read_replica_source"),
+				),
+			},
+			// Scale up to 3 nodes
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithReadReplicaNodes(3)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "read_replica_nodes", "3"),
+				),
+			},
+			// Scale down to 1 node
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithReadReplicaNodes(1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "read_replica_nodes", "1"),
+				),
+			},
+		},
+	})
+}
+
+func TestServiceResource_Read_Replica_Nodes_Validation(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			// Error: read_replica_nodes without read_replica_source
+			{
+				Config: getServiceConfig(t, (&ServiceConfig{
+					Name:         "test-replica-nodes-no-source",
+					ResourceName: "resource",
+				}).WithReadReplicaNodes(2)),
+				ExpectError: regexp.MustCompile(errReadReplicaNodesWithoutSrc),
+			},
+		},
+	})
+}
+
 func TestServiceResource_HA_Validation(t *testing.T) {
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -497,9 +565,12 @@ type ServiceConfig struct {
 	SyncReplicas      *int64
 	VpcID             int64
 	ReadReplicaSource string
+	ReadReplicaNodes  *int64
 	Pooler            bool
 	Environment       string
 	Password          string
+	PasswordWo        string
+	PasswordWoVersion *int64
 	MetricExporterID  string
 	LogExporterID     string
 }
@@ -569,6 +640,17 @@ func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
 	return c
 }
 
+func (c *ServiceConfig) WithReadReplicaNodes(nodes int64) *ServiceConfig {
+	c.ReadReplicaNodes = &nodes
+	return c
+}
+
+func (c *ServiceConfig) WithPasswordWo(password string, version int64) *ServiceConfig {
+	c.PasswordWo = password
+	c.PasswordWoVersion = &version
+	return c
+}
+
 func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -583,6 +665,9 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.ReadReplicaSource != "" {
 		write("read_replica_source = %s \n", c.ReadReplicaSource)
+	}
+	if c.ReadReplicaNodes != nil {
+		write("read_replica_nodes = %d \n", *c.ReadReplicaNodes)
 	}
 	if c.EnableHAReplica != nil {
 		write("enable_ha_replica = %t \n", *c.EnableHAReplica)
@@ -610,6 +695,12 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.LogExporterID != "" {
 		write("log_exporter_id = %s \n", c.LogExporterID)
+	}
+	if c.PasswordWo != "" {
+		write("password_wo = %q \n", c.PasswordWo)
+	}
+	if c.PasswordWoVersion != nil {
+		write("password_wo_version = %d \n", *c.PasswordWoVersion)
 	}
 	write(`
 			milli_cpu  = %d
@@ -642,4 +733,50 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 		res.WriteString(cfg.String(t))
 	}
 	return res.String()
+}
+
+func TestServiceResource_WriteOnlyPassword(t *testing.T) {
+	config := &ServiceConfig{
+		Name:         "tf-wo-pw-test",
+		ResourceName: "wo_password",
+	}
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: getServiceConfig(t, config.WithPasswordWo("initial-password-123", 1)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("timescale_service.wo_password", "id"),
+					resource.TestCheckResourceAttrSet("timescale_service.wo_password", "hostname"),
+					resource.TestCheckResourceAttr("timescale_service.wo_password", "password_wo_version", "1"),
+				),
+			},
+			{
+				Config: getServiceConfig(t, config.WithPasswordWo("updated-password-456", 2)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.wo_password", "password_wo_version", "2"),
+				),
+			},
+		},
+	})
+}
+
+func TestServiceResource_PasswordConflict(t *testing.T) {
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + `
+					resource "timescale_service" "conflict" {
+						name                = "tf-pw-conflict-test"
+						password            = "test123456789"
+						password_wo         = "test456789012"
+						password_wo_version = 1
+					}`,
+				ExpectError: regexp.MustCompile(`Invalid Attribute Combination`),
+			},
+		},
+	})
 }

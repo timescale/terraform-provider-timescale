@@ -175,6 +175,36 @@ resource "aws_security_group" "vm" {
   }
 }
 
+resource "aws_security_group" "endpoint" {
+  name_prefix = "${var.resource_prefix}-vpce-"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  ingress {
+    from_port   = 6432
+    to_port     = 6432
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.resource_prefix}-vpce-sg"
+  }
+}
+
 # =============================================================================
 # Timescale Private Link Authorization
 # =============================================================================
@@ -194,10 +224,11 @@ resource "timescale_privatelink_authorization" "main" {
 resource "aws_vpc_endpoint" "timescale" {
   count = var.enable_private_link ? 1 : 0
 
-  vpc_id            = aws_vpc.main.id
-  service_name      = local.vpc_endpoint_service_name
-  vpc_endpoint_type = "GatewayLoadBalancer"
-  subnet_ids        = [aws_subnet.endpoint.id]
+  vpc_id             = aws_vpc.main.id
+  service_name       = local.vpc_endpoint_service_name
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [aws_subnet.endpoint.id]
+  security_group_ids = [aws_security_group.endpoint.id]
 
   tags = {
     Name = "${var.resource_prefix}-vpce"
@@ -241,12 +272,14 @@ resource "timescale_privatelink_connection" "main" {
 # =============================================================================
 
 resource "timescale_service" "main" {
-  name        = "${var.resource_prefix}-db"
-  milli_cpu   = 500
-  memory_gb   = 2
-  region_code = var.timescale_region
+  name                      = "${var.resource_prefix}-db"
+  milli_cpu                 = 500
+  memory_gb                 = 2
+  region_code               = var.timescale_region
+  password                  = "TestPassword123!"
+  connection_pooler_enabled = true
 
-  private_endpoint_connection_id = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : null
+  private_endpoint_connection_ids = var.enable_private_link ? [timescale_privatelink_connection.main[0].connection_id] : []
 }
 
 # =============================================================================
@@ -341,12 +374,12 @@ output "private_endpoint_ip" {
 
 output "connection_test_command" {
   description = "psql command to test from VM using private IP (run after SSH)"
-  value       = var.enable_private_link ? "PGPASSWORD='${timescale_service.main.password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb" : "N/A (private link disabled)"
+  value       = var.enable_private_link ? try("PGPASSWORD='${timescale_service.main.password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb", "") : "N/A (private link disabled)"
   sensitive   = true
 }
 
 output "ssh_select_1" {
   description = "SSH command to execute SELECT 1 on the database via private link"
-  value       = "ssh ubuntu@${aws_instance.vm.public_ip} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\""
+  value       = try("ssh ubuntu@${aws_instance.vm.public_ip} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"", "")
   sensitive   = true
 }

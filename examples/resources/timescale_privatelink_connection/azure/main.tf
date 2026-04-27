@@ -260,8 +260,6 @@ data "azurerm_private_endpoint_connection" "timescale" {
 # Timescale Private Link Connection
 # =============================================================================
 
-# This resource syncs and waits for the Azure connection to appear,
-# then configures it with the IP address from the Azure Private Endpoint
 resource "timescale_privatelink_connection" "main" {
   count = var.enable_private_link ? 1 : 0
 
@@ -274,8 +272,6 @@ resource "timescale_privatelink_connection" "main" {
   depends_on = [azurerm_private_endpoint.timescale]
 
   lifecycle {
-    ## This is needed because we need to attach to the new connection before we can destroy the old one.action_trigger
-    ## only useful in the scenario when we move between connections
     create_before_destroy = true
   }
 }
@@ -290,7 +286,7 @@ resource "timescale_service" "main" {
   memory_gb   = 2
   region_code = var.timescale_region
 
-  private_endpoint_connection_id = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : null
+  private_endpoint_connection_ids = var.enable_private_link ? [timescale_privatelink_connection.main[0].connection_id] : []
 }
 
 # =============================================================================
@@ -369,8 +365,8 @@ output "private_link_service_alias" {
   value       = local.private_link_service_alias
 }
 
-output "ssh_select_1" {
+output "ssh_select" {
   description = "SSH command to execute SELECT 1 on the database via private link"
-  value       = "ssh adminuser@${azurerm_public_ip.vm.ip_address} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\""
+  value       = var.enable_private_link ? "ssh adminuser@${azurerm_public_ip.vm.ip_address} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"" : "N/A (private link disabled)"
   sensitive   = true
 }

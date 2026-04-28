@@ -215,10 +215,8 @@ resource "timescale_privatelink_authorization" "main" {
 }
 
 # Step 2: Get the service name (Private Link Service alias) for the region
-data "timescale_privatelink_available_regions" "all" {}
-
-locals {
-  private_link_service_alias = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].service_name
+data "timescale_privatelink_region" "selected" {
+  region = var.timescale_region
 }
 
 # =============================================================================
@@ -235,7 +233,7 @@ resource "azurerm_private_endpoint" "timescale" {
 
   private_service_connection {
     name                              = "${var.resource_prefix}-psc"
-    private_connection_resource_alias = local.private_link_service_alias
+    private_connection_resource_alias = data.timescale_privatelink_region.selected.service_name
     is_manual_connection              = true
     request_message                   = var.ts_project_id
   }
@@ -362,7 +360,7 @@ output "service_id" {
 
 output "private_link_service_alias" {
   description = "The Private Link Service alias used"
-  value       = local.private_link_service_alias
+  value       = data.timescale_privatelink_region.selected.service_name
 }
 
 output "ssh_select" {

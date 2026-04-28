@@ -85,10 +85,8 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-data "timescale_privatelink_available_regions" "all" {}
-
-locals {
-  vpc_endpoint_service_name = data.timescale_privatelink_available_regions.all.regions[var.timescale_region].service_name
+data "timescale_privatelink_region" "selected" {
+  region = var.timescale_region
 }
 
 # =============================================================================
@@ -224,7 +222,7 @@ resource "aws_vpc_endpoint" "timescale" {
   count = var.enable_private_link ? 1 : 0
 
   vpc_id             = aws_vpc.main.id
-  service_name       = local.vpc_endpoint_service_name
+  service_name       = data.timescale_privatelink_region.selected.service_name
   vpc_endpoint_type  = "Interface"
   subnet_ids         = [aws_subnet.endpoint.id]
   security_group_ids = [aws_security_group.endpoint.id]
@@ -363,7 +361,7 @@ output "private_link_connection_state" {
 
 output "vpc_endpoint_service_name" {
   description = "The VPC Endpoint Service name used"
-  value       = local.vpc_endpoint_service_name
+  value       = data.timescale_privatelink_region.selected.service_name
 }
 
 output "private_endpoint_ip" {

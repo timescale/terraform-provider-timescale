@@ -74,7 +74,6 @@ provider "aws" {
     tags = {
       Environment = "Development"
       Project     = "Timescale Private Link Connection"
-      Owner       = "vperez"
       CreatedBy   = "Terraform"
     }
   }

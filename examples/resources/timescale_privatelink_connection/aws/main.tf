@@ -57,6 +57,13 @@ variable "enable_private_link" {
   default     = true
 }
 
+variable "db_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Timescale service. Provided via password_wo (write-only) so it is not stored in state."
+  default     = "TestPassword123!"
+}
+
 # =============================================================================
 # Providers
 # =============================================================================
@@ -269,12 +276,13 @@ resource "timescale_privatelink_connection" "main" {
 # =============================================================================
 
 resource "timescale_service" "main" {
-  name                      = "${var.resource_prefix}-db"
-  milli_cpu                 = 500
-  memory_gb                 = 2
-  region_code               = var.timescale_region
-  password                  = "TestPassword123!"
-  connection_pooler_enabled = true
+  name                = "${var.resource_prefix}-db"
+  milli_cpu           = 500
+  memory_gb           = 2
+  region_code         = var.timescale_region
+  password_wo         = var.db_password
+  password_wo_version = 1
+  ha_replicas         = 1
 
   private_endpoint_connection_ids = var.enable_private_link ? [timescale_privatelink_connection.main[0].connection_id] : []
 }
@@ -294,8 +302,8 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_key_pair" "vm" {
-  key_name   = "${var.resource_prefix}-key"
-  public_key = file("~/.ssh/id_rsa.pub")
+  key_name_prefix = "${var.resource_prefix}-key-"
+  public_key      = file("~/.ssh/id_rsa.pub")
 }
 
 resource "aws_instance" "vm" {
@@ -371,12 +379,12 @@ output "private_endpoint_ip" {
 
 output "connection_test_command" {
   description = "psql command to test from VM using private IP (run after SSH)"
-  value       = var.enable_private_link ? try("PGPASSWORD='${timescale_service.main.password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb", "") : "N/A (private link disabled)"
+  value       = var.enable_private_link ? try("PGPASSWORD='${var.db_password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb", "") : "N/A (private link disabled)"
   sensitive   = true
 }
 
 output "ssh_select_1" {
   description = "SSH command to execute SELECT 1 on the database via private link"
-  value       = try("ssh ubuntu@${aws_instance.vm.public_ip} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"", "")
+  value       = try("ssh ubuntu@${aws_instance.vm.public_ip} \"PGPASSWORD='${var.db_password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"", "")
   sensitive   = true
 }

@@ -62,6 +62,13 @@ variable "enable_private_link" {
   default     = true
 }
 
+variable "db_password" {
+  type        = string
+  sensitive   = true
+  description = "Password for the Timescale service. Provided via password_wo (write-only) so it is not stored in state."
+  default     = "TestPassword123!"
+}
+
 # =============================================================================
 # Providers
 # =============================================================================
@@ -279,10 +286,12 @@ resource "timescale_privatelink_connection" "main" {
 # =============================================================================
 
 resource "timescale_service" "main" {
-  name        = "${var.resource_prefix}-db"
-  milli_cpu   = 500
-  memory_gb   = 2
-  region_code = var.timescale_region
+  name                = "${var.resource_prefix}-db"
+  milli_cpu           = 500
+  memory_gb           = 2
+  region_code         = var.timescale_region
+  password_wo         = var.db_password
+  password_wo_version = 1
 
   private_endpoint_connection_ids = var.enable_private_link ? [timescale_privatelink_connection.main[0].connection_id] : []
 }
@@ -323,13 +332,13 @@ output "timescale_username" {
 
 output "connection_test_command_private_ip" {
   description = "Command to test connection from VM using private IP (run after SSH)"
-  value       = var.enable_private_link ? "PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb" : "N/A (private link disabled)"
+  value       = var.enable_private_link ? "PGPASSWORD='${var.db_password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb" : "N/A (private link disabled)"
   sensitive   = true
 }
 
 output "connection_test_command_hostname" {
   description = "Command to test connection using service hostname (run after SSH)"
-  value       = "PGPASSWORD='${timescale_service.main.password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
+  value       = "PGPASSWORD='${var.db_password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb"
   sensitive   = true
 }
 
@@ -365,6 +374,6 @@ output "private_link_service_alias" {
 
 output "ssh_select" {
   description = "SSH command to execute SELECT 1 on the database via private link"
-  value       = var.enable_private_link ? "ssh adminuser@${azurerm_public_ip.vm.ip_address} \"PGPASSWORD='${timescale_service.main.password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"" : "N/A (private link disabled)"
+  value       = var.enable_private_link ? "ssh adminuser@${azurerm_public_ip.vm.ip_address} \"PGPASSWORD='${var.db_password}' psql -h ${azurerm_private_endpoint.timescale[0].private_service_connection[0].private_ip_address} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"" : "N/A (private link disabled)"
   sensitive   = true
 }

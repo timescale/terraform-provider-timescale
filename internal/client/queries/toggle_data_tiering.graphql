@@ -1,0 +1,7 @@
+mutation ToggleDataTiering($projectId: ID!, $serviceId: ID!, $enable: Boolean!) {
+    toggleDataTiering (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        enable: $enable
+    })
+}

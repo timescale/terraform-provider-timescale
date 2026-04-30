@@ -47,6 +47,9 @@ query GetAllServices($projectId: ID!) {
         metadata {
             environment
         }
+        dataTieringSettings {
+            enabled
+        }
         endpoints {
             primary {
                 host

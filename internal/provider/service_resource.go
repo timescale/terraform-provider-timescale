@@ -52,8 +52,8 @@ const (
 )
 
 var (
-	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
-	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
+	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128, 192, 256}
+	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000, 48000, 64000}
 )
 
 func NewServiceResource() resource.Resource {

@@ -42,6 +42,7 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "ha_replicas", "0"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "sync_replicas", "0"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "connection_pooler_enabled", "false"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "data_tiering_enabled", "false"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "environment_tag", "DEV"),
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
@@ -75,6 +76,20 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttr("timescale_service.resource", "connection_pooler_enabled", "true"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_hostname"),
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_port"),
+				),
+			},
+			// Enable data tiering (requires Scale or Enterprise plan on the test project)
+			{
+				Config: getServiceConfig(t, config.WithDataTiering(true)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "data_tiering_enabled", "true"),
+				),
+			},
+			// Disable data tiering
+			{
+				Config: getServiceConfig(t, config.WithDataTiering(false)),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "data_tiering_enabled", "false"),
 				),
 			},
 			// Enable HA replica (deprecated but still maintained for backwards compatibility)
@@ -567,6 +582,7 @@ type ServiceConfig struct {
 	ReadReplicaSource string
 	ReadReplicaNodes  *int64
 	Pooler            bool
+	DataTiering       bool
 	Environment       string
 	Password          string
 	PasswordWo        string
@@ -635,6 +651,11 @@ func (c *ServiceConfig) WithPooler(pooler bool) *ServiceConfig {
 	return c
 }
 
+func (c *ServiceConfig) WithDataTiering(enabled bool) *ServiceConfig {
+	c.DataTiering = enabled
+	return c
+}
+
 func (c *ServiceConfig) WithReadReplica(source string) *ServiceConfig {
 	c.ReadReplicaSource = source
 	return c
@@ -680,6 +701,9 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.Pooler {
 		write("connection_pooler_enabled = %t \n", c.Pooler)
+	}
+	if c.DataTiering {
+		write("data_tiering_enabled = %t \n", c.DataTiering)
 	}
 	if c.Environment != "" {
 		write("environment_tag = %q \n", c.Environment)

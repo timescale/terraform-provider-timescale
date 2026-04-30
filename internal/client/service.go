@@ -12,19 +12,20 @@ import (
 )
 
 type Service struct {
-	ID            string         `json:"id"`
-	ProjectID     string         `json:"projectId"`
-	Name          string         `json:"name"`
-	Status        string         `json:"status"`
-	RegionCode    string         `json:"regionCode"`
-	Paused        bool           `json:"paused"`
-	ServiceSpec   ServiceSpec    `json:"spec"`
-	Resources     []ResourceSpec `json:"resources"`
-	Created       string         `json:"created"`
-	ReplicaStatus string         `json:"replicaStatus"`
-	VPCEndpoint   *VPCEndpoint   `json:"vpcEndpoint"`
-	ForkSpec      *ForkSpec      `json:"forkedFromId"`
-	Metadata      *Metadata      `json:"metadata"`
+	ID                  string               `json:"id"`
+	ProjectID           string               `json:"projectId"`
+	Name                string               `json:"name"`
+	Status              string               `json:"status"`
+	RegionCode          string               `json:"regionCode"`
+	Paused              bool                 `json:"paused"`
+	ServiceSpec         ServiceSpec          `json:"spec"`
+	Resources           []ResourceSpec       `json:"resources"`
+	Created             string               `json:"created"`
+	ReplicaStatus       string               `json:"replicaStatus"`
+	VPCEndpoint         *VPCEndpoint         `json:"vpcEndpoint"`
+	ForkSpec            *ForkSpec            `json:"forkedFromId"`
+	Metadata            *Metadata            `json:"metadata"`
+	DataTieringSettings *DataTieringSettings `json:"dataTieringSettings"`
 
 	// Endpoints contains the all service endpoints
 	Endpoints *ServiceEndpoints `json:"endpoints,omitempty"`
@@ -60,6 +61,12 @@ type ResourceSpec struct {
 
 type Metadata struct {
 	Environment string `json:"environment"`
+}
+
+// DataTieringSettings reflects dataTieringSettings on the Service object.
+// When tiered storage is enabled on the service (Scale/Enterprise plan), Enabled is true.
+type DataTieringSettings struct {
+	Enabled bool `json:"enabled"`
 }
 
 type CreateServiceRequest struct {
@@ -395,6 +402,30 @@ func (c *Client) ToggleConnectionPooler(ctx context.Context, serviceID string, e
 	req := map[string]interface{}{
 		"operationName": "ToggleConnectionPooler",
 		"query":         ToggleConnectionPoolerMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"enable":    enable,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
+func (c *Client) ToggleDataTiering(ctx context.Context, serviceID string, enable bool) error {
+	tflog.Trace(ctx, "Client.ToggleDataTiering")
+	req := map[string]interface{}{
+		"operationName": "ToggleDataTiering",
+		"query":         ToggleDataTieringMutation,
 		"variables": map[string]any{
 			"projectId": c.projectID,
 			"serviceId": serviceID,

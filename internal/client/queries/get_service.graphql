@@ -50,6 +50,9 @@ query GetService($projectId: ID!, $serviceId: ID!) {
         metadata {
             environment
         }
+        dataTieringSettings {
+            enabled
+        }
         endpoints {
             primary {
                 host

@@ -20,7 +20,7 @@ To view the project ID, click on your project name on the upper left-hand side o
 
 #### Service with HA replica and pooler
 
-> [!NOTE]  
+> [!NOTE]
 > The example file creates:
 >  * A single instance called `tf-test` that contains:
      >    * 0.5 CPUs
@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.10"
+      version = "~> 2.11"
     }
   }
 }
@@ -128,7 +128,7 @@ terraform plan --var-file=secrets.tfvars
 
 #### VPC Peering
 
-> [!NOTE]  
+> [!NOTE]
 > The example file creates:
 >  * A TigerData VPC with name `tf-test` in `us-east-1`
 >  * An AWS VPC in eu-central-1
@@ -143,7 +143,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.10"
+      version = "~> 2.11"
     }
   }
 }
@@ -238,4 +238,3 @@ Please reference the [docs](https://docs.tigerdata.com/use-timescale/latest/regi
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,
 it will still be charged for the full hour of usage.
-

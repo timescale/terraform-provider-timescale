@@ -298,11 +298,10 @@ The change has been taken into account but must still be propagated. You can run
 				},
 			},
 			"data_tiering_enabled": schema.BoolAttribute{
-				MarkdownDescription: "Enable [data tiering](https://docs.timescale.com/use-timescale/latest/data-tiering/) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service.",
-				Description:         "Enable data tiering (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only.",
+				MarkdownDescription: "Enable [data tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service. **Cannot be disabled via Terraform** — to disable, contact Tiger Data support.",
+				Description:         "Enable data tiering (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. Cannot be disabled via Terraform.",
 				Optional:            true,
 				Computed:            true,
-				Default:             booldefault.StaticBool(false),
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
@@ -766,7 +765,17 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 	// Data tiering /////////////////////////////////////////////
+	// Disabling tiering is not supported via the Tiger Cloud API (no UI button
+	// for it either) — match that constraint here so the user gets a clear error
+	// instead of an opaque API failure.
 	if plan.DataTieringEnabled != state.DataTieringEnabled {
+		if state.DataTieringEnabled.ValueBool() && !plan.DataTieringEnabled.ValueBool() {
+			resp.Diagnostics.AddError(
+				"Cannot disable data tiering via Terraform",
+				"Disabling data tiering is not supported through the Tiger Cloud API. Contact Tiger Data support if you need to disable it.",
+			)
+			return
+		}
 		if err := r.client.ToggleDataTiering(ctx, serviceID, plan.DataTieringEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Failed to toggle data tiering", err.Error())
 			return

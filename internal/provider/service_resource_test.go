@@ -78,18 +78,12 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckResourceAttrSet("timescale_service.resource", "pooler_port"),
 				),
 			},
-			// Enable data tiering (requires Scale or Enterprise plan on the test project)
+			// Enable data tiering (requires Scale or Enterprise plan on the test project).
+			// Disabling is intentionally not tested: the API does not support it
 			{
 				Config: getServiceConfig(t, config.WithDataTiering(true)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "data_tiering_enabled", "true"),
-				),
-			},
-			// Disable data tiering
-			{
-				Config: getServiceConfig(t, config.WithDataTiering(false)),
-				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "data_tiering_enabled", "false"),
 				),
 			},
 			// Enable HA replica (deprecated but still maintained for backwards compatibility)

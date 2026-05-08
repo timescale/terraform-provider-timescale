@@ -98,7 +98,7 @@ resource "timescale_service" "secure" {
 > **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
 
 - `connection_pooler_enabled` (Boolean) Set connection pooler status for this service.
-- `data_tiering_enabled` (Boolean) Enable [data tiering](https://docs.timescale.com/use-timescale/latest/data-tiering/) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service.
+- `data_tiering_enabled` (Boolean) Enable [data tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service. **Cannot be disabled via Terraform** — to disable, contact Tiger Data support.
 - `enable_ha_replica` (Boolean, Deprecated) Enable HA Replica (deprecated - use ha_replicas and sync_replicas instead)
 - `environment_tag` (String) Set environment tag for this service.
 - `ha_replicas` (Number) Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.

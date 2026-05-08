@@ -1,3 +1,9 @@
+## 2.13.0 (May 8, 2026)
+
+FEATURES:
+- Add `data_tiering_enabled` attribute to the `timescale_service` resource to enable [low-cost object storage tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (Scale and Enterprise plans).
+
+
 ## 2.10.0 (April 2, 2026)
 
 - Add support for read replica sets nodes.

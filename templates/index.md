@@ -39,7 +39,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.11"
+      version = "~> 2.13"
     }
   }
 }
@@ -143,7 +143,7 @@ terraform {
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.11"
+      version = "~> 2.13"
     }
   }
 }

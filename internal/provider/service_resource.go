@@ -92,6 +92,7 @@ type serviceResourceModel struct {
 	ReadReplicaNodes        types.Int64    `tfsdk:"read_replica_nodes"`
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
+	DataTieringEnabled      types.Bool     `tfsdk:"data_tiering_enabled"`
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
 	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
 	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
@@ -292,6 +293,15 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"data_tiering_enabled": schema.BoolAttribute{
+				MarkdownDescription: "Enable [data tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service. **Cannot be disabled via Terraform** — to disable, contact Tiger Data support.",
+				Description:         "Enable data tiering (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. Cannot be disabled via Terraform.",
+				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
@@ -570,6 +580,21 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// Data tiering — services are created with tiering disabled. If the plan asks
+	// for it enabled, toggle it on and refresh state. Toggling false on a freshly
+	// created service is a no-op so we skip the call when not requested.
+	if plan.DataTieringEnabled.ValueBool() {
+		if err := r.client.ToggleDataTiering(ctx, service.ID, true); err != nil {
+			resp.Diagnostics.AddError("Failed to enable data tiering", err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to enable data tiering", "unable to refresh service after enabling data tiering")
+			return
+		}
+	}
+
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -736,6 +761,23 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if plan.ConnectionPoolerEnabled != state.ConnectionPoolerEnabled {
 		if err := r.client.ToggleConnectionPooler(ctx, serviceID, plan.ConnectionPoolerEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Failed to toggle connection pooler", err.Error())
+			return
+		}
+	}
+	// Data tiering /////////////////////////////////////////////
+	// Disabling tiering is not supported via the Tiger Cloud API (no UI button
+	// for it either) — match that constraint here so the user gets a clear error
+	// instead of an opaque API failure.
+	if plan.DataTieringEnabled != state.DataTieringEnabled {
+		if state.DataTieringEnabled.ValueBool() && !plan.DataTieringEnabled.ValueBool() {
+			resp.Diagnostics.AddError(
+				"Cannot disable data tiering via Terraform",
+				"Disabling data tiering is not supported through the Tiger Cloud API. Contact Tiger Data support if you need to disable it.",
+			)
+			return
+		}
+		if err := r.client.ToggleDataTiering(ctx, serviceID, plan.DataTieringEnabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Failed to toggle data tiering", err.Error())
 			return
 		}
 	}
@@ -943,6 +985,7 @@ func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportSt
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	hasPooler := s.ServiceSpec.PoolerEnabled
+	hasDataTiering := s.DataTieringSettings != nil && s.DataTieringSettings.Enabled
 	replicaCount := s.Resources[0].Spec.ReplicaCount
 	syncReplicaCount := s.Resources[0].Spec.SyncReplicaCount
 
@@ -977,6 +1020,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		ReadReplicaSource:       state.ReadReplicaSource,
 		ReadReplicaNodes:        readReplicaNodes,
 		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
+		DataTieringEnabled:      types.BoolValue(hasDataTiering),
 		EnableHAReplica:         types.BoolNull(),
 		Hostname:                types.StringNull(),
 		Port:                    types.Int64Null(),

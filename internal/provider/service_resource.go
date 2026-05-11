@@ -700,6 +700,14 @@ func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	service, err := r.client.GetService(ctx, state.ID.ValueString())
 	if err != nil {
+		// If the service was deleted out-of-band (e.g. via the Tiger Cloud
+		// console), drop it from terraform state so the next plan recreates
+		// it cleanly instead of failing forever.
+		if errors.Is(err, tsClient.ErrServiceNotFound) {
+			tflog.Warn(ctx, "Service not found, removing from state.", map[string]any{"id": state.ID.ValueString()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
@@ -971,9 +979,15 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	_, err := r.client.DeleteService(ctx, data.ID.ValueString())
 	if err != nil {
+		// Already gone (e.g. deleted out-of-band) is success — there's nothing
+		// to clean up and terraform's Delete contract is already satisfied.
+		if errors.Is(err, tsClient.ErrServiceNotFound) {
+			tflog.Warn(ctx, "Service already deleted, treating as success.", map[string]any{"id": data.ID.ValueString()})
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error Deleting Timescale Service",
-			"Could not delete order, unexpected error: "+err.Error(),
+			"Could not delete service, unexpected error: "+err.Error(),
 		)
 		return
 	}

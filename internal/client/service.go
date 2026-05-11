@@ -305,6 +305,11 @@ func (c *Client) ResizeInstance(ctx context.Context, serviceID string, config Re
 	return nil
 }
 
+// ErrServiceNotFound is returned when the API reports that the requested
+// service does not exist. Callers can use errors.Is to detect this case and
+// drop the resource from terraform state instead of erroring on the read.
+var ErrServiceNotFound = errors.New("no service with that id exists")
+
 func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 	tflog.Trace(ctx, "Client.GetService")
 	req := map[string]interface{}{
@@ -320,6 +325,9 @@ func (c *Client) GetService(ctx context.Context, id string) (*Service, error) {
 		return nil, err
 	}
 	if len(resp.Errors) > 0 {
+		if resp.Errors[0].Message == ErrServiceNotFound.Error() {
+			return nil, ErrServiceNotFound
+		}
 		return nil, resp.Errors[0]
 	}
 	if resp.Data == nil {
@@ -389,6 +397,9 @@ func (c *Client) DeleteService(ctx context.Context, id string) (*Service, error)
 		return nil, err
 	}
 	if len(resp.Errors) > 0 {
+		if resp.Errors[0].Message == ErrServiceNotFound.Error() {
+			return nil, ErrServiceNotFound
+		}
 		return nil, resp.Errors[0]
 	}
 	if resp.Data == nil {

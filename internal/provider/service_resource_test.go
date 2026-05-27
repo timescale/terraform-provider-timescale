@@ -521,7 +521,7 @@ func TestServiceResource_Import(t *testing.T) {
 
 func newServiceConfig(config ServiceConfig) string {
 	if config.Timeouts.Create == "" {
-		config.Timeouts.Create = "15m"
+		config.Timeouts.Create = "30m"
 	}
 	return providerConfig + fmt.Sprintf(`
 				resource "timescale_service" "resource" {
@@ -739,7 +739,7 @@ func (c *ServiceConfig) setDefaults() {
 		c.MemoryGB = 2
 	}
 	if c.Timeouts.Create == "" {
-		c.Timeouts.Create = "10m"
+		c.Timeouts.Create = "30m"
 	}
 }
 

@@ -166,3 +166,187 @@ func TestServiceSchema_HostnamePreservedWhenVpcUnchanged(t *testing.T) {
 		t.Errorf("hostname should be preserved when vpc_id unchanged, got %s", resp.PlanValue)
 	}
 }
+
+// TestServiceSchema_StringEndpointsRefreshOnToggleChange verifies that the
+// replica/pooler hostname attributes are left unknown when any attribute that
+// moves them changes: vpc_id moves every endpoint of the service (attaching or
+// detaching a VPC rewrites the replica and pooler DNS names too), ha_replicas
+// moves the replica endpoint, and connection_pooler_enabled moves the pooler
+// endpoint.
+func TestServiceSchema_StringEndpointsRefreshOnToggleChange(t *testing.T) {
+	s := getServiceSchema(t)
+
+	cases := []struct {
+		attr        string
+		toggle      string
+		stateToggle tftypes.Value
+		planToggle  tftypes.Value
+	}{
+		{"replica_hostname", "vpc_id", tftypes.NewValue(tftypes.Number, 100), tftypes.NewValue(tftypes.Number, 200)},
+		{"pooler_hostname", "vpc_id", tftypes.NewValue(tftypes.Number, 100), tftypes.NewValue(tftypes.Number, 200)},
+		{"replica_hostname", "ha_replicas", tftypes.NewValue(tftypes.Number, 0), tftypes.NewValue(tftypes.Number, 1)},
+		{"pooler_hostname", "connection_pooler_enabled", tftypes.NewValue(tftypes.Bool, false), tftypes.NewValue(tftypes.Bool, true)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.attr+" on "+tc.toggle, func(t *testing.T) {
+			strAttr, ok := s.Attributes[tc.attr].(schema.StringAttribute)
+			if !ok {
+				t.Fatalf("%s attribute is not a StringAttribute", tc.attr)
+			}
+
+			stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
+				tc.attr:   tftypes.NewValue(tftypes.String, "old-host.example.com"),
+				tc.toggle: tc.stateToggle,
+			})
+			planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+				tc.attr:   tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+				tc.toggle: tc.planToggle,
+			})
+
+			req := planmodifier.StringRequest{
+				PlanValue:  types.StringUnknown(),
+				StateValue: types.StringValue("old-host.example.com"),
+				State:      tfsdk.State{Schema: s, Raw: stateRaw},
+				Plan:       tfsdk.Plan{Schema: s, Raw: planRaw},
+			}
+			resp := &planmodifier.StringResponse{PlanValue: req.PlanValue}
+
+			for _, mod := range strAttr.PlanModifiers {
+				mod.PlanModifyString(context.Background(), req, resp)
+			}
+
+			if !resp.PlanValue.IsUnknown() {
+				t.Errorf("%s should be unknown when %s changes, got %q — the plan modifier is not %s-aware", tc.attr, tc.toggle, resp.PlanValue.ValueString(), tc.toggle)
+			}
+		})
+	}
+}
+
+// TestServiceSchema_Int64EndpointsRefreshOnToggleChange is the same matrix for
+// the replica/pooler port attributes.
+func TestServiceSchema_Int64EndpointsRefreshOnToggleChange(t *testing.T) {
+	s := getServiceSchema(t)
+
+	cases := []struct {
+		attr        string
+		toggle      string
+		stateToggle tftypes.Value
+		planToggle  tftypes.Value
+	}{
+		{"replica_port", "vpc_id", tftypes.NewValue(tftypes.Number, 100), tftypes.NewValue(tftypes.Number, 200)},
+		{"pooler_port", "vpc_id", tftypes.NewValue(tftypes.Number, 100), tftypes.NewValue(tftypes.Number, 200)},
+		{"replica_port", "ha_replicas", tftypes.NewValue(tftypes.Number, 0), tftypes.NewValue(tftypes.Number, 1)},
+		{"pooler_port", "connection_pooler_enabled", tftypes.NewValue(tftypes.Bool, false), tftypes.NewValue(tftypes.Bool, true)},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.attr+" on "+tc.toggle, func(t *testing.T) {
+			intAttr, ok := s.Attributes[tc.attr].(schema.Int64Attribute)
+			if !ok {
+				t.Fatalf("%s attribute is not an Int64Attribute", tc.attr)
+			}
+
+			stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
+				tc.attr:   tftypes.NewValue(tftypes.Number, 5432),
+				tc.toggle: tc.stateToggle,
+			})
+			planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+				tc.attr:   tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+				tc.toggle: tc.planToggle,
+			})
+
+			req := planmodifier.Int64Request{
+				PlanValue:  types.Int64Unknown(),
+				StateValue: types.Int64Value(5432),
+				State:      tfsdk.State{Schema: s, Raw: stateRaw},
+				Plan:       tfsdk.Plan{Schema: s, Raw: planRaw},
+			}
+			resp := &planmodifier.Int64Response{PlanValue: req.PlanValue}
+
+			for _, mod := range intAttr.PlanModifiers {
+				mod.PlanModifyInt64(context.Background(), req, resp)
+			}
+
+			if !resp.PlanValue.IsUnknown() {
+				t.Errorf("%s should be unknown when %s changes, got %d — the plan modifier is not %s-aware", tc.attr, tc.toggle, resp.PlanValue.ValueInt64(), tc.toggle)
+			}
+		})
+	}
+}
+
+// TestServiceSchema_EndpointsPreservedWhenTogglesUnchanged verifies the
+// replica/pooler endpoints keep the state value when neither vpc_id nor their
+// feature toggle changes.
+func TestServiceSchema_EndpointsPreservedWhenTogglesUnchanged(t *testing.T) {
+	s := getServiceSchema(t)
+
+	t.Run("replica_hostname", func(t *testing.T) {
+		strAttr, ok := s.Attributes["replica_hostname"].(schema.StringAttribute)
+		if !ok {
+			t.Fatal("replica_hostname attribute is not a StringAttribute")
+		}
+
+		unchanged := map[string]tftypes.Value{
+			"replica_hostname": tftypes.NewValue(tftypes.String, "repl.example.com"),
+			"ha_replicas":      tftypes.NewValue(tftypes.Number, 1),
+			"vpc_id":           tftypes.NewValue(tftypes.Number, 100),
+		}
+		stateRaw := buildTFValues(t, s, unchanged)
+		planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+			"replica_hostname": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+			"ha_replicas":      tftypes.NewValue(tftypes.Number, 1),
+			"vpc_id":           tftypes.NewValue(tftypes.Number, 100),
+		})
+
+		req := planmodifier.StringRequest{
+			PlanValue:  types.StringUnknown(),
+			StateValue: types.StringValue("repl.example.com"),
+			State:      tfsdk.State{Schema: s, Raw: stateRaw},
+			Plan:       tfsdk.Plan{Schema: s, Raw: planRaw},
+		}
+		resp := &planmodifier.StringResponse{PlanValue: req.PlanValue}
+
+		for _, mod := range strAttr.PlanModifiers {
+			mod.PlanModifyString(context.Background(), req, resp)
+		}
+
+		if resp.PlanValue.ValueString() != "repl.example.com" {
+			t.Errorf("replica_hostname should be preserved when toggles are unchanged, got %s", resp.PlanValue)
+		}
+	})
+
+	t.Run("pooler_port", func(t *testing.T) {
+		intAttr, ok := s.Attributes["pooler_port"].(schema.Int64Attribute)
+		if !ok {
+			t.Fatal("pooler_port attribute is not an Int64Attribute")
+		}
+
+		stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
+			"pooler_port":               tftypes.NewValue(tftypes.Number, 6432),
+			"connection_pooler_enabled": tftypes.NewValue(tftypes.Bool, true),
+			"vpc_id":                    tftypes.NewValue(tftypes.Number, 100),
+		})
+		planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+			"pooler_port":               tftypes.NewValue(tftypes.Number, tftypes.UnknownValue),
+			"connection_pooler_enabled": tftypes.NewValue(tftypes.Bool, true),
+			"vpc_id":                    tftypes.NewValue(tftypes.Number, 100),
+		})
+
+		req := planmodifier.Int64Request{
+			PlanValue:  types.Int64Unknown(),
+			StateValue: types.Int64Value(6432),
+			State:      tfsdk.State{Schema: s, Raw: stateRaw},
+			Plan:       tfsdk.Plan{Schema: s, Raw: planRaw},
+		}
+		resp := &planmodifier.Int64Response{PlanValue: req.PlanValue}
+
+		for _, mod := range intAttr.PlanModifiers {
+			mod.PlanModifyInt64(context.Background(), req, resp)
+		}
+
+		if resp.PlanValue.ValueInt64() != 6432 {
+			t.Errorf("pooler_port should be preserved when toggles are unchanged, got %s", resp.PlanValue)
+		}
+	})
+}

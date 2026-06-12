@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
@@ -229,7 +230,19 @@ func (r *vpcResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 
 	tflog.Info(ctx, fmt.Sprintf("Deleting Vpc: %v", state.ID.ValueInt64()))
 
-	err := r.client.DeleteVPC(ctx, state.ID.ValueInt64())
+	// The VPC may still be transitioning (e.g. a peering connection is being
+	// torn down) when delete is attempted, in which case the API returns a
+	// transient "already being updated" error. Retry until it settles.
+	err := retry.RetryContext(ctx, 5*time.Minute, func() *retry.RetryError {
+		err := r.client.DeleteVPC(ctx, state.ID.ValueInt64())
+		if err == nil {
+			return nil
+		}
+		if strings.Contains(err.Error(), "already being updated") {
+			return retry.RetryableError(err)
+		}
+		return retry.NonRetryableError(err)
+	})
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error Deleting Timescale Vpc",

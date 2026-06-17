@@ -1,3 +1,9 @@
+## 2.13.3 (June 17, 2026)
+
+BUG FIXES:
+- Fix "Provider produced inconsistent result after apply" errors for the `replica_hostname`, `replica_port`, `pooler_hostname`, and `pooler_port` attributes of `timescale_service` when changing `vpc_id`. Attaching or detaching a Peering VPC moves the replica and pooler endpoints too, so they are now refreshed on a `vpc_id` change instead of promising stale values.
+
+
 ## 2.13.0 (May 8, 2026)
 
 FEATURES:

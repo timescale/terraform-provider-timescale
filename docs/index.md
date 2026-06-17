@@ -235,6 +235,16 @@ Please reference the [docs](https://docs.tigerdata.com/use-timescale/latest/regi
 ✅ Log exporters <br />
 ✅ S3 connector <br />
 
+## Troubleshooting
+
+### `missing project permission: PROJECT_PERMISSION_READ for project ...`
+
+Provider versions **< 2.4.0** did not scope the VPC lookup by project, so reading a
+`timescale_vpcs` or `timescale_peering_connection` resource could fail this permission
+check when the credentials' default project differs from the project the VPC belongs to.
+This was fixed in **v2.4.0** ([#274](https://github.com/timescale/terraform-provider-timescale/pull/274)).
+If you hit this error, upgrade to any provider version ≥ 2.4.0.
+
 ## Billing
 Services are currently billed for hourly usage. If a service is running for less than an hour,
 it will still be charged for the full hour of usage.

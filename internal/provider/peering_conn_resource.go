@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -12,6 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -27,8 +30,9 @@ import (
 
 // Ensure the implementation satisfies the expected interfaces.
 var (
-	_ resource.Resource              = &peeringConnectionResource{}
-	_ resource.ResourceWithConfigure = &peeringConnectionResource{}
+	_ resource.Resource                 = &peeringConnectionResource{}
+	_ resource.ResourceWithConfigure    = &peeringConnectionResource{}
+	_ resource.ResourceWithUpgradeState = &peeringConnectionResource{}
 
 	ErrPeeringConnRead         = "Error reading Peering Connection"
 	ErrPeeringConnCreate       = "Error creating Peering Connection"
@@ -395,6 +399,100 @@ func (r *peeringConnectionResource) Configure(ctx context.Context, req resource.
 	r.client = client
 }
 
+// UpgradeState migrates state written by older versions of this provider.
+//
+// v0 → v1: state for peer_cidr_blocks was sometimes written without a
+// recoverable list element type, decoding as List[DynamicPseudoType] under the
+// current framework and producing "Value Conversion Error" on plan. We rebuild
+// the model by reading raw JSON and re-emitting each attribute with explicit
+// types. See issue #309.
+func (r *peeringConnectionResource) UpgradeState(_ context.Context) map[int64]resource.StateUpgrader {
+	return map[int64]resource.StateUpgrader{
+		0: {
+			StateUpgrader: upgradePeeringConnectionV0ToV1,
+		},
+	}
+}
+
+func upgradePeeringConnectionV0ToV1(ctx context.Context, req resource.UpgradeStateRequest, resp *resource.UpgradeStateResponse) {
+	if req.RawState == nil {
+		return
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(req.RawState.JSON, &raw); err != nil {
+		resp.Diagnostics.AddError("Unable to parse prior state JSON", err.Error())
+		return
+	}
+
+	peerCIDRBlocks, listDiags := upgradeStringList(raw["peer_cidr_blocks"])
+	resp.Diagnostics.Append(listDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	model := peeringConnectionResourceModel{
+		ID:                    upgradeInt64(raw["id"]),
+		VpcID:                 upgradeString(raw["vpc_id"]),
+		ProvisionedID:         upgradeString(raw["provisioned_id"]),
+		AccepterProvisionedID: upgradeString(raw["accepter_provisioned_id"]),
+		Status:                upgradeString(raw["status"]),
+		ErrorMessage:          upgradeString(raw["error_message"]),
+		PeerVPCID:             upgradeString(raw["peer_vpc_id"]),
+		PeerTGWID:             upgradeString(raw["peer_tgw_id"]),
+		PeerCIDRBlocks:        peerCIDRBlocks,
+		PeerCIDR:              upgradeString(raw["peer_cidr"]),
+		PeerAccountID:         upgradeString(raw["peer_account_id"]),
+		PeerRegionCode:        upgradeString(raw["peer_region_code"]),
+		TimescaleVPCID:        upgradeInt64(raw["timescale_vpc_id"]),
+		PeeringType:           upgradeString(raw["peering_type"]),
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
+}
+
+func upgradeString(v any) types.String {
+	s, ok := v.(string)
+	if !ok {
+		return types.StringNull()
+	}
+	return types.StringValue(s)
+}
+
+func upgradeInt64(v any) types.Int64 {
+	switch x := v.(type) {
+	case float64:
+		return types.Int64Value(int64(x))
+	case json.Number:
+		n, err := x.Int64()
+		if err != nil {
+			return types.Int64Null()
+		}
+		return types.Int64Value(n)
+	}
+	return types.Int64Null()
+}
+
+func upgradeStringList(v any) (types.List, diag.Diagnostics) {
+	arr, ok := v.([]any)
+	if !ok {
+		return types.ListNull(types.StringType), nil
+	}
+	elements := make([]attr.Value, 0, len(arr))
+	for _, item := range arr {
+		if item == nil {
+			elements = append(elements, types.StringNull())
+			continue
+		}
+		s, ok := item.(string)
+		if !ok {
+			continue
+		}
+		elements = append(elements, types.StringValue(s))
+	}
+	return types.ListValue(types.StringType, elements)
+}
+
 func (r *peeringConnectionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	idParts := strings.Split(req.ID, ",")
 
@@ -424,6 +522,7 @@ func (r *peeringConnectionResource) ImportState(ctx context.Context, req resourc
 
 func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
+		Version:     1,
 		Description: "Schema for a peering connection (VPC or Transit Gateway). Import can be done with `peering_connection_id,timescale_vpc_id` format. Both internal IDs can be retrieved using the timescale_vpcs datasource.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{

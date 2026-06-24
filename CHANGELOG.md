@@ -1,3 +1,15 @@
+## 2.13.3 (June 17, 2026)
+
+BUG FIXES:
+- Fix "Provider produced inconsistent result after apply" errors for the `replica_hostname`, `replica_port`, `pooler_hostname`, and `pooler_port` attributes of `timescale_service` when changing `vpc_id`. Attaching or detaching a Peering VPC moves the replica and pooler endpoints too, so they are now refreshed on a `vpc_id` change instead of promising stale values.
+
+
+## 2.13.0 (May 8, 2026)
+
+FEATURES:
+- Add `data_tiering_enabled` attribute to the `timescale_service` resource to enable [low-cost object storage tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (Scale and Enterprise plans).
+
+
 ## 2.10.0 (April 2, 2026)
 
 - Add support for read replica sets nodes.

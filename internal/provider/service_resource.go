@@ -54,8 +54,8 @@ const (
 )
 
 var (
-	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128}
-	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000}
+	memorySizes   = []int64{2, 4, 8, 16, 32, 64, 128, 192, 256}
+	milliCPUSizes = []int64{500, 1000, 2000, 4000, 8000, 16000, 32000, 48000, 64000}
 )
 
 func NewServiceResource() resource.Resource {
@@ -94,6 +94,7 @@ type serviceResourceModel struct {
 	ReadReplicaNodes             types.Int64    `tfsdk:"read_replica_nodes"`
 	VpcID                        types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled      types.Bool     `tfsdk:"connection_pooler_enabled"`
+	DataTieringEnabled           types.Bool     `tfsdk:"data_tiering_enabled"`
 	EnvironmentTag               types.String   `tfsdk:"environment_tag"`
 	MetricExporterID             types.String   `tfsdk:"metric_exporter_id"`
 	LogExporterID                types.String   `tfsdk:"log_exporter_id"`
@@ -262,7 +263,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Hostname of the HA-Replica of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					useStateUnlessToggleChangesString("ha_replicas"),
+					useStateUnlessToggleChangesString("ha_replicas", "vpc_id"),
 				},
 			},
 			"replica_port": schema.Int64Attribute{
@@ -270,7 +271,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Port of the HA-Replica of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					useStateUnlessToggleChangesInt64("ha_replicas"),
+					useStateUnlessToggleChangesInt64("ha_replicas", "vpc_id"),
 				},
 			},
 			"pooler_hostname": schema.StringAttribute{
@@ -278,7 +279,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Hostname of the pooler of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					useStateUnlessToggleChangesString("connection_pooler_enabled"),
+					useStateUnlessToggleChangesString("connection_pooler_enabled", "vpc_id"),
 				},
 			},
 			"pooler_port": schema.Int64Attribute{
@@ -286,7 +287,7 @@ The change has been taken into account but must still be propagated. You can run
 				Description:         "Port of the pooler of this service.",
 				Computed:            true,
 				PlanModifiers: []planmodifier.Int64{
-					useStateUnlessToggleChangesInt64("connection_pooler_enabled"),
+					useStateUnlessToggleChangesInt64("connection_pooler_enabled", "vpc_id"),
 				},
 			},
 			"connection_pooler_enabled": schema.BoolAttribute{
@@ -295,6 +296,15 @@ The change has been taken into account but must still be propagated. You can run
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"data_tiering_enabled": schema.BoolAttribute{
+				MarkdownDescription: "Enable [data tiering](https://www.tigerdata.com/docs/learn/data-lifecycle/storage/about-storage-tiers) (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. When set to `true`, the OSM functions (`add_tiering_policy`, `tier_chunk`, `remove_tiering_policy`) become available on the service. **Cannot be disabled via Terraform** — to disable, contact Tiger Data support.",
+				Description:         "Enable data tiering (low-cost object storage tier on Tiger-managed S3) for this service. Available on Scale and Enterprise plans only. Cannot be disabled via Terraform.",
+				Optional:            true,
+				Computed:            true,
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
 				},
@@ -603,6 +613,21 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// Data tiering — services are created with tiering disabled. If the plan asks
+	// for it enabled, toggle it on and refresh state. Toggling false on a freshly
+	// created service is a no-op so we skip the call when not requested.
+	if plan.DataTieringEnabled.ValueBool() {
+		if err := r.client.ToggleDataTiering(ctx, service.ID, true); err != nil {
+			resp.Diagnostics.AddError("Failed to enable data tiering", err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to enable data tiering", "unable to refresh service after enabling data tiering")
+			return
+		}
+	}
+
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -708,6 +733,14 @@ func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	service, err := r.client.GetService(ctx, state.ID.ValueString())
 	if err != nil {
+		// If the service was deleted out-of-band (e.g. via the Tiger Cloud
+		// console), drop it from terraform state so the next plan recreates
+		// it cleanly instead of failing forever.
+		if errors.Is(err, tsClient.ErrServiceNotFound) {
+			tflog.Warn(ctx, "Service not found, removing from state.", map[string]any{"id": state.ID.ValueString()})
+			resp.State.RemoveResource(ctx)
+			return
+		}
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read service, got error: %s", err))
 		return
 	}
@@ -769,6 +802,23 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if plan.ConnectionPoolerEnabled != state.ConnectionPoolerEnabled {
 		if err := r.client.ToggleConnectionPooler(ctx, serviceID, plan.ConnectionPoolerEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Failed to toggle connection pooler", err.Error())
+			return
+		}
+	}
+	// Data tiering /////////////////////////////////////////////
+	// Disabling tiering is not supported via the Tiger Cloud API (no UI button
+	// for it either) — match that constraint here so the user gets a clear error
+	// instead of an opaque API failure.
+	if plan.DataTieringEnabled != state.DataTieringEnabled {
+		if state.DataTieringEnabled.ValueBool() && !plan.DataTieringEnabled.ValueBool() {
+			resp.Diagnostics.AddError(
+				"Cannot disable data tiering via Terraform",
+				"Disabling data tiering is not supported through the Tiger Cloud API. Contact Tiger Data support if you need to disable it.",
+			)
+			return
+		}
+		if err := r.client.ToggleDataTiering(ctx, serviceID, plan.DataTieringEnabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Failed to toggle data tiering", err.Error())
 			return
 		}
 	}
@@ -1038,9 +1088,15 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	_, err := r.client.DeleteService(ctx, data.ID.ValueString())
 	if err != nil {
+		// Already gone (e.g. deleted out-of-band) is success — there's nothing
+		// to clean up and terraform's Delete contract is already satisfied.
+		if errors.Is(err, tsClient.ErrServiceNotFound) {
+			tflog.Warn(ctx, "Service already deleted, treating as success.", map[string]any{"id": data.ID.ValueString()})
+			return
+		}
 		resp.Diagnostics.AddError(
 			"Error Deleting Timescale Service",
-			"Could not delete order, unexpected error: "+err.Error(),
+			"Could not delete service, unexpected error: "+err.Error(),
 		)
 		return
 	}
@@ -1083,6 +1139,7 @@ func (r *serviceResource) waitForPrivateLinkIDs(ctx context.Context, serviceID s
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	hasPooler := s.ServiceSpec.PoolerEnabled
+	hasDataTiering := s.DataTieringSettings != nil && s.DataTieringSettings.Enabled
 	replicaCount := s.Resources[0].Spec.ReplicaCount
 	syncReplicaCount := s.Resources[0].Spec.SyncReplicaCount
 
@@ -1117,6 +1174,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		ReadReplicaSource:       state.ReadReplicaSource,
 		ReadReplicaNodes:        readReplicaNodes,
 		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
+		DataTieringEnabled:      types.BoolValue(hasDataTiering),
 		EnableHAReplica:         types.BoolNull(),
 		Hostname:                types.StringNull(),
 		Port:                    types.Int64Null(),

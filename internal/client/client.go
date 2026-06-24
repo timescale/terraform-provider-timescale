@@ -30,6 +30,8 @@ var (
 	ToggleServiceMutation string
 	//go:embed queries/toggle_connection_pooler.graphql
 	ToggleConnectionPoolerMutation string
+	//go:embed queries/toggle_data_tiering.graphql
+	ToggleDataTieringMutation string
 	//go:embed queries/set_env_tag.graphql
 	SetEnvironmentTagMutation string
 	//go:embed queries/get_all_services.graphql

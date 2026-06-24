@@ -48,6 +48,9 @@ mutation CreateService($projectId: ID!, $name: String!, $type: Type!, $resourceC
             metadata {
                 environment
             }
+            dataTieringSettings {
+                enabled
+            }
             endpoints {
                 primary {
                     host

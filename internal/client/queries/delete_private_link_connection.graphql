@@ -1,0 +1,6 @@
+mutation DeletePrivateLinkConnection($projectId: ID!, $connectionId: ID!) {
+    deletePrivateLinkConnection(data: {
+        projectId: $projectId
+        connectionId: $connectionId
+    })
+}

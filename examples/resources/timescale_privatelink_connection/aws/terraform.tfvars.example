@@ -1,0 +1,13 @@
+# Timescale credentials
+ts_access_key = "your-access-key"
+ts_secret_key = "your-secret-key"
+ts_project_id = "your-project-id"
+
+# AWS configuration
+aws_region = "us-east-1"
+
+# Timescale region (must match the AWS region prefix)
+timescale_region = "us-east-1"
+
+# Resource naming prefix (optional)
+resource_prefix = "tspl-demo"

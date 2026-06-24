@@ -14,7 +14,7 @@ import (
 
 // useStateUnlessToggleChangesString returns a plan modifier that preserves the
 // prior state value (like UseStateForUnknown) unless any of the attributes at
-// togglePaths has changed, in which case the value is left as unknown so the
+// togglePaths have changed, in which case the value is left as unknown so the
 // provider can populate it after apply.
 func useStateUnlessToggleChangesString(togglePaths ...string) planmodifier.String {
 	return &stringTogglePlanModifier{togglePaths: togglePaths}

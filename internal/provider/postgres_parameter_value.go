@@ -84,6 +84,8 @@ type parameterCatalogEntry struct {
 	unit     string
 	value    float64
 	strValue string
+	// boolean is true for string parameters whose allowed values are exactly {"on", "off"}.
+	boolean bool
 }
 
 // parsedParameterValue is a config value ready to be sent to setPostgresParameters.
@@ -97,7 +99,7 @@ type parsedParameterValue struct {
 func buildParameterCatalog(p *tsClient.PostgresParameters) map[string]parameterCatalogEntry {
 	catalog := make(map[string]parameterCatalogEntry, len(p.StringParameters)+len(p.NumericParameters))
 	for _, sp := range p.StringParameters {
-		catalog[sp.Info.Name] = parameterCatalogEntry{info: sp.Info, strValue: sp.CurrentValue}
+		catalog[sp.Info.Name] = parameterCatalogEntry{info: sp.Info, strValue: sp.CurrentValue, boolean: isBooleanAllowedValues(sp.AllowedValues)}
 	}
 	for _, np := range p.NumericParameters {
 		unit := np.Unit
@@ -107,6 +109,14 @@ func buildParameterCatalog(p *tsClient.PostgresParameters) map[string]parameterC
 		catalog[np.Info.Name] = parameterCatalogEntry{info: np.Info, numeric: true, unit: unit, value: np.CurrentValue}
 	}
 	return catalog
+}
+
+// isBooleanAllowedValues reports whether allowed is exactly {"on", "off"}, in any order.
+func isBooleanAllowedValues(allowed []string) bool {
+	if len(allowed) != 2 {
+		return false
+	}
+	return (allowed[0] == "on" && allowed[1] == "off") || (allowed[0] == "off" && allowed[1] == "on")
 }
 
 var valueWithUnitRe = regexp.MustCompile(`^(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)$`)
@@ -124,7 +134,17 @@ func parseFinite(s string) (float64, bool) {
 func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParameterValue, error) {
 	raw = strings.TrimSpace(raw)
 	if !entry.numeric {
-		return parsedParameterValue{str: raw}, nil
+		if !entry.boolean {
+			return parsedParameterValue{str: raw}, nil
+		}
+		switch strings.ToLower(raw) {
+		case "on", "true", "yes", "1":
+			return parsedParameterValue{str: "on"}, nil
+		case "off", "false", "no", "0":
+			return parsedParameterValue{str: "off"}, nil
+		default:
+			return parsedParameterValue{}, fmt.Errorf("%q is not a boolean; use on or off", raw)
+		}
 	}
 	entryUnit, known := unitByAPIName(entry.unit)
 	if !known {

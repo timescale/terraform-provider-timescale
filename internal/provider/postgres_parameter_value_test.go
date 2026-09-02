@@ -24,6 +24,14 @@ func stringEntry(name, value string) parameterCatalogEntry {
 	}
 }
 
+func booleanEntry(value string) parameterCatalogEntry {
+	return parameterCatalogEntry{
+		info:     tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserEditable: true},
+		strValue: value,
+		boolean:  true,
+	}
+}
+
 func TestParseParameterValue(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -43,6 +51,54 @@ func TestParseParameterValue(t *testing.T) {
 			entry: stringEntry("hot_standby_feedback", "off"),
 			raw:   "on",
 			want:  parsedParameterValue{str: "on"},
+		},
+		{
+			name:  "boolean accepts true",
+			entry: booleanEntry("off"),
+			raw:   "true",
+			want:  parsedParameterValue{str: "on"},
+		},
+		{
+			name:  "boolean accepts TRUE case-insensitively",
+			entry: booleanEntry("off"),
+			raw:   "TRUE",
+			want:  parsedParameterValue{str: "on"},
+		},
+		{
+			name:  "boolean accepts yes",
+			entry: booleanEntry("off"),
+			raw:   "yes",
+			want:  parsedParameterValue{str: "on"},
+		},
+		{
+			name:  "boolean accepts 1",
+			entry: booleanEntry("off"),
+			raw:   "1",
+			want:  parsedParameterValue{str: "on"},
+		},
+		{
+			name:  "boolean accepts off",
+			entry: booleanEntry("on"),
+			raw:   "off",
+			want:  parsedParameterValue{str: "off"},
+		},
+		{
+			name:  "boolean accepts False case-insensitively",
+			entry: booleanEntry("on"),
+			raw:   "False",
+			want:  parsedParameterValue{str: "off"},
+		},
+		{
+			name:  "boolean accepts 0",
+			entry: booleanEntry("on"),
+			raw:   "0",
+			want:  parsedParameterValue{str: "off"},
+		},
+		{
+			name:    "boolean rejects unknown spelling",
+			entry:   booleanEntry("on"),
+			raw:     "maybe",
+			wantErr: "is not a boolean; use on or off",
 		},
 		{
 			name:  "plain integer",
@@ -250,6 +306,8 @@ func TestParameterValueEqual(t *testing.T) {
 		{"plain differs", numericEntry("max_connections", unitUndefined, 100), "200", false},
 		{"string equal", stringEntry("log_statement", "all"), "all", true},
 		{"string case differs", stringEntry("hot_standby_feedback", "on"), "ON", false},
+		{"boolean true equals on", booleanEntry("on"), "true", true},
+		{"boolean OFF equals off", booleanEntry("off"), "OFF", true},
 		{"unparseable", numericEntry("work_mem", "KILOBYTES", 65536), "lots", false},
 		{"unknown API unit", numericEntry("some_param", "BLOCKS", 8), "8", true},
 		{"unknown API unit differs", numericEntry("some_param", "BLOCKS", 8), "16", false},
@@ -265,6 +323,9 @@ func TestBuildParameterCatalog(t *testing.T) {
 	p := &tsClient.PostgresParameters{
 		StringParameters: []tsClient.StringParameter{
 			{Info: tsClient.ParameterInfo{Name: "log_statement"}, CurrentValue: "none"},
+			{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback"}, CurrentValue: "on", AllowedValues: []string{"off", "on"}},
+			{Info: tsClient.ParameterInfo{Name: "constraint_exclusion"}, CurrentValue: "none", AllowedValues: []string{"none", "all"}},
+			{Info: tsClient.ParameterInfo{Name: "empty_allowed"}, CurrentValue: "x", AllowedValues: []string{}},
 		},
 		NumericParameters: []tsClient.NumericParameter{
 			{Info: tsClient.ParameterInfo{Name: "max_connections", RequiresRestart: true}, Unit: "UNDEFINED", CurrentValue: 100},
@@ -272,10 +333,14 @@ func TestBuildParameterCatalog(t *testing.T) {
 		},
 	}
 	catalog := buildParameterCatalog(p)
-	require.Len(t, catalog, 3)
+	require.Len(t, catalog, 6)
 
 	require.False(t, catalog["log_statement"].numeric)
 	require.Equal(t, "none", catalog["log_statement"].strValue)
+
+	require.True(t, catalog["hot_standby_feedback"].boolean)
+	require.False(t, catalog["constraint_exclusion"].boolean)
+	require.False(t, catalog["empty_allowed"].boolean)
 
 	require.True(t, catalog["max_connections"].numeric)
 	require.Equal(t, unitUndefined, catalog["max_connections"].unit)

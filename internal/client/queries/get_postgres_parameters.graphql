@@ -12,6 +12,7 @@ query GetPostgresParameters($projectId: ID!, $serviceId: ID!) {
                 is_user_modified
             }
             current_value
+            allowed_values
         }
         numeric_parameters {
             info {

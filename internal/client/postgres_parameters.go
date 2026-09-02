@@ -18,10 +18,12 @@ type ParameterInfo struct {
 	IsUserModified   bool   `json:"is_user_modified"`
 }
 
-// StringParameter is a string or boolean parameter. Booleans use "on" and "off".
+// StringParameter is a string or boolean parameter. Booleans use "on" and "off"
+// and report AllowedValues as exactly that pair.
 type StringParameter struct {
-	Info         ParameterInfo `json:"info"`
-	CurrentValue string        `json:"current_value"`
+	Info          ParameterInfo `json:"info"`
+	CurrentValue  string        `json:"current_value"`
+	AllowedValues []string      `json:"allowed_values"`
 }
 
 // NumericParameter is a numeric parameter. Unit is UNDEFINED for plain numbers.

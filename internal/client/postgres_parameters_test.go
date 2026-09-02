@@ -24,6 +24,7 @@ func TestPostgresParameters_Decode(t *testing.T) {
 	require.Len(t, p.StringParameters, 1)
 	require.Equal(t, "array_nulls", p.StringParameters[0].Info.Name)
 	require.Equal(t, "on", p.StringParameters[0].CurrentValue)
+	require.Equal(t, []string{"on", "off"}, p.StringParameters[0].AllowedValues)
 
 	require.Len(t, p.NumericParameters, 1)
 	n := p.NumericParameters[0]

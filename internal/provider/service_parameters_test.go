@@ -461,7 +461,7 @@ func TestReadPostgresParameters(t *testing.T) {
 				{Info: tsClient.ParameterInfo{Name: "shared_buffers", IsUserModified: true, IsUserEditable: false}, Unit: "KILOBYTES", CurrentValue: 1024},
 			},
 			StringParameters: []tsClient.StringParameter{
-				{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserModified: true, IsUserEditable: true}, CurrentValue: "on"},
+				{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserModified: true, IsUserEditable: true}, CurrentValue: "on", AllowedValues: []string{"on", "off"}},
 			},
 		})
 		mock := newGQLMock(t, []string{catalog}, nil)

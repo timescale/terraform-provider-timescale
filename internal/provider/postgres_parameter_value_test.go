@@ -152,6 +152,18 @@ func TestParseParameterValue(t *testing.T) {
 			raw:     "lots",
 			wantErr: "is not a number followed by a unit",
 		},
+		{
+			name:  "large fractional day value within relative tolerance",
+			entry: numericEntry("statement_timeout", "MILLISECONDS", 0),
+			raw:   "0.7d",
+			want:  parsedParameterValue{numeric: true, value: 1008, unit: "MINUTES"},
+		},
+		{
+			name:  "another large fractional day value within relative tolerance",
+			entry: numericEntry("statement_timeout", "MILLISECONDS", 0),
+			raw:   "1.1d",
+			want:  parsedParameterValue{numeric: true, value: 1584, unit: "MINUTES"},
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

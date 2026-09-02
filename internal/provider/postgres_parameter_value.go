@@ -161,7 +161,7 @@ func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParamet
 	// Use exact arithmetic to avoid floating-point precision issues with powers of 10.
 	base := v * u.factor
 	rounded := math.Round(base)
-	if math.Abs(base-rounded) > 1e-6 {
+	if math.Abs(base-rounded) > math.Max(1e-6, math.Abs(base)*1e-12) {
 		smallestSuffix := "B" // memory family default.
 		if !u.memory {
 			smallestSuffix = "us" // time family default.

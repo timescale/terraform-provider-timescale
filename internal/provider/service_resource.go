@@ -629,7 +629,9 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		if pdiags.HasError() {
 			// Match the other Create failure paths: do not leave an orphaned service behind.
 			if _, err := r.client.DeleteService(context.Background(), service.ID); err != nil {
-				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("Failed to delete service after postgres_parameters error; remove orphaned resources from your account manually. Error: %s", err))
+				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("The service was deleted because postgres_parameters could not be applied, but deleting it failed; remove orphaned resources from your account manually. Error: %s", err))
+			} else {
+				resp.Diagnostics.AddWarning("Service Deleted", "The service was deleted because postgres_parameters could not be applied.")
 			}
 			return
 		}
@@ -965,20 +967,15 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	resizeRequested := !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB)
 
 	{
-		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
 		resizeConfig := tsClient.ResourceConfig{
 			MilliCPU: noop,
 			MemoryGB: noop,
 		}
 
-		if !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB) {
-			isResizeRequested = true
+		if resizeRequested {
 			resizeConfig.MilliCPU = strconv.FormatInt(plan.MilliCPU.ValueInt64(), 10)
 			resizeConfig.MemoryGB = strconv.FormatInt(plan.MemoryGB.ValueInt64(), 10)
-		}
-
-		if isResizeRequested {
 			if err := r.client.ResizeInstance(ctx, serviceID, resizeConfig); err != nil {
 				resp.Diagnostics.AddError("Failed to resize an instance", err.Error())
 				return
@@ -994,7 +991,8 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	// Postgres parameters. A compute resize re-tunes several parameters, so re-apply
 	// the declared map after a resize even when the map itself did not change.
-	if len(planParams) > 0 && (resizeRequested || !plan.PostgresParameters.Equal(state.PostgresParameters)) {
+	// Parameters cannot be read or set on a paused service.
+	if service.Status == "READY" && len(planParams) > 0 && (resizeRequested || !plan.PostgresParameters.Equal(state.PostgresParameters)) {
 		resp.Diagnostics.Append(r.applyPostgresParameters(ctx, serviceID, planParams)...)
 		if resp.Diagnostics.HasError() {
 			return
@@ -1084,7 +1082,7 @@ func (r *serviceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	planParams := knownParameterMap(planAttr)
 	stateParams := knownParameterMap(stateAttr)
 
-	if removed := removedParameterKeys(stateParams, planParams); len(removed) > 0 {
+	if removed := removedParameterKeysFromPlan(stateParams, planAttr); len(removed) > 0 {
 		resp.Diagnostics.AddAttributeWarning(path.Root(postgresParametersAttr),
 			"Postgres parameters no longer managed",
 			fmt.Sprintf("These parameters will no longer be managed by Terraform: %s. Their current values remain in place on the service.", strings.Join(removed, ", ")))

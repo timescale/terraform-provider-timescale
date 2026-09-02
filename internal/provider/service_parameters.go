@@ -29,6 +29,9 @@ const (
 var (
 	parameterPollInterval = 10 * time.Second
 	parameterPollTimeout  = 5 * time.Minute
+	// parameterFetchRetryTimeout bounds fetchParameterCatalogWithRetry, kept short so a hard
+	// failure (bad credentials, unknown service) surfaces quickly instead of waiting out parameterPollTimeout.
+	parameterFetchRetryTimeout = 90 * time.Second
 )
 
 // knownParameterMap returns the known, non-null elements of a string map attribute.
@@ -55,10 +58,27 @@ func parameterMapValue(ctx context.Context, in map[string]string) (types.Map, di
 	return types.MapValueFrom(ctx, types.StringType, in)
 }
 
-func removedParameterKeys(state, plan map[string]string) []string {
+// removedParameterKeysFromPlan returns state keys that are absent from the planned map,
+// counting every planned key regardless of whether its value is known. This avoids
+// reporting a still-managed key such as work_mem = "${var.mem}MB" as removed just
+// because its value cannot be resolved yet. An unknown plan map means "cannot tell"
+// and reports nothing; a null plan map means the attribute was dropped and reports
+// every state key.
+func removedParameterKeysFromPlan(state map[string]string, plan types.Map) []string {
+	if plan.IsUnknown() {
+		return nil
+	}
 	var removed []string
+	if plan.IsNull() {
+		for k := range state {
+			removed = append(removed, k)
+		}
+		slices.Sort(removed)
+		return removed
+	}
+	planKeys := plan.Elements()
 	for k := range state {
-		if _, ok := plan[k]; !ok {
+		if _, ok := planKeys[k]; !ok {
 			removed = append(removed, k)
 		}
 	}
@@ -110,7 +130,7 @@ func (r *serviceResource) fetchParameterCatalog(ctx context.Context, serviceID s
 // fetchParameterCatalogWithRetry retries the fetch: the API rejects reads while the
 // service is restarting after an earlier step such as exporter attachment.
 func (r *serviceResource) fetchParameterCatalogWithRetry(ctx context.Context, serviceID string) (map[string]parameterCatalogEntry, error) {
-	deadline := time.Now().Add(parameterPollTimeout)
+	deadline := time.Now().Add(parameterFetchRetryTimeout)
 	var lastErr error
 	for {
 		catalog, err := r.fetchParameterCatalog(ctx, serviceID)

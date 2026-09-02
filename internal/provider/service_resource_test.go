@@ -1,9 +1,13 @@
 package provider
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +16,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
+	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
 func TestServiceResource_Default_Success(t *testing.T) {
@@ -47,12 +53,50 @@ func TestServiceResource_Default_Success(t *testing.T) {
 					resource.TestCheckNoResourceAttr("timescale_service.resource", "vpc_id"),
 				),
 			},
+			// Set one reload parameter and one restart parameter
+			{
+				Config: getServiceConfig(t, config.WithPostgresParameters(map[string]string{
+					"work_mem":        "16MB",
+					"max_connections": "150",
+				})),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.%", "2"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.work_mem", "16MB"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.max_connections", "150"),
+					testAccCheckLiveParameter(t, "timescale_service.resource", "work_mem", "16MB"),
+					testAccCheckLiveParameter(t, "timescale_service.resource", "max_connections", "150"),
+				),
+			},
+			// Change a value
+			{
+				Config: getServiceConfig(t, config.WithPostgresParameters(map[string]string{
+					"work_mem":        "32MB",
+					"max_connections": "150",
+				})),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.work_mem", "32MB"),
+					testAccCheckLiveParameter(t, "timescale_service.resource", "work_mem", "32MB"),
+				),
+			},
+			// Remove a key: state forgets it, the service keeps the value
+			{
+				Config: getServiceConfig(t, config.WithPostgresParameters(map[string]string{
+					"work_mem": "32MB",
+				})),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.%", "1"),
+					resource.TestCheckNoResourceAttr("timescale_service.resource", "postgres_parameters.max_connections"),
+					testAccCheckLiveParameter(t, "timescale_service.resource", "max_connections", "150"),
+				),
+			},
 			// Do a compute resize
 			{
 				Config: getServiceConfig(t, config.WithSpec(1000, 4)),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_service.resource", "milli_cpu", "1000"),
 					resource.TestCheckResourceAttr("timescale_service.resource", "memory_gb", "4"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "postgres_parameters.work_mem", "32MB"),
+					testAccCheckLiveParameter(t, "timescale_service.resource", "work_mem", "32MB"),
 				),
 			},
 			// Update service name
@@ -300,6 +344,28 @@ func TestServiceResource_Read_Replica_Nodes(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(replicaFQID, "read_replica_nodes", "1"),
 				),
+			},
+			// Replica-specific parameters from issue #120
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithPostgresParameters(map[string]string{
+					"hot_standby_feedback":        "on",
+					"max_standby_streaming_delay": "5min",
+				})),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr(replicaFQID, "postgres_parameters.hot_standby_feedback", "on"),
+					resource.TestCheckResourceAttr(replicaFQID, "postgres_parameters.max_standby_streaming_delay", "5min"),
+					testAccCheckLiveParameter(t, replicaFQID, "hot_standby_feedback", "on"),
+					testAccCheckLiveParameter(t, replicaFQID, "max_standby_streaming_delay", "5min"),
+				),
+			},
+			// Session-level parameters cannot be set on a read replica
+			{
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithPostgresParameters(map[string]string{
+					"hot_standby_feedback":        "on",
+					"max_standby_streaming_delay": "5min",
+					"work_mem":                    "16MB",
+				})),
+				ExpectError: regexp.MustCompile("is not user-editable on this service"),
 			},
 		},
 	})
@@ -563,26 +629,27 @@ func newServiceCustomConfig(resourceName string, config ServiceConfig) string {
 }
 
 type ServiceConfig struct {
-	ResourceName      string
-	Name              string
-	Timeouts          Timeouts
-	MilliCPU          int64
-	MemoryGB          int64
-	RegionCode        string
-	EnableHAReplica   *bool
-	HAReplicas        *int64
-	SyncReplicas      *int64
-	VpcID             int64
-	ReadReplicaSource string
-	ReadReplicaNodes  *int64
-	Pooler            bool
-	DataTiering       bool
-	Environment       string
-	Password          string
-	PasswordWo        string
-	PasswordWoVersion *int64
-	MetricExporterID  string
-	LogExporterID     string
+	ResourceName       string
+	Name               string
+	Timeouts           Timeouts
+	MilliCPU           int64
+	MemoryGB           int64
+	RegionCode         string
+	EnableHAReplica    *bool
+	HAReplicas         *int64
+	SyncReplicas       *int64
+	VpcID              int64
+	ReadReplicaSource  string
+	ReadReplicaNodes   *int64
+	Pooler             bool
+	DataTiering        bool
+	Environment        string
+	Password           string
+	PasswordWo         string
+	PasswordWoVersion  *int64
+	MetricExporterID   string
+	LogExporterID      string
+	PostgresParameters map[string]string
 }
 
 type Timeouts struct {
@@ -666,6 +733,11 @@ func (c *ServiceConfig) WithPasswordWo(password string, version int64) *ServiceC
 	return c
 }
 
+func (c *ServiceConfig) WithPostgresParameters(params map[string]string) *ServiceConfig {
+	c.PostgresParameters = params
+	return c
+}
+
 func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -719,6 +791,13 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.PasswordWoVersion != nil {
 		write("password_wo_version = %d \n", *c.PasswordWoVersion)
+	}
+	if c.PostgresParameters != nil {
+		write("postgres_parameters = {\n")
+		for _, k := range slices.Sorted(maps.Keys(c.PostgresParameters)) {
+			write("  %q = %q\n", k, c.PostgresParameters[k])
+		}
+		write("}\n")
 	}
 	write(`
 			milli_cpu  = %d
@@ -797,4 +876,35 @@ func TestServiceResource_PasswordConflict(t *testing.T) {
 			},
 		},
 	})
+}
+
+// testAccClient returns an API client authenticated with the acceptance test credentials.
+func testAccClient(t *testing.T) *tsClient.Client {
+	t.Helper()
+	c := tsClient.NewClient("", os.Getenv("TF_VAR_ts_project_id"), "test", "test")
+	require.NoError(t, tsClient.JWTFromCC(c, os.Getenv("TF_VAR_ts_access_key"), os.Getenv("TF_VAR_ts_secret_key")))
+	return c
+}
+
+// testAccCheckLiveParameter asserts the running value of a parameter on the service
+// behind resourceName, independent of Terraform state.
+func testAccCheckLiveParameter(t *testing.T, resourceName, param, want string) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		rs, ok := state.RootModule().Resources[resourceName]
+		if !ok {
+			return fmt.Errorf("resource %s not found in state", resourceName)
+		}
+		p, err := testAccClient(t).GetPostgresParameters(context.Background(), rs.Primary.ID)
+		if err != nil {
+			return err
+		}
+		entry, ok := buildParameterCatalog(p)[param]
+		if !ok {
+			return fmt.Errorf("parameter %s not reported by the API", param)
+		}
+		if !parameterValueEqual(entry, want) {
+			return fmt.Errorf("parameter %s: want %s, service reports %s", param, want, formatParameterValue(entry))
+		}
+		return nil
+	}
 }

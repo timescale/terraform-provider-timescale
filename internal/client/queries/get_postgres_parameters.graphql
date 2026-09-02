@@ -1,0 +1,37 @@
+query GetPostgresParameters($projectId: ID!, $serviceId: ID!) {
+    getPostgresParameters (data:{
+        projectId: $projectId,
+        serviceId: $serviceId
+    }) {
+        string_parameters {
+            info {
+                name
+                description
+                is_user_editable
+                requires_restart
+                is_tune_overridable
+                is_pending_restart
+                is_user_modified
+                ui_priority
+            }
+            current_value
+            allowed_values
+        }
+        numeric_parameters {
+            info {
+                name
+                description
+                is_user_editable
+                requires_restart
+                is_tune_overridable
+                is_pending_restart
+                is_user_modified
+                ui_priority
+            }
+            unit
+            current_value
+            max_allowed_value
+            min_allowed_value
+        }
+    }
+}

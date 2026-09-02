@@ -1,0 +1,11 @@
+mutation SetPostgresParameters($projectId: ID!, $serviceId: ID!, $numericParameters: [SetNumericParameter!], $stringParameters: [SetStringParameter!]) {
+    setPostgresParameters (data:{
+        projectId: $projectId,
+        serviceId: $serviceId,
+        numericParameters: $numericParameters,
+        stringParameters: $stringParameters
+    }) {
+        name
+        errorMessage
+    }
+}

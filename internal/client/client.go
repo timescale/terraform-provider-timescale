@@ -46,6 +46,10 @@ var (
 	SetReplicaCountMutation string
 	//go:embed queries/change_service_password.graphql
 	ResetServicePassword string
+	//go:embed queries/get_postgres_parameters.graphql
+	GetPostgresParametersQuery string
+	//go:embed queries/set_postgres_parameters.graphql
+	SetPostgresParametersMutation string
 
 	// VCPs
 	//go:embed queries/vpcs.graphql

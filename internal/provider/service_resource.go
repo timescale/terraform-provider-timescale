@@ -247,7 +247,12 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "The hostname for this service",
 				Computed:            true,
 				PlanModifiers: []planmodifier.String{
-					useStateUnlessToggleChangesString("vpc_id", "private_endpoint_connection_ids"),
+					// Private Link keeps the hostname: the private path is reached
+					// on the same name as the public one, which is what lets the
+					// service certificate validate under sslmode=verify-full. Only
+					// the port is reallocated. Moving a service in or out of a VPC
+					// does rename it.
+					useStateUnlessToggleChangesString("vpc_id"),
 				},
 			},
 			"port": schema.Int64Attribute{

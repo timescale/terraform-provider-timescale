@@ -155,8 +155,9 @@ locals {
     }
   }
 
-  # The test instance goes in the first zone. Not every instance type is offered
-  # in every zone, so it must be placed explicitly rather than left to AWS.
+  # Which subnet the test instance goes in. A subnet never spans zones, so this
+  # also fixes the zone it runs in — either of the two will do, since the
+  # endpoint spans both.
   primary_availability_zone_id = local.availability_zone_ids[0]
 }
 

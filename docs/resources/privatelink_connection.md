@@ -3,56 +3,147 @@
 page_title: "timescale_privatelink_connection Resource - timescale"
 subcategory: ""
 description: |-
-  Manages a Private Link connection in a Timescale project.
-  This resource discovers an existing Private Link connection (created via Azure Private Endpoint
-  or AWS VPC Endpoint) and allows you to configure its IP address and name.
+  Claims a Private Link connection for this project.
+  Tiger Cloud's Private Link endpoint service is open: anyone can create a private
+  endpoint against it, and every connection is accepted but left unowned. Ownership
+  is established by claiming the connection with an identifier you read from your
+  own cloud resource. Authentication to the project is the proof of ownership —
+  nothing about the cloud account is trusted, which is what makes a shared
+  third-party provider account work.
+  This resource does not create the cloud-side endpoint. You create that with your
+  cloud provider (aws_vpc_endpoint, azurerm_private_endpoint),
+  then claim it here.
+  Claim identifier
+  | Cloud | `claim_identifier` | Where to read it |
+  | ----- | ------------------------- | ---------------- |
+  | AWS   | VPC endpoint ID (`vpce-…`) | `aws_vpc_endpoint.example.id` |
+  | Azure | Private endpoint's `resourceGuid` | `azurerm` does not expose it, so pass `azurerm_private_endpoint_connection`'s `private_service_connection[0].request_response` — the approval message Tiger Cloud writes back. The GUID is extracted from it automatically. |
+  Passing the approval message directly means no extra provider is needed. A bare
+  resourceGuid works too, whether read with the azapi provider or
+  copied from the Azure portal.
   Workflow
-  Azure
-  Create an Azure Private Endpoint pointing to the Timescale Private Link ServiceUse this resource with provider_connection_id set to the private endpoint name and cloud_provider = "azure"The resource will sync and wait for the connection to appearSet ip_address to the private IP from the Azure Private Endpoint
-  AWS
-  Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint ServiceUse this resource with provider_connection_id set to the VPC Endpoint ID and cloud_provider = "aws"The resource will sync and find the connection
+  Look up the endpoint service name with timescale_privatelink_region.Create a private endpoint or VPC endpoint against that service name.Claim it with this resource.Attach services with timescale_service.private_endpoint_connection_ids.Create a private DNS zone in your own VPC or VNet pointing the service
+  hostname at your endpoint. Tiger Cloud does not publish these records.
+  Connecting over Private Link
+  The hostname is the same one the public endpoint uses, so the existing
+  certificate validates with sslmode=verify-full. Only the resolution
+  and the port differ, and the port is allocated per binding — read it from the
+  Tiger Cloud console or the API rather than assuming 5432.
 ---
 
 # timescale_privatelink_connection (Resource)
 
-Manages a Private Link connection in a Timescale project.
+Claims a Private Link connection for this project.
 
-This resource discovers an existing Private Link connection (created via Azure Private Endpoint
-or AWS VPC Endpoint) and allows you to configure its IP address and name.
+Tiger Cloud's Private Link endpoint service is open: anyone can create a private
+endpoint against it, and every connection is accepted but left unowned. Ownership
+is established by claiming the connection with an identifier you read from your
+own cloud resource. Authentication to the project is the proof of ownership —
+nothing about the cloud account is trusted, which is what makes a shared
+third-party provider account work.
+
+This resource does not create the cloud-side endpoint. You create that with your
+cloud provider (`aws_vpc_endpoint`, `azurerm_private_endpoint`),
+then claim it here.
+
+## Claim identifier
+
+| Cloud | `claim_identifier` | Where to read it |
+| ----- | ------------------------- | ---------------- |
+| AWS   | VPC endpoint ID (`vpce-…`) | `aws_vpc_endpoint.example.id` |
+| Azure | Private endpoint's `resourceGuid` | `azurerm` does not expose it, so pass `azurerm_private_endpoint_connection`'s `private_service_connection[0].request_response` — the approval message Tiger Cloud writes back. The GUID is extracted from it automatically. |
+
+Passing the approval message directly means no extra provider is needed. A bare
+`resourceGuid` works too, whether read with the `azapi` provider or
+copied from the Azure portal.
 
 ## Workflow
 
-### Azure
-1. Create an Azure Private Endpoint pointing to the Timescale Private Link Service
-2. Use this resource with `provider_connection_id` set to the private endpoint name and `cloud_provider = "azure"`
-3. The resource will sync and wait for the connection to appear
-4. Set `ip_address` to the private IP from the Azure Private Endpoint
+1. Look up the endpoint service name with `timescale_privatelink_region`.
+2. Create a private endpoint or VPC endpoint against that service name.
+3. Claim it with this resource.
+4. Attach services with `timescale_service.private_endpoint_connection_ids`.
+5. Create a private DNS zone in your own VPC or VNet pointing the service
+   hostname at your endpoint. Tiger Cloud does not publish these records.
 
-### AWS
-1. Create an AWS VPC Endpoint pointing to the Timescale VPC Endpoint Service
-2. Use this resource with `provider_connection_id` set to the VPC Endpoint ID and `cloud_provider = "aws"`
-3. The resource will sync and find the connection
+## Connecting over Private Link
 
+The hostname is the same one the public endpoint uses, so the existing
+certificate validates with `sslmode=verify-full`. Only the resolution
+and the port differ, and the port is allocated per binding — read it from the
+Tiger Cloud console or the API rather than assuming 5432.
 
+## Example Usage
+
+```terraform
+# Claim a Private Link connection for this project.
+#
+# Tiger Cloud's endpoint service is open: anyone can create a private endpoint
+# against it, and every connection is accepted but left unowned. Claiming it
+# with an identifier read from your own cloud resource establishes ownership —
+# authentication to the project is the proof.
+#
+# Create the cloud-side endpoint yourself, then claim it here. See the aws/ and
+# azure/ subdirectories for complete, runnable setups.
+
+# AWS: the claim identifier is the VPC endpoint ID.
+resource "timescale_privatelink_connection" "aws" {
+  claim_identifier = aws_vpc_endpoint.example.id
+  name             = "production"
+}
+
+# Azure: the claim identifier is the private endpoint's resourceGuid, which
+# azurerm does not expose (hashicorp/terraform-provider-azurerm#17011). Read it
+# from the Azure API with the azapi provider.
+data "azapi_resource" "example_pe" {
+  type                   = "Microsoft.Network/privateEndpoints@2024-05-01"
+  resource_id            = azurerm_private_endpoint.example.id
+  response_export_values = ["properties.resourceGuid"]
+}
+
+resource "timescale_privatelink_connection" "azure" {
+  claim_identifier = data.azapi_resource.example_pe.output.properties.resourceGuid
+  name             = "production"
+}
+
+# Attach services to the claimed connection.
+resource "timescale_service" "example" {
+  name        = "example"
+  region_code = "us-east-1"
+  milli_cpu   = 500
+  memory_gb   = 2
+
+  private_endpoint_connection_ids = [timescale_privatelink_connection.aws.connection_id]
+}
+```
 
 <!-- schema generated by tfplugindocs -->
 ## Schema
 
 ### Required
 
-- `cloud_provider` (String) The cloud provider: azure or aws.
-- `ip_address` (String) The private IP address of the Private Endpoint or VPC Endpoint. Required to enable services to connect via this private link.
-- `provider_connection_id` (String) The cloud provider connection identifier. For Azure: the private endpoint name. For AWS: the VPC Endpoint ID (vpce-...).
-- `region` (String) The Timescale region (e.g., az-eastus2, us-east-1).
+- `claim_identifier` (String) Identifier read from your own cloud resource. AWS: the VPC endpoint ID (vpce-...). Azure: the private endpoint's resourceGuid, or the whole connection approval message containing it — the GUID is extracted for you, so you can pass azurerm_private_endpoint_connection's request_response directly. Changing this claims a different connection, so the resource is replaced, which is what happens when the underlying endpoint is recreated. Replacement releases the old claim; whether it also rejects the old connection is governed by reject_on_destroy.
 
 ### Optional
 
 - `name` (String) Optional display name for the connection.
-- `timeout` (String) How long to wait for the connection to appear during create. Accepts duration strings like '2m', '5m', '30s'. Defaults to '2m'.
+- `reject_on_destroy` (Boolean) Whether destroying this resource also rejects the connection in your cloud account. Defaults to false, so a destroy releases the claim from Terraform state and leaves the connection in place — re-applying claims it again. Setting this to true makes destroy irreversible: a rejected connection cannot be re-claimed, and you must recreate the private endpoint to reconnect.
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
+- `cloud_provider` (String) The cloud provider the connection originates from, as recorded when it was synced.
 - `connection_id` (String) The unique identifier for this connection. Use this for timescale_service.private_endpoint_connection_ids.
 - `id` (String) Resource identifier (same as connection_id).
-- `link_identifier` (String) The private link identifier.
-- `state` (String) The state of the connection (e.g., approved, pending).
+- `link_identifier` (String) The cloud provider's own identifier for the connection. This is not the claim identifier: on Azure it is a provider-side value the customer cannot read.
+- `principal_id` (String) The cloud account the connection originates from. Informational only — it carries no ownership meaning.
+- `provider_connection_id` (String) Provider-specific connection identifier: the VPC endpoint ID on AWS, "<endpoint name>.<resourceGuid>" on Azure.
+- `region` (String) The Tiger Cloud region of the endpoint service this connection reaches.
+- `state` (String) The state of the connection (approved, pending, rejected, removed).
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) A string that can be [parsed as a duration](https://pkg.go.dev/time#ParseDuration) consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).

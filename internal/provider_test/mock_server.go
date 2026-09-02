@@ -126,3 +126,19 @@ provider "timescale" {
   project_id = var.ts_project_id
 }
 `
+
+// GetStringSlice extracts a list of strings from a map, skipping any element
+// that is not a string.
+func GetStringSlice(m map[string]interface{}, key string) []string {
+	raw, ok := m[key].([]interface{})
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if s, ok := v.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out
+}

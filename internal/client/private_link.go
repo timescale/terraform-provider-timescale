@@ -42,7 +42,6 @@ type PrivateLinkConnection struct {
 	ConnectionID         string                `json:"connectionId"`
 	LinkIdentifier       string                `json:"linkIdentifier"`
 	State                string                `json:"state"`
-	IPAddress            string                `json:"ipAddress"`
 	Name                 string                `json:"name"`
 	Region               string                `json:"region"`
 	PrincipalID          string                `json:"principalId"`
@@ -173,18 +172,46 @@ func (c *Client) SyncPrivateLinkConnections(ctx context.Context) error {
 	return nil
 }
 
+type ClaimPrivateLinkConnectionResponse struct {
+	Connection *PrivateLinkConnection `json:"claimPrivateLinkConnection"`
+}
+
+// ClaimPrivateLinkConnection assigns an unowned connection to the client's
+// project. The claim identifier is read by the customer from their own cloud
+// resource: the VPC endpoint ID on AWS, the private endpoint's resourceGuid on
+// Azure. Re-claiming a connection the project already owns is idempotent.
+func (c *Client) ClaimPrivateLinkConnection(ctx context.Context, claimIdentifier string) (*PrivateLinkConnection, error) {
+	tflog.Trace(ctx, "Client.ClaimPrivateLinkConnection")
+	req := map[string]interface{}{
+		"operationName": "ClaimPrivateLinkConnection",
+		"query":         ClaimPrivateLinkConnectionMutation,
+		"variables": map[string]interface{}{
+			"projectId":       c.projectID,
+			"claimIdentifier": claimIdentifier,
+		},
+	}
+	var resp Response[ClaimPrivateLinkConnectionResponse]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Errors) > 0 {
+		return nil, resp.Errors[0]
+	}
+	if resp.Data == nil || resp.Data.Connection == nil {
+		return nil, errors.New("no response found")
+	}
+	return resp.Data.Connection, nil
+}
+
 type UpdatePrivateLinkConnectionResponse struct {
 	Connection *PrivateLinkConnection `json:"updatePrivateLinkConnection"`
 }
 
-func (c *Client) UpdatePrivateLinkConnection(ctx context.Context, connectionID string, ipAddress *string, name *string) (*PrivateLinkConnection, error) {
+func (c *Client) UpdatePrivateLinkConnection(ctx context.Context, connectionID string, name *string) (*PrivateLinkConnection, error) {
 	tflog.Trace(ctx, "Client.UpdatePrivateLinkConnection")
 	variables := map[string]interface{}{
 		"projectId":    c.projectID,
 		"connectionId": connectionID,
-	}
-	if ipAddress != nil {
-		variables["ipAddress"] = *ipAddress
 	}
 	if name != nil {
 		variables["name"] = *name
@@ -240,6 +267,9 @@ type DeletePrivateLinkConnectionResponse struct {
 	Result string `json:"deletePrivateLinkConnection"`
 }
 
+// DeletePrivateLinkConnection rejects the connection provider-side. This is
+// terminal: sync skips rejected connections, so the customer must recreate the
+// private endpoint to reconnect.
 func (c *Client) DeletePrivateLinkConnection(ctx context.Context, connectionID string) error {
 	tflog.Trace(ctx, "Client.DeletePrivateLinkConnection")
 	req := map[string]interface{}{
@@ -251,129 +281,6 @@ func (c *Client) DeletePrivateLinkConnection(ctx context.Context, connectionID s
 		},
 	}
 	var resp Response[DeletePrivateLinkConnectionResponse]
-	if err := c.do(ctx, req, &resp); err != nil {
-		return err
-	}
-	if len(resp.Errors) > 0 {
-		return resp.Errors[0]
-	}
-	return nil
-}
-
-// Authorization types and methods
-
-type PrivateLinkAuthorization struct {
-	ProjectID     string  `json:"projectId"`
-	Name          string  `json:"name"`
-	PrincipalID   string  `json:"principalId"`
-	CloudProvider string  `json:"cloudProvider"`
-	CreatedAt     string  `json:"createdAt"`
-	UpdatedAt     *string `json:"updatedAt"`
-}
-
-type ListPrivateLinkAuthorizationsResponse struct {
-	Authorizations []*PrivateLinkAuthorization `json:"listPrivateLinkAuthorizations"`
-}
-
-type CreatePrivateLinkAuthorizationResponse struct {
-	Authorization *PrivateLinkAuthorization `json:"createPrivateLinkAuthorization"`
-}
-
-type UpdatePrivateLinkAuthorizationResponse struct {
-	Authorization *PrivateLinkAuthorization `json:"updatePrivateLinkAuthorization"`
-}
-
-type DeletePrivateLinkAuthorizationResponse struct {
-	Result string `json:"deletePrivateLinkAuthorization"`
-}
-
-func (c *Client) ListPrivateLinkAuthorizations(ctx context.Context) ([]*PrivateLinkAuthorization, error) {
-	tflog.Trace(ctx, "Client.ListPrivateLinkAuthorizations")
-	req := map[string]interface{}{
-		"operationName": "ListPrivateLinkAuthorizations",
-		"query":         ListPrivateLinkAuthorizationsQuery,
-		"variables": map[string]string{
-			"projectId": c.projectID,
-		},
-	}
-	var resp Response[ListPrivateLinkAuthorizationsResponse]
-	if err := c.do(ctx, req, &resp); err != nil {
-		return nil, err
-	}
-	if len(resp.Errors) > 0 {
-		return nil, resp.Errors[0]
-	}
-	if resp.Data == nil {
-		return nil, errors.New("no response found")
-	}
-	return resp.Data.Authorizations, nil
-}
-
-func (c *Client) CreatePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider, name string) (*PrivateLinkAuthorization, error) {
-	tflog.Trace(ctx, "Client.CreatePrivateLinkAuthorization")
-	variables := map[string]interface{}{
-		"projectId":     c.projectID,
-		"name":          name,
-		"principalId":   principalID,
-		"cloudProvider": cloudProvider,
-	}
-	req := map[string]interface{}{
-		"operationName": "CreatePrivateLinkAuthorization",
-		"query":         CreatePrivateLinkAuthorizationMutation,
-		"variables":     variables,
-	}
-	var resp Response[CreatePrivateLinkAuthorizationResponse]
-	if err := c.do(ctx, req, &resp); err != nil {
-		return nil, err
-	}
-	if len(resp.Errors) > 0 {
-		return nil, resp.Errors[0]
-	}
-	if resp.Data == nil {
-		return nil, errors.New("no response found")
-	}
-	return resp.Data.Authorization, nil
-}
-
-func (c *Client) UpdatePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider, name string) (*PrivateLinkAuthorization, error) {
-	tflog.Trace(ctx, "Client.UpdatePrivateLinkAuthorization")
-	variables := map[string]interface{}{
-		"projectId":     c.projectID,
-		"name":          name,
-		"principalId":   principalID,
-		"cloudProvider": cloudProvider,
-	}
-	req := map[string]interface{}{
-		"operationName": "UpdatePrivateLinkAuthorization",
-		"query":         UpdatePrivateLinkAuthorizationMutation,
-		"variables":     variables,
-	}
-	var resp Response[UpdatePrivateLinkAuthorizationResponse]
-	if err := c.do(ctx, req, &resp); err != nil {
-		return nil, err
-	}
-	if len(resp.Errors) > 0 {
-		return nil, resp.Errors[0]
-	}
-	if resp.Data == nil {
-		return nil, errors.New("no response found")
-	}
-	return resp.Data.Authorization, nil
-}
-
-func (c *Client) DeletePrivateLinkAuthorization(ctx context.Context, principalID, cloudProvider string) error {
-	tflog.Trace(ctx, "Client.DeletePrivateLinkAuthorization")
-	variables := map[string]interface{}{
-		"projectId":     c.projectID,
-		"principalId":   principalID,
-		"cloudProvider": cloudProvider,
-	}
-	req := map[string]interface{}{
-		"operationName": "DeletePrivateLinkAuthorization",
-		"query":         DeletePrivateLinkAuthorizationMutation,
-		"variables":     variables,
-	}
-	var resp Response[DeletePrivateLinkAuthorizationResponse]
 	if err := c.do(ctx, req, &resp); err != nil {
 		return err
 	}

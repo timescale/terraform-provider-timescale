@@ -23,9 +23,9 @@ func init() {
 		Name: "timescale_vpcs",
 		F:    sweepVPCs,
 	})
-	resource.AddTestSweepers("timescale_privatelink_authorization", &resource.Sweeper{
-		Name: "timescale_privatelink_authorization",
-		F:    sweepPrivateLinkAuthorizations,
+	resource.AddTestSweepers("timescale_privatelink_connection", &resource.Sweeper{
+		Name: "timescale_privatelink_connection",
+		F:    sweepPrivateLinkConnections,
 	})
 }
 
@@ -63,8 +63,8 @@ func sweepVPCs(_ string) error {
 	return nil
 }
 
-func sweepPrivateLinkAuthorizations(_ string) error {
-	log.Printf("Sweeper starting for Private Link authorizations...")
+func sweepPrivateLinkConnections(_ string) error {
+	log.Printf("Sweeper starting for Private Link connections...")
 	c, err := createSweepClient()
 	if err != nil {
 		return fmt.Errorf("error creating client: %s", err)
@@ -72,17 +72,18 @@ func sweepPrivateLinkAuthorizations(_ string) error {
 
 	ctx := context.Background()
 
-	authorizations, err := c.ListPrivateLinkAuthorizations(ctx)
+	connections, err := c.ListPrivateLinkConnections(ctx, "")
 	if err != nil {
-		return fmt.Errorf("error retrieving Private Link authorizations: %s", err)
+		return fmt.Errorf("error retrieving Private Link connections: %s", err)
 	}
 
-	for _, auth := range authorizations {
-		if strings.HasPrefix(auth.Name, "test-") || strings.HasPrefix(auth.Name, "Terraform managed") {
-			log.Printf("Destroying Private Link authorization %s (principal=%s, provider=%s)", auth.Name, auth.PrincipalID, auth.CloudProvider)
-			if err := c.DeletePrivateLinkAuthorization(ctx, auth.PrincipalID, auth.CloudProvider); err != nil {
-				log.Printf("Error deleting Private Link authorization %s: %s", auth.Name, err)
-			}
+	for _, conn := range connections {
+		if !strings.HasPrefix(conn.Name, "test-") {
+			continue
+		}
+		log.Printf("Rejecting Private Link connection %s (%s)", conn.Name, conn.ConnectionID)
+		if err := c.DeletePrivateLinkConnection(ctx, conn.ConnectionID); err != nil {
+			log.Printf("Error rejecting Private Link connection %s: %s", conn.Name, err)
 		}
 	}
 

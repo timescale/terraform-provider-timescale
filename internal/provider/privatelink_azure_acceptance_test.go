@@ -10,13 +10,9 @@ import (
 
 func testAccPrivateLinkAzurePreCheck(t *testing.T) {
 	testAccPreCheck(t)
-	for _, env := range []string{"ARM_CLIENT_ID", "ARM_CLIENT_SECRET", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID"} {
-		v, ok := os.LookupEnv(env)
-		if !ok {
-			t.Skipf("%s not set, skipping Azure Private Link test", env)
-		}
-		if v == "" {
-			t.Skipf("%s is empty, skipping Azure Private Link test", env)
+	for _, key := range []string{"ARM_SUBSCRIPTION_ID", "ARM_CLIENT_ID", "ARM_CLIENT_SECRET", "ARM_TENANT_ID"} {
+		if v, ok := os.LookupEnv(key); !ok || v == "" {
+			t.Skipf("%s not set, skipping Azure Private Link test", key)
 		}
 	}
 }
@@ -32,37 +28,41 @@ func TestAccPrivateLinkConnection_azure_e2e(t *testing.T) {
 				Source:            "hashicorp/azurerm",
 				VersionConstraint: ">= 4.0",
 			},
+			"azapi": {
+				Source:            "Azure/azapi",
+				VersionConstraint: ">= 2.0",
+			},
 		},
 		PreCheck: func() { testAccPrivateLinkAzurePreCheck(t) },
 		Steps: []resource.TestStep{
 			{
-				Config: testAccPrivateLinkAzureFullConfig("Managed by Terraform", true),
+				Config: testAccPrivateLinkAzureFullConfig("test-acc-managed", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(connectionName, "connection_id"),
 					resource.TestCheckResourceAttrSet(connectionName, "state"),
-					resource.TestCheckResourceAttr(connectionName, "name", "Managed by Terraform"),
+					resource.TestCheckResourceAttrSet(connectionName, "claim_identifier"),
+					resource.TestCheckResourceAttr(connectionName, "name", "test-acc-managed"),
 					resource.TestCheckResourceAttr(connectionName, "cloud_provider", "azure"),
 					resource.TestCheckResourceAttr(connectionName, "region", "az-eastus2"),
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
-					resource.TestCheckResourceAttrSet(serviceName, "hostname"),
 					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
 			},
 			{
-				Config: testAccPrivateLinkAzureFullConfig("Updated Name", true),
+				Config: testAccPrivateLinkAzureFullConfig("test-acc-renamed", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(connectionName, "name", "Updated Name"),
+					resource.TestCheckResourceAttr(connectionName, "name", "test-acc-renamed"),
 				),
 			},
 			{
-				Config: testAccPrivateLinkAzureFullConfig("Updated Name", false),
+				Config: testAccPrivateLinkAzureFullConfig("test-acc-renamed", false),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(serviceName, "id"),
 					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "0"),
 				),
 			},
 			{
-				Config: testAccPrivateLinkAzureFullConfig("Updated Name", true),
+				Config: testAccPrivateLinkAzureFullConfig("test-acc-renamed", true),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr(serviceName, "private_endpoint_connection_ids.#", "1"),
 				),
@@ -85,7 +85,16 @@ provider "azurerm" {
   tenant_id       = %q
 }
 
-data "timescale_privatelink_available_regions" "all" {}
+provider "azapi" {
+  subscription_id = %q
+  client_id       = %q
+  client_secret   = %q
+  tenant_id       = %q
+}
+
+data "timescale_privatelink_region" "test" {
+  region = "az-eastus2"
+}
 
 resource "azurerm_resource_group" "test" {
   name     = "tf-acc-test-pl-rg"
@@ -107,12 +116,6 @@ resource "azurerm_subnet" "test" {
   private_endpoint_network_policies = "Disabled"
 }
 
-resource "timescale_privatelink_authorization" "test" {
-  principal_id   = %q
-  cloud_provider = "azure"
-  name           = "Terraform managed - acceptance test"
-}
-
 resource "azurerm_private_endpoint" "test" {
   name                = "tf-acc-test-pl-pe"
   location            = azurerm_resource_group.test.location
@@ -121,30 +124,31 @@ resource "azurerm_private_endpoint" "test" {
 
   private_service_connection {
     name                              = "tf-acc-test-pl-psc"
-    private_connection_resource_alias = data.timescale_privatelink_available_regions.all.regions["az-eastus2"].service_name
+    private_connection_resource_alias = data.timescale_privatelink_region.test.service_name
     is_manual_connection              = true
-    request_message                   = var.ts_project_id
+    request_message                   = "terraform acceptance test"
   }
-
-  depends_on = [timescale_privatelink_authorization.test]
 }
-`, subscriptionID, clientID, clientSecret, tenantID, subscriptionID)
+
+# azurerm does not expose resourceGuid (hashicorp/terraform-provider-azurerm#17011),
+# and it is the Azure claim identifier.
+data "azapi_resource" "test_pe" {
+  type                   = "Microsoft.Network/privateEndpoints@2024-05-01"
+  resource_id            = azurerm_private_endpoint.test.id
+  response_export_values = ["properties.resourceGuid"]
+}
+`, subscriptionID, clientID, clientSecret, tenantID, subscriptionID, clientID, clientSecret, tenantID)
 }
 
 func testAccPrivateLinkAzureConnectionConfig(name string) string {
 	return fmt.Sprintf(`
 resource "timescale_privatelink_connection" "test" {
-  provider_connection_id = azurerm_private_endpoint.test.name
-  cloud_provider         = "azure"
-  region                 = "az-eastus2"
-  ip_address             = azurerm_private_endpoint.test.private_service_connection[0].private_ip_address
-  name                   = %q
-  timeout                = "5m"
+  claim_identifier  = data.azapi_resource.test_pe.output.properties.resourceGuid
+  name              = %q
+  reject_on_destroy = true
 
-  depends_on = [azurerm_private_endpoint.test]
-
-  lifecycle {
-    create_before_destroy = true
+  timeouts = {
+    create = "10m"
   }
 }
 `, name)
@@ -153,7 +157,7 @@ resource "timescale_privatelink_connection" "test" {
 func testAccPrivateLinkAzureServiceConfig(attached bool) string {
 	connectionIDLine := ""
 	if attached {
-		connectionIDLine = "\n  private_endpoint_connection_id = timescale_privatelink_connection.test.connection_id"
+		connectionIDLine = "\n  private_endpoint_connection_ids = [timescale_privatelink_connection.test.connection_id]"
 	}
 	return fmt.Sprintf(`
 resource "timescale_service" "test" {

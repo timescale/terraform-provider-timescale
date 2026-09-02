@@ -1,10 +1,23 @@
+# Minimal end-to-end AWS PrivateLink setup:
+#
+#   1. a small Tiger Cloud service
+#   2. a VPC endpoint, claimed as a private link connection
+#   3. a small EC2 instance to test from
+#   4. a `terraform output` command that runs the test
+#
+# Tiger Cloud does not publish DNS for private link. The customer owns the
+# records, so this example also creates a private hosted zone pointing the
+# service hostname at the endpoint. That is what keeps sslmode=verify-full
+# working: the client asks for the same hostname the public endpoint uses, and
+# the existing certificate covers it.
+
 terraform {
   required_version = ">= 1.3.0"
 
   required_providers {
     timescale = {
       source  = "timescale/timescale"
-      version = "~> 2.8"
+      version = "~> 2.0"
     }
     aws = {
       source  = "hashicorp/aws"
@@ -13,60 +26,56 @@ terraform {
   }
 }
 
-# =============================================================================
-# Variables
-# =============================================================================
-
 variable "ts_access_key" {
+  description = "Tiger Cloud client credentials access key."
   type        = string
-  description = "Timescale access key"
 }
 
 variable "ts_secret_key" {
+  description = "Tiger Cloud client credentials secret key."
   type        = string
   sensitive   = true
-  description = "Timescale secret key"
 }
 
 variable "ts_project_id" {
+  description = "Tiger Cloud project ID."
   type        = string
-  description = "Timescale project ID"
 }
 
-variable "aws_region" {
+variable "region" {
+  description = "AWS region. Must be a region where Tiger Cloud offers private link, and where the service lives."
   type        = string
-  description = "AWS region for infrastructure"
   default     = "us-east-1"
+
+  validation {
+    # The Availability Zones Tiger Cloud serves PrivateLink from are fixed per
+    # region, so a region absent from that map cannot be used here.
+    condition = contains([
+      "ap-northeast-1", "ap-south-1", "ap-southeast-1", "ap-southeast-2",
+      "ca-central-1", "eu-central-1", "eu-central-2", "eu-west-1", "eu-west-2",
+      "sa-east-1", "us-east-1", "us-east-2", "us-west-2",
+    ], var.region)
+    error_message = "Tiger Cloud does not offer PrivateLink in this region. See the privatelink_availability_zone_ids map in main.tf for the supported list."
+  }
 }
 
-variable "timescale_region" {
+variable "vpc_cidr" {
+  description = "CIDR of the test VPC. Change it if it overlaps an existing VPC in the account."
   type        = string
-  description = "Timescale region for the service (e.g., us-east-1)"
-  default     = "us-east-1"
+  default     = "10.42.0.0/16"
 }
 
-variable "resource_prefix" {
+variable "name_prefix" {
+  description = "Prefix for every resource name."
   type        = string
-  description = "Prefix for all resource names"
-  default     = "tspl-demo"
+  default     = "tf-privatelink-example"
 }
 
-variable "enable_private_link" {
-  type        = bool
-  description = "Enable private link connection to the Timescale service. Set to false to disconnect."
-  default     = true
-}
-
-variable "db_password" {
+variable "ssh_public_key_path" {
+  description = "Public key authorized on the test instance."
   type        = string
-  sensitive   = true
-  description = "Password for the Timescale service. Provided via password_wo (write-only) so it is not stored in state."
-  default     = "TestPassword123!"
+  default     = "~/.ssh/id_ed25519.pub"
 }
-
-# =============================================================================
-# Providers
-# =============================================================================
 
 provider "timescale" {
   access_key = var.ts_access_key
@@ -75,92 +84,237 @@ provider "timescale" {
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = var.region
+}
 
-  default_tags {
-    tags = {
-      Environment = "Development"
-      Project     = "Timescale Private Link Connection"
-      CreatedBy   = "Terraform"
-    }
+# ============================================================================
+# 1. Tiger Cloud service
+# ============================================================================
+
+resource "timescale_service" "example" {
+  name        = var.name_prefix
+  region_code = var.region
+  milli_cpu   = 500
+  memory_gb   = 2
+
+  private_endpoint_connection_ids = [timescale_privatelink_connection.example.connection_id]
+
+  timeouts = {
+    create = "30m"
   }
 }
 
-# =============================================================================
-# Data Sources
-# =============================================================================
+# ============================================================================
+# 2. VPC endpoint, claimed as a private link connection
+# ============================================================================
 
-data "aws_caller_identity" "current" {}
-
-data "timescale_privatelink_region" "selected" {
-  region = var.timescale_region
+# The endpoint service name to point the VPC endpoint at.
+data "timescale_privatelink_region" "example" {
+  region = var.region
 }
 
-# =============================================================================
-# AWS Infrastructure
-# =============================================================================
+# Tiger Cloud serves PrivateLink from exactly two Availability Zones per
+# region. The endpoint must be created in both: one for the connection to work,
+# the second so it survives the loss of a zone. An interface in any other zone
+# cannot reach the service.
+#
+# These are Availability Zone *IDs*, not names. AWS maps names like us-east-1a
+# to different physical zones in every account, so matching on the name would
+# land the endpoint in the wrong place.
+locals {
+  privatelink_availability_zone_ids = {
+    "ap-northeast-1" = ["apne1-az1", "apne1-az4"]
+    "ap-south-1"     = ["aps1-az1", "aps1-az3"]
+    "ap-southeast-1" = ["apse1-az1", "apse1-az2"]
+    "ap-southeast-2" = ["apse2-az1", "apse2-az2"]
+    "ca-central-1"   = ["cac1-az1", "cac1-az2"]
+    "eu-central-1"   = ["euc1-az1", "euc1-az2"]
+    "eu-central-2"   = ["euc2-az1", "euc2-az2"]
+    "eu-west-1"      = ["euw1-az2", "euw1-az3"]
+    "eu-west-2"      = ["euw2-az2", "euw2-az3"]
+    "sa-east-1"      = ["sae1-az1", "sae1-az2"]
+    "us-east-1"      = ["use1-az1", "use1-az6"]
+    "us-east-2"      = ["use2-az1", "use2-az2"]
+    "us-west-2"      = ["usw2-az3", "usw2-az4"]
+  }
 
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  availability_zone_ids = local.privatelink_availability_zone_ids[var.region]
+
+  # Zone IDs are account-independent; zone names are not. Translate to the names
+  # this account uses so each subnet lands in the intended physical zone.
+  zone_id_to_name = zipmap(
+    data.aws_availability_zones.available.zone_ids,
+    data.aws_availability_zones.available.names,
+  )
+
+  # Index fixes each subnet's CIDR, so the pair stays stable.
+  subnets = {
+    for idx, az_id in local.availability_zone_ids : az_id => {
+      zone_name  = local.zone_id_to_name[az_id]
+      cidr_block = cidrsubnet(var.vpc_cidr, 8, idx + 1)
+    }
+  }
+
+  # The test instance goes in the first zone. Not every instance type is offered
+  # in every zone, so it must be placed explicitly rather than left to AWS.
+  primary_availability_zone_id = local.availability_zone_ids[0]
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_vpc" "example" {
+  cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
 
+  tags = { Name = var.name_prefix }
+}
+
+resource "aws_subnet" "example" {
+  for_each = local.subnets
+
+  vpc_id            = aws_vpc.example.id
+  cidr_block        = each.value.cidr_block
+  availability_zone = each.value.zone_name
+
+  map_public_ip_on_launch = true
+
   tags = {
-    Name = "${var.resource_prefix}-vpc"
+    Name = "${var.name_prefix}-${each.key}"
+    AzId = each.key
   }
 }
 
-resource "aws_subnet" "endpoint" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.0/24"
-  availability_zone = "${var.aws_region}a"
+resource "aws_internet_gateway" "example" {
+  vpc_id = aws_vpc.example.id
 
-  tags = {
-    Name = "${var.resource_prefix}-endpoint-subnet"
-  }
+  tags = { Name = var.name_prefix }
 }
 
-resource "aws_subnet" "vm" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.2.0/24"
-  availability_zone = "${var.aws_region}a"
-
-  tags = {
-    Name = "${var.resource_prefix}-vm-subnet"
-  }
-}
-
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.resource_prefix}-igw"
-  }
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+resource "aws_route_table" "example" {
+  vpc_id = aws_vpc.example.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
+    gateway_id = aws_internet_gateway.example.id
   }
 
-  tags = {
-    Name = "${var.resource_prefix}-public-rt"
+  tags = { Name = var.name_prefix }
+}
+
+resource "aws_route_table_association" "example" {
+  for_each = aws_subnet.example
+
+  subnet_id      = each.value.id
+  route_table_id = aws_route_table.example.id
+}
+
+# A binding takes a reserved port by role: 5432 primary, 5433 replica,
+# 6432 pooler.
+locals {
+  endpoint_ports = [5432, 5433, 6432]
+}
+
+resource "aws_security_group" "endpoint" {
+  name        = "${var.name_prefix}-endpoint"
+  description = "Allow Postgres from the test instance to the private link endpoint"
+  vpc_id      = aws_vpc.example.id
+
+  dynamic "ingress" {
+    for_each = local.endpoint_ports
+
+    content {
+      description     = "Postgres over private link (port ${ingress.value})"
+      from_port       = ingress.value
+      to_port         = ingress.value
+      protocol        = "tcp"
+      security_groups = [aws_security_group.instance.id]
+    }
+  }
+
+  tags = { Name = "${var.name_prefix}-endpoint" }
+}
+
+# One interface per Availability Zone, so the endpoint survives losing a zone.
+resource "aws_vpc_endpoint" "example" {
+  vpc_id             = aws_vpc.example.id
+  service_name       = data.timescale_privatelink_region.example.service_name
+  vpc_endpoint_type  = "Interface"
+  subnet_ids         = [for s in aws_subnet.example : s.id]
+  security_group_ids = [aws_security_group.endpoint.id]
+
+  tags = { Name = var.name_prefix }
+}
+
+# Tiger Cloud's endpoint service accepts every connection but leaves it
+# unowned. Claiming it assigns it to this project. On AWS the claim identifier
+# is the VPC endpoint ID.
+resource "timescale_privatelink_connection" "example" {
+  claim_identifier = aws_vpc_endpoint.example.id
+  name             = var.name_prefix
+}
+
+# ============================================================================
+# Private DNS: the customer's own zone, pointing the service hostname at the
+# endpoint. An alias A record to the endpoint's regional DNS name, which AWS
+# balances across every healthy ENI, so no IP is hardcoded.
+# ============================================================================
+
+locals {
+  hostname_labels = split(".", timescale_service.example.hostname)
+
+  # Drop the leading service ID to get the zone, so every service in this
+  # project resolves under one zone:
+  #
+  #   hostname = "abc123xyz.myproject.tsdb.cloud.timescale.com"  (the A record)
+  #   zone     =           "myproject.tsdb.cloud.timescale.com"  (the zone)
+  #
+  # A wildcard record is not possible: Tiger Cloud issues per-service
+  # certificates, so only exact hostnames validate under verify-full. Add one
+  # record per service.
+  service_domain = join(".", slice(local.hostname_labels, 1, length(local.hostname_labels)))
+}
+
+resource "aws_route53_zone" "example" {
+  name    = local.service_domain
+  comment = "Tiger Cloud private link for project ${var.ts_project_id}"
+
+  vpc {
+    vpc_id = aws_vpc.example.id
+  }
+
+  tags = { Name = var.name_prefix }
+}
+
+resource "aws_route53_record" "example" {
+  zone_id = aws_route53_zone.example.zone_id
+  name    = timescale_service.example.hostname
+  type    = "A"
+
+  alias {
+    name                   = aws_vpc_endpoint.example.dns_entry[0].dns_name
+    zone_id                = aws_vpc_endpoint.example.dns_entry[0].hosted_zone_id
+    evaluate_target_health = false
   }
 }
 
-resource "aws_route_table_association" "vm" {
-  subnet_id      = aws_subnet.vm.id
-  route_table_id = aws_route_table.public.id
+# ============================================================================
+# 3. Test instance
+# ============================================================================
+
+data "aws_ssm_parameter" "al2023" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
-resource "aws_security_group" "vm" {
-  name_prefix = "${var.resource_prefix}-vm-"
-  vpc_id      = aws_vpc.main.id
+resource "aws_security_group" "instance" {
+  name        = "${var.name_prefix}-instance"
+  description = "Test instance: inbound SSH"
+  vpc_id      = aws_vpc.example.id
 
   ingress {
+    description = "SSH"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
@@ -174,217 +328,87 @@ resource "aws_security_group" "vm" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "${var.resource_prefix}-vm-sg"
-  }
+  tags = { Name = "${var.name_prefix}-instance" }
 }
 
-resource "aws_security_group" "endpoint" {
-  name_prefix = "${var.resource_prefix}-vpce-"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  ingress {
-    from_port   = 6432
-    to_port     = 6432
-    protocol    = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "${var.resource_prefix}-vpce-sg"
-  }
+resource "aws_key_pair" "example" {
+  key_name   = var.name_prefix
+  public_key = file(pathexpand(var.ssh_public_key_path))
 }
 
-# =============================================================================
-# Timescale Private Link Authorization
-# =============================================================================
+resource "aws_instance" "example" {
+  ami                    = data.aws_ssm_parameter.al2023.value
+  instance_type          = "t3.micro"
+  subnet_id              = aws_subnet.example[local.primary_availability_zone_id].id
+  vpc_security_group_ids = [aws_security_group.instance.id]
+  key_name               = aws_key_pair.example.key_name
 
-resource "timescale_privatelink_authorization" "main" {
-  count = var.enable_private_link ? 1 : 0
-
-  principal_id   = data.aws_caller_identity.current.account_id
-  cloud_provider = "aws"
-  name           = "Terraform managed - ${var.resource_prefix}"
-}
-
-# =============================================================================
-# AWS VPC Endpoint
-# =============================================================================
-
-resource "aws_vpc_endpoint" "timescale" {
-  count = var.enable_private_link ? 1 : 0
-
-  vpc_id             = aws_vpc.main.id
-  service_name       = data.timescale_privatelink_region.selected.service_name
-  vpc_endpoint_type  = "Interface"
-  subnet_ids         = [aws_subnet.endpoint.id]
-  security_group_ids = [aws_security_group.endpoint.id]
-
-  tags = {
-    Name = "${var.resource_prefix}-vpce"
-  }
-
-  depends_on = [timescale_privatelink_authorization.main]
-}
-
-# =============================================================================
-# Look up the VPC Endpoint's private IP
-# =============================================================================
-
-data "aws_network_interface" "endpoint" {
-  count = var.enable_private_link ? 1 : 0
-
-  id = one(aws_vpc_endpoint.timescale[0].network_interface_ids)
-}
-
-# =============================================================================
-# Timescale Private Link Connection
-# =============================================================================
-
-resource "timescale_privatelink_connection" "main" {
-  count = var.enable_private_link ? 1 : 0
-
-  provider_connection_id = aws_vpc_endpoint.timescale[0].id
-  cloud_provider         = "aws"
-  region                 = var.timescale_region
-  ip_address             = data.aws_network_interface.endpoint[0].private_ip
-  name                   = "Managed by Terraform"
-
-  depends_on = [aws_vpc_endpoint.timescale]
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# =============================================================================
-# Timescale Service with Private Link
-# =============================================================================
-
-resource "timescale_service" "main" {
-  name                = "${var.resource_prefix}-db"
-  milli_cpu           = 500
-  memory_gb           = 2
-  region_code         = var.timescale_region
-  password_wo         = var.db_password
-  password_wo_version = 1
-  ha_replicas         = 1
-
-  private_endpoint_connection_ids = var.enable_private_link ? [timescale_privatelink_connection.main[0].connection_id] : []
-}
-
-# =============================================================================
-# EC2 Instance for testing connectivity
-# =============================================================================
-
-data "aws_ami" "ubuntu" {
-  most_recent = true
-  owners      = ["099720109477"] # Canonical
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*"]
-  }
-}
-
-resource "aws_key_pair" "vm" {
-  key_name_prefix = "${var.resource_prefix}-key-"
-  public_key      = file("~/.ssh/id_rsa.pub")
-}
-
-resource "aws_instance" "vm" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.micro"
-  subnet_id                   = aws_subnet.vm.id
-  vpc_security_group_ids      = [aws_security_group.vm.id]
-  associate_public_ip_address = true
-  key_name                    = aws_key_pair.vm.key_name
-
-  user_data_base64 = base64encode(<<-EOF
+  user_data = <<-EOT
     #!/bin/bash
-    set -e
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y postgresql-client netcat-openbsd curl
-  EOF
-  )
+    dnf install -y postgresql16 bind-utils
+  EOT
 
-  tags = {
-    Name = "${var.resource_prefix}-vm"
-  }
+  tags = { Name = var.name_prefix }
 }
 
-# =============================================================================
-# Outputs
-# =============================================================================
+# ============================================================================
+# 4. Test the connection
+# ============================================================================
 
-output "vpc_endpoint_id" {
-  description = "AWS VPC Endpoint ID"
-  value       = var.enable_private_link ? aws_vpc_endpoint.timescale[0].id : "N/A (private link disabled)"
+# sslrootcert=system trusts the OS CA bundle. Tiger Cloud certificates come from
+# a public CA, so verify-full validates without downloading a root certificate —
+# and it validates the same hostname the public endpoint uses, which is the whole
+# point of pointing your own DNS at the endpoint.
+output "test_command" {
+  description = "SSHes into the test instance and runs SELECT 1 over private link."
+  value = join(" ", [
+    "ssh -o StrictHostKeyChecking=no",
+    "-i ${trimsuffix(pathexpand(var.ssh_public_key_path), ".pub")}",
+    "ec2-user@${aws_instance.example.public_ip}",
+    "\"PGPASSWORD='${timescale_service.example.password}'",
+    "psql",
+    "'host=${timescale_service.example.hostname}",
+    "port=${timescale_service.example.port}",
+    "user=${timescale_service.example.username}",
+    "dbname=tsdb",
+    "sslmode=verify-full",
+    "sslrootcert=system'",
+    "-c 'SELECT 1'\"",
+  ])
+  sensitive = true
 }
 
-output "vm_public_ip" {
-  description = "Public IP of the test VM for SSH access"
-  value       = aws_instance.vm.public_ip
+output "dns_check_command" {
+  description = "Confirms the service hostname resolves to the endpoint inside the VPC."
+  value       = "ssh ec2-user@${aws_instance.example.public_ip} 'dig +short ${timescale_service.example.hostname}'"
 }
 
-output "vm_ssh_command" {
-  description = "SSH command to connect to VM"
-  value       = "ssh ubuntu@${aws_instance.vm.public_ip}"
+output "service_hostname" {
+  description = "Hostname to connect to. Same as the public endpoint; only the resolution and port differ."
+  value       = timescale_service.example.hostname
 }
 
-output "timescale_hostname" {
-  description = "Timescale service hostname"
-  value       = timescale_service.main.hostname
+output "service_port" {
+  description = "Private link port for this service, allocated per binding."
+  value       = timescale_service.example.port
 }
 
-output "timescale_port" {
-  description = "Timescale service port"
-  value       = timescale_service.main.port
+output "connection_id" {
+  description = "The claimed private link connection."
+  value       = timescale_privatelink_connection.example.connection_id
 }
 
-output "private_link_connection_id" {
-  description = "Connection ID for use with timescale_service"
-  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].connection_id : "N/A (private link disabled)"
+output "availability_zones" {
+  description = "Availability Zone ID => the name it maps to in this account, for the zones the endpoint spans."
+  value       = { for az_id, s in local.subnets : az_id => s.zone_name }
 }
 
-output "private_link_connection_state" {
-  description = "State of the Private Link connection"
-  value       = var.enable_private_link ? timescale_privatelink_connection.main[0].state : "N/A (private link disabled)"
+output "endpoint_network_interfaces" {
+  description = "One endpoint network interface per Availability Zone. Two means both zones can serve traffic; one means there is no failover."
+  value       = aws_vpc_endpoint.example.network_interface_ids
 }
 
-output "vpc_endpoint_service_name" {
-  description = "The VPC Endpoint Service name used"
-  value       = data.timescale_privatelink_region.selected.service_name
-}
-
-output "private_endpoint_ip" {
-  description = "Private IP of the VPC Endpoint"
-  value       = var.enable_private_link ? data.aws_network_interface.endpoint[0].private_ip : "N/A (private link disabled)"
-}
-
-output "connection_test_command" {
-  description = "psql command to test from VM using private IP (run after SSH)"
-  value       = var.enable_private_link ? try("PGPASSWORD='${var.db_password}' psql -h ${data.aws_network_interface.endpoint[0].private_ip} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb", "") : "N/A (private link disabled)"
-  sensitive   = true
-}
-
-output "ssh_select_1" {
-  description = "SSH command to execute SELECT 1 on the database via private link"
-  value       = try("ssh ubuntu@${aws_instance.vm.public_ip} \"PGPASSWORD='${var.db_password}' psql -h ${timescale_service.main.hostname} -p ${timescale_service.main.port} -U ${timescale_service.main.username} -d tsdb -c 'SELECT 1'\"", "")
-  sensitive   = true
+output "endpoint_regional_dns_name" {
+  description = "The endpoint's regional DNS name, which AWS resolves across every healthy interface. This is the alias target for the private DNS record."
+  value       = aws_vpc_endpoint.example.dns_entry[0].dns_name
 }

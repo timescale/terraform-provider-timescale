@@ -1,8 +1,7 @@
-mutation UpdatePrivateLinkConnection($projectId: ID!, $connectionId: ID!, $name: String) {
-    updatePrivateLinkConnection(data: {
+mutation ClaimPrivateLinkConnection($projectId: ID!, $claimIdentifier: String!) {
+    claimPrivateLinkConnection(data: {
         projectId: $projectId
-        connectionId: $connectionId
-        name: $name
+        claimIdentifier: $claimIdentifier
     }) {
         connectionId
         linkIdentifier

@@ -1,14 +1,25 @@
-# Timescale credentials
-ts_access_key = "your-access-key"
-ts_secret_key = "your-secret-key"
-ts_project_id = "your-project-id"
+# Tiger Cloud client credentials. Create these in the console under
+# Project settings -> Client credentials.
+ts_access_key = "01ABCDEFGHIJKLMNOPQRSTUVWX"
+ts_secret_key = "abcdefghijklmnopqrstuvwxyz1234567890"
+ts_project_id = "abcdefghij"
 
-# Azure configuration
-azure_subscription_id = "your-azure-subscription-id"
-azure_location        = "eastus"
+# Azure subscription hosting the test resources.
+subscription_id = "00000000-0000-0000-0000-000000000000"
 
-# Timescale region (can be different from Azure location)
-timescale_region = "az-eastus"
+# Tiger Cloud region code. Must be a region where private link is offered.
+timescale_region = "az-eastus2"
 
-# Resource naming prefix (optional)
-resource_prefix = "tspl-demo"
+# Azure region for the test resources. The private endpoint NIC lives here; it
+# may target a Private Link Service in another region.
+azure_location = "eastus2"
+
+# Prefix for every resource name.
+name_prefix = "tf-privatelink-example"
+
+# CIDR of the test VNet. Change it if it overlaps an existing network in the
+# subscription.
+vnet_cidr = "10.42.0.0/16"
+
+# Public key authorized on the test VM.
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"

@@ -103,9 +103,8 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	server.Handle("AttachServiceToPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-		connIDs := vars["connectionIds"].([]interface{})
-		for _, id := range connIDs {
-			attachedConnectionIDs[id.(string)] = true
+		for _, id := range GetStringSlice(vars, "connectionIds") {
+			attachedConnectionIDs[id] = true
 		}
 
 		return map[string]interface{}{
@@ -118,9 +117,8 @@ func TestAccServiceResource_withPrivateLink(t *testing.T) {
 	server.Handle("DetachServiceFromPrivateLinkConnection", func(t *testing.T, req map[string]interface{}) map[string]interface{} {
 		vars := GetVars(req)
 		assert.Equal(t, "svc-123", vars["serviceId"])
-		connIDs := vars["connectionIds"].([]interface{})
-		for _, id := range connIDs {
-			delete(attachedConnectionIDs, id.(string))
+		for _, id := range GetStringSlice(vars, "connectionIds") {
+			delete(attachedConnectionIDs, id)
 		}
 
 		return map[string]interface{}{

@@ -1,13 +1,19 @@
-# Timescale credentials
-ts_access_key = "your-access-key"
-ts_secret_key = "your-secret-key"
-ts_project_id = "your-project-id"
+# Tiger Cloud client credentials. Create these in the console under
+# Project settings -> Client credentials.
+ts_access_key = "01ABCDEFGHIJKLMNOPQRSTUVWX"
+ts_secret_key = "abcdefghijklmnopqrstuvwxyz1234567890"
+ts_project_id = "abcdefghij"
 
-# AWS configuration
-aws_region = "us-east-1"
+# Must be a region where Tiger Cloud offers private link. The supported list is
+# the privatelink_availability_zone_ids map in main.tf, which also fixes the two
+# Availability Zones the endpoint is created in.
+region = "us-east-1"
 
-# Timescale region (must match the AWS region prefix)
-timescale_region = "us-east-1"
+# Prefix for every resource name.
+name_prefix = "tf-privatelink-example"
 
-# Resource naming prefix (optional)
-resource_prefix = "tspl-demo"
+# CIDR of the test VPC. Change it if it overlaps an existing VPC in the account.
+vpc_cidr = "10.42.0.0/16"
+
+# Public key authorized on the test instance.
+ssh_public_key_path = "~/.ssh/id_ed25519.pub"

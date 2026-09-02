@@ -365,11 +365,16 @@ The change has been taken into account but must still be propagated. You can run
 				Optional: true,
 			},
 			"private_endpoint_connection_ids": schema.SetAttribute{
-				Description:         "The set of Private Endpoint Connection IDs to attach this service to.",
-				MarkdownDescription: "The set of Private Endpoint Connection IDs to attach this service to.",
-				ElementType:         types.StringType,
-				Optional:            true,
-				Computed:            true,
+				Description: "The set of Private Link connection IDs to attach this service to. " +
+					"Each must be a connection this project has claimed, from timescale_privatelink_connection.connection_id.",
+				MarkdownDescription: "The set of Private Link connection IDs to attach this service to. " +
+					"Each must be a connection this project has claimed, from `timescale_privatelink_connection.connection_id`.\n\n" +
+					"Attaching changes the `hostname` and `port` this service is reached on over the private path. " +
+					"Tiger Cloud does not publish private DNS records: create a private zone in your own VPC or VNet " +
+					"pointing `hostname` at your endpoint. The port is allocated per binding and is often not 5432.",
+				ElementType: types.StringType,
+				Optional:    true,
+				Computed:    true,
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
 				},

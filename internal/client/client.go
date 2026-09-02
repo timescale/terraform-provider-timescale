@@ -128,14 +128,8 @@ var (
 	ListPrivateLinkAvailableRegionsQuery string
 	//go:embed queries/delete_private_link_connection.graphql
 	DeletePrivateLinkConnectionMutation string
-	//go:embed queries/list_private_link_authorizations.graphql
-	ListPrivateLinkAuthorizationsQuery string
-	//go:embed queries/create_private_link_authorization.graphql
-	CreatePrivateLinkAuthorizationMutation string
-	//go:embed queries/update_private_link_authorization.graphql
-	UpdatePrivateLinkAuthorizationMutation string
-	//go:embed queries/delete_private_link_authorization.graphql
-	DeletePrivateLinkAuthorizationMutation string
+	//go:embed queries/claim_private_link_connection.graphql
+	ClaimPrivateLinkConnectionMutation string
 
 	// PgSrc Connectors
 	//go:embed queries/pgsrc_create_ssh_tunnel.graphql

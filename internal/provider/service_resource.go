@@ -754,6 +754,8 @@ func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	resourceModel := serviceToResource(resp.Diagnostics, service, state)
+	// ImportState leaves a private-state marker so this first Read adopts every user-modified
+	// parameter instead of only the keys already in state. The marker is cleared below.
 	marker, mdiags := req.Private.GetKey(ctx, privateKeyImportParameters)
 	resp.Diagnostics.Append(mdiags...)
 	imported := len(marker) > 0

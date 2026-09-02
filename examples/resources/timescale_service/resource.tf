@@ -62,3 +62,28 @@ resource "timescale_service" "secure" {
   password_wo         = var.db_password
   password_wo_version = 1
 }
+
+# Service with Postgres parameters. Only the listed keys are managed;
+# removing a key leaves the value in place on the service.
+resource "timescale_service" "tuned" {
+  name        = "tuned"
+  milli_cpu   = 1000
+  memory_gb   = 4
+  region_code = "us-east-1"
+
+  postgres_parameters = {
+    max_connections   = "200"
+    work_mem          = "64MB"
+    statement_timeout = "30s"
+  }
+}
+
+# Read replica with replica-specific parameters.
+resource "timescale_service" "tuned_replica" {
+  read_replica_source = timescale_service.tuned.id
+
+  postgres_parameters = {
+    hot_standby_feedback        = "on"
+    max_standby_streaming_delay = "5min"
+  }
+}

@@ -371,7 +371,7 @@ The change has been taken into account but must still be propagated. You can run
 				MarkdownDescription: "Postgres and TimescaleDB parameters to set on this service, keyed by parameter name. " +
 					"Values use postgresql.conf syntax, for example `\"64MB\"`, `\"30s\"`, `\"200\"` or `\"on\"`. " +
 					"Memory and time parameters need an explicit unit (`B`, `kB`, `MB`, `GB`, `TB`, `us`, `ms`, `s`, `min`, `h`, `d`), " +
-					"except the special values 0 and negative numbers.\n\n" +
+					"except the special values 0 and negative numbers.\n" +
 					"Only the keys listed here are managed. **Removing a key stops managing it and leaves the current value in place on the service.** " +
 					"Parameters left unmanaged keep whatever value is set in the Tiger Cloud console. " +
 					"Some parameters require a service restart of about 30 seconds; the provider applies them and waits for the restart to complete. " +

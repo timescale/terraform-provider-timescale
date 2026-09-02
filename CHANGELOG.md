@@ -1,3 +1,9 @@
+## 2.14.0 (September 3, 2026)
+
+FEATURES:
+- Add `postgres_parameters` to the `timescale_service` resource to manage Postgres and TimescaleDB configuration parameters.
+
+
 ## 2.13.3 (June 17, 2026)
 
 BUG FIXES:

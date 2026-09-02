@@ -2,7 +2,12 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -73,4 +78,54 @@ func TestParametersSettled(t *testing.T) {
 	pending.info.IsPendingRestart = true
 	catalog["max_connections"] = pending
 	require.False(t, parametersSettled(catalog, map[string]string{"max_connections": "150"}))
+}
+
+// mockPostgresParametersServer returns an httptest server for GetPostgresParameters:
+// it fails the first N requests with a GraphQL error, then succeeds.
+func mockPostgresParametersServer(t *testing.T, failFirst int32) (*httptest.Server, *int32) {
+	t.Helper()
+	var requests int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		n := atomic.AddInt32(&requests, 1)
+		if failFirst < 0 || n <= failFirst {
+			_, _ = fmt.Fprint(w, `{"errors":[{"message":"service is restarting"}]}`)
+			return
+		}
+		_, _ = fmt.Fprint(w, `{"data":{"getPostgresParameters":{"string_parameters":[],"numeric_parameters":[]}}}`)
+	}))
+	return srv, &requests
+}
+
+func TestFetchParameterCatalogWithRetry(t *testing.T) {
+	origInterval, origTimeout := parameterPollInterval, parameterPollTimeout
+	parameterPollInterval = 5 * time.Millisecond
+	parameterPollTimeout = 50 * time.Millisecond
+	t.Cleanup(func() {
+		parameterPollInterval = origInterval
+		parameterPollTimeout = origTimeout
+	})
+
+	t.Run("retries a transient failure then succeeds", func(t *testing.T) {
+		srv, requests := mockPostgresParametersServer(t, 1)
+		defer srv.Close()
+		t.Setenv("TIMESCALE_DEV_URL", srv.URL)
+		r := &serviceResource{client: tsClient.NewClient("token", "proj", "test", "1.0.0")}
+
+		catalog, err := r.fetchParameterCatalogWithRetry(context.Background(), "svc-1")
+		require.NoError(t, err)
+		require.NotNil(t, catalog)
+		require.Equal(t, int32(2), atomic.LoadInt32(requests))
+	})
+
+	t.Run("returns the last error after the timeout", func(t *testing.T) {
+		srv, _ := mockPostgresParametersServer(t, -1)
+		defer srv.Close()
+		t.Setenv("TIMESCALE_DEV_URL", srv.URL)
+		r := &serviceResource{client: tsClient.NewClient("token", "proj", "test", "1.0.0")}
+
+		_, err := r.fetchParameterCatalogWithRetry(context.Background(), "svc-1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "service is restarting")
+	})
 }

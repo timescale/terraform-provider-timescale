@@ -107,13 +107,36 @@ func (r *serviceResource) fetchParameterCatalog(ctx context.Context, serviceID s
 	return buildParameterCatalog(p), nil
 }
 
+// fetchParameterCatalogWithRetry retries the fetch: the API rejects reads while the
+// service is restarting after an earlier step such as exporter attachment.
+func (r *serviceResource) fetchParameterCatalogWithRetry(ctx context.Context, serviceID string) (map[string]parameterCatalogEntry, error) {
+	deadline := time.Now().Add(parameterPollTimeout)
+	var lastErr error
+	for {
+		catalog, err := r.fetchParameterCatalog(ctx, serviceID)
+		if err == nil {
+			return catalog, nil
+		}
+		lastErr = err
+		tflog.Debug(ctx, "retrying postgres parameter catalog fetch", map[string]any{"service_id": serviceID, "error": err.Error()})
+		if time.Now().After(deadline) {
+			return nil, lastErr
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(parameterPollInterval):
+		}
+	}
+}
+
 // applyPostgresParameters sets desired values on a READY service and waits for them to be live.
 func (r *serviceResource) applyPostgresParameters(ctx context.Context, serviceID string, desired map[string]string) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if len(desired) == 0 {
 		return diags
 	}
-	catalog, err := r.fetchParameterCatalog(ctx, serviceID)
+	catalog, err := r.fetchParameterCatalogWithRetry(ctx, serviceID)
 	if err != nil {
 		diags.AddError(errPostgresParameters, fmt.Sprintf("unable to read current parameters: %s", err))
 		return diags

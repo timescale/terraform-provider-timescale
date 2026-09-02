@@ -621,8 +621,8 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
-	// Postgres parameters. Applied last: the service must be READY and every earlier
-	// step has already waited for that.
+	// Postgres parameters. Applied last; the catalog fetch retries because earlier
+	// steps such as exporter attachment can leave the service briefly unreadable.
 	if desired := knownParameterMap(plan.PostgresParameters); len(desired) > 0 {
 		pdiags := r.applyPostgresParameters(ctx, service.ID, desired)
 		resp.Diagnostics.Append(pdiags...)

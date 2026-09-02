@@ -14,7 +14,7 @@ Check provider [documentation](docs/index.md#quick-start)
 
 ### Requirements
 
-- [Go](https://go.dev) >= v1.24
+- [Go](https://go.dev) >= v1.25, [Terraform](https://developer.hashicorp.com/terraform) and [golangci-lint](https://golangci-lint.run), or run `mise install` to get all three from `mise.toml`.
 
 ### Building The Provider
 

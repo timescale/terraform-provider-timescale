@@ -416,7 +416,7 @@ func TestReadPostgresParameters(t *testing.T) {
 
 		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, prior, false)
 		require.False(t, diags.HasError())
-		require.Equal(t, map[string]string{"work_mem": "32768kB"}, knownParameterMap(got))
+		require.Equal(t, map[string]string{"work_mem": "32MB"}, knownParameterMap(got))
 	})
 
 	t.Run("pending restart keeps the state string even if the running value differs", func(t *testing.T) {
@@ -471,7 +471,7 @@ func TestReadPostgresParameters(t *testing.T) {
 
 		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, types.MapNull(types.StringType), true)
 		require.False(t, diags.HasError())
-		require.Equal(t, map[string]string{"work_mem": "65536kB", "hot_standby_feedback": "on"}, knownParameterMap(got))
+		require.Equal(t, map[string]string{"work_mem": "64MB", "hot_standby_feedback": "on"}, knownParameterMap(got))
 	})
 
 	t.Run("import with nothing user-modified returns null", func(t *testing.T) {

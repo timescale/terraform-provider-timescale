@@ -183,7 +183,8 @@ func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParamet
 	}
 }
 
-// formatParameterValue renders the running value in postgresql.conf syntax using the API's unit.
+// formatParameterValue renders the running value in postgresql.conf syntax, in the largest
+// unit that divides it evenly, so imported values read the way people write them.
 func formatParameterValue(entry parameterCatalogEntry) string {
 	if !entry.numeric {
 		return entry.strValue
@@ -196,7 +197,27 @@ func formatParameterValue(entry parameterCatalogEntry) string {
 	if !ok {
 		return s
 	}
-	return s + u.suffix
+	// Zero renders in the API's reported unit; every unit divides zero.
+	if entry.value == 0 {
+		return "0" + u.suffix
+	}
+
+	base := math.Round(entry.value * u.factor)
+	abs := math.Abs(base)
+	best := u
+	for _, candidate := range parameterUnits {
+		if candidate.memory != u.memory {
+			continue
+		}
+		if candidate.factor > best.factor && math.Mod(abs, candidate.factor) == 0 {
+			best = candidate
+		}
+	}
+	sign := ""
+	if base < 0 {
+		sign = "-"
+	}
+	return sign + strconv.FormatFloat(abs/best.factor, 'f', -1, 64) + best.suffix
 }
 
 // parameterValueEqual reports whether raw denotes the entry's running value.

@@ -179,12 +179,32 @@ func TestParseParameterValue(t *testing.T) {
 }
 
 func TestFormatParameterValue(t *testing.T) {
-	require.Equal(t, "65536kB", formatParameterValue(numericEntry("work_mem", "KILOBYTES", 65536)))
-	require.Equal(t, "30000ms", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 30000)))
+	require.Equal(t, "64MB", formatParameterValue(numericEntry("work_mem", "KILOBYTES", 65536)))
+	require.Equal(t, "30s", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 30000)))
+	require.Equal(t, "32MB", formatParameterValue(numericEntry("work_mem", "KILOBYTES", 32768)))
+	require.Equal(t, "1GB", formatParameterValue(numericEntry("shared_buffers", "KILOBYTES", 1048576)))
+	require.Equal(t, "90s", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 90000)))
+	require.Equal(t, "1d", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 86400000)))
+	require.Equal(t, "1500ms", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 1500)))
+	require.Equal(t, "0ms", formatParameterValue(numericEntry("statement_timeout", "MILLISECONDS", 0)))
+	require.Equal(t, "-1MB", formatParameterValue(numericEntry("max_slot_wal_keep_size", "MEGABYTES", -1)))
+	require.Equal(t, "3kB", formatParameterValue(numericEntry("work_mem", "KILOBYTES", 3)))
 	require.Equal(t, "200", formatParameterValue(numericEntry("max_connections", unitUndefined, 200)))
 	require.Equal(t, "2.5", formatParameterValue(numericEntry("random_page_cost", unitUndefined, 2.5)))
-	require.Equal(t, "-1MB", formatParameterValue(numericEntry("max_slot_wal_keep_size", "MEGABYTES", -1)))
 	require.Equal(t, "on", formatParameterValue(stringEntry("hot_standby_feedback", "on")))
+}
+
+func TestFormatParameterValueRoundTrip(t *testing.T) {
+	entries := []parameterCatalogEntry{
+		numericEntry("work_mem", "KILOBYTES", 65536),
+		numericEntry("statement_timeout", "MILLISECONDS", 90000),
+		numericEntry("statement_timeout", "MILLISECONDS", 0),
+		numericEntry("max_slot_wal_keep_size", "MEGABYTES", -1),
+		numericEntry("max_connections", unitUndefined, 200),
+	}
+	for _, entry := range entries {
+		require.True(t, parameterValueEqual(entry, formatParameterValue(entry)))
+	}
 }
 
 func TestParameterValueEqual(t *testing.T) {

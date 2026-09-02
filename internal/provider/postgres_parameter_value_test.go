@@ -135,6 +135,18 @@ func TestParseParameterValue(t *testing.T) {
 			wantErr: "unknown unit \"mb\"",
 		},
 		{
+			name:  "1.001s with exact arithmetic",
+			entry: numericEntry("statement_timeout", "MILLISECONDS", 0),
+			raw:   "1.001s",
+			want:  parsedParameterValue{numeric: true, value: 1001, unit: "MILLISECONDS"},
+		},
+		{
+			name:    "fractional microseconds below smallest unit",
+			entry:   numericEntry("statement_timeout", "MICROSECONDS", 0),
+			raw:     "0.5us",
+			wantErr: "cannot be expressed as a whole number",
+		},
+		{
 			name:    "garbage on unit parameter",
 			entry:   numericEntry("work_mem", "KILOBYTES", 4096),
 			raw:     "lots",

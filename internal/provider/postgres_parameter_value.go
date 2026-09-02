@@ -158,15 +158,29 @@ func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParamet
 	}
 
 	// The API rejects fractional values with units, so express them in a smaller unit.
-	for v != math.Trunc(v) {
+	// Use exact arithmetic to avoid floating-point precision issues with powers of 10.
+	base := v * u.factor
+	rounded := math.Round(base)
+	if math.Abs(base-rounded) > 1e-6 {
+		smallestSuffix := "B" // memory family default.
+		if !u.memory {
+			smallestSuffix = "us" // time family default.
+		}
+		return parsedParameterValue{}, fmt.Errorf("%q cannot be expressed as a whole number of %s", raw, smallestSuffix)
+	}
+
+	// Walk from the written unit downward and find the first unit where the value divides evenly.
+	for {
+		if math.Mod(rounded, u.factor) == 0 {
+			return parsedParameterValue{numeric: true, value: rounded / u.factor, unit: u.apiName}, nil
+		}
 		smaller, ok := nextSmallerUnit(u)
 		if !ok {
+			// This should not happen if rounding succeeded and smallest unit divides.
 			return parsedParameterValue{}, fmt.Errorf("%q cannot be expressed as a whole number of %s", raw, u.suffix)
 		}
-		v = v * u.factor / smaller.factor
 		u = smaller
 	}
-	return parsedParameterValue{numeric: true, value: v, unit: u.apiName}, nil
 }
 
 // formatParameterValue renders the running value in postgresql.conf syntax using the API's unit.

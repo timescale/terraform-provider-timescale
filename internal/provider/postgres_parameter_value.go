@@ -57,18 +57,16 @@ func unitBySuffix(suffix string) (parameterUnit, bool) {
 	return parameterUnit{}, false
 }
 
-// nextSmallerUnit returns the previous unit of the same family, if any.
-func nextSmallerUnit(u parameterUnit) (parameterUnit, bool) {
-	for i, candidate := range parameterUnits {
-		if candidate.apiName != u.apiName || i == 0 {
-			continue
-		}
-		smaller := parameterUnits[i-1]
-		if smaller.memory == u.memory {
-			return smaller, true
+// largestDividingUnit returns the largest unit of the family with factor <= maxFactor
+// that divides base evenly. base is a whole number of the family's smallest unit.
+func largestDividingUnit(memory bool, base, maxFactor float64) parameterUnit {
+	var best parameterUnit
+	for _, u := range parameterUnits {
+		if u.memory == memory && u.factor <= maxFactor && math.Mod(math.Abs(base), u.factor) == 0 {
+			best = u
 		}
 	}
-	return parameterUnit{}, false
+	return best
 }
 
 func familyName(u parameterUnit) string {
@@ -113,28 +111,34 @@ func buildParameterCatalog(p *tsClient.PostgresParameters) map[string]parameterC
 
 var valueWithUnitRe = regexp.MustCompile(`^(-?\d+(?:\.\d+)?)\s*([A-Za-z]+)$`)
 
+// parseFinite is strconv.ParseFloat without NaN and Inf, which the API cannot encode.
+func parseFinite(s string) (float64, bool) {
+	v, err := strconv.ParseFloat(s, 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0, false
+	}
+	return v, true
+}
+
 // parseParameterValue interprets a postgresql.conf style value for the given parameter.
 func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParameterValue, error) {
 	raw = strings.TrimSpace(raw)
 	if !entry.numeric {
 		return parsedParameterValue{str: raw}, nil
 	}
-	if entry.unit == unitUndefined {
-		v, err := strconv.ParseFloat(raw, 64)
-		if err != nil {
+	entryUnit, known := unitByAPIName(entry.unit)
+	if !known {
+		// UNDEFINED, and any unit this provider does not know, take bare numbers.
+		v, ok := parseFinite(raw)
+		if !ok {
 			return parsedParameterValue{}, fmt.Errorf("%q is not a number", raw)
 		}
-		return parsedParameterValue{numeric: true, value: v, unit: unitUndefined}, nil
-	}
-
-	entryUnit, ok := unitByAPIName(entry.unit)
-	if !ok {
-		return parsedParameterValue{}, fmt.Errorf("unsupported unit %q reported by the API", entry.unit)
+		return parsedParameterValue{numeric: true, value: v, unit: entry.unit}, nil
 	}
 
 	// Bare numbers are ambiguous for unit parameters. Postgres reads 0 and negatives
 	// as special values in the default unit, so only those are accepted bare.
-	if v, err := strconv.ParseFloat(raw, 64); err == nil {
+	if v, ok := parseFinite(raw); ok {
 		if v > 0 {
 			return parsedParameterValue{}, fmt.Errorf("%q needs an explicit unit, for example 64%s", raw, entryUnit.suffix)
 		}
@@ -158,29 +162,17 @@ func parseParameterValue(entry parameterCatalogEntry, raw string) (parsedParamet
 	}
 
 	// The API rejects fractional values with units, so express them in a smaller unit.
-	// Use exact arithmetic to avoid floating-point precision issues with powers of 10.
 	base := v * u.factor
 	rounded := math.Round(base)
 	if math.Abs(base-rounded) > math.Max(1e-6, math.Abs(base)*1e-12) {
-		smallestSuffix := "B" // memory family default.
+		smallest := "B"
 		if !u.memory {
-			smallestSuffix = "us" // time family default.
+			smallest = "us"
 		}
-		return parsedParameterValue{}, fmt.Errorf("%q cannot be expressed as a whole number of %s", raw, smallestSuffix)
+		return parsedParameterValue{}, fmt.Errorf("%q cannot be expressed as a whole number of %s", raw, smallest)
 	}
-
-	// Walk from the written unit downward and find the first unit where the value divides evenly.
-	for {
-		if math.Mod(rounded, u.factor) == 0 {
-			return parsedParameterValue{numeric: true, value: rounded / u.factor, unit: u.apiName}, nil
-		}
-		smaller, ok := nextSmallerUnit(u)
-		if !ok {
-			// This should not happen if rounding succeeded and smallest unit divides.
-			return parsedParameterValue{}, fmt.Errorf("%q cannot be expressed as a whole number of %s", raw, u.suffix)
-		}
-		u = smaller
-	}
+	best := largestDividingUnit(u.memory, rounded, u.factor)
+	return parsedParameterValue{numeric: true, value: rounded / best.factor, unit: best.apiName}, nil
 }
 
 // formatParameterValue renders the running value in postgresql.conf syntax, in the largest
@@ -190,9 +182,6 @@ func formatParameterValue(entry parameterCatalogEntry) string {
 		return entry.strValue
 	}
 	s := strconv.FormatFloat(entry.value, 'f', -1, 64)
-	if entry.unit == unitUndefined {
-		return s
-	}
 	u, ok := unitByAPIName(entry.unit)
 	if !ok {
 		return s
@@ -203,42 +192,30 @@ func formatParameterValue(entry parameterCatalogEntry) string {
 	}
 
 	base := math.Round(entry.value * u.factor)
-	abs := math.Abs(base)
-	best := u
-	for _, candidate := range parameterUnits {
-		if candidate.memory != u.memory {
-			continue
-		}
-		if candidate.factor > best.factor && math.Mod(abs, candidate.factor) == 0 {
-			best = candidate
-		}
-	}
+	best := largestDividingUnit(u.memory, base, math.Inf(1))
 	sign := ""
 	if base < 0 {
 		sign = "-"
 	}
-	return sign + strconv.FormatFloat(abs/best.factor, 'f', -1, 64) + best.suffix
+	return sign + strconv.FormatFloat(math.Abs(base)/best.factor, 'f', -1, 64) + best.suffix
+}
+
+// parsedValueEqual reports whether p denotes the entry's running value.
+func parsedValueEqual(entry parameterCatalogEntry, p parsedParameterValue) bool {
+	if !p.numeric {
+		return p.str == entry.strValue
+	}
+	pu, pok := unitByAPIName(p.unit)
+	eu, eok := unitByAPIName(entry.unit)
+	if !pok || !eok {
+		// UNDEFINED and unknown units compare as bare numbers.
+		return p.unit == entry.unit && p.value == entry.value
+	}
+	return p.value*pu.factor == entry.value*eu.factor
 }
 
 // parameterValueEqual reports whether raw denotes the entry's running value.
 func parameterValueEqual(entry parameterCatalogEntry, raw string) bool {
 	p, err := parseParameterValue(entry, raw)
-	if err != nil {
-		return false
-	}
-	if !p.numeric {
-		return p.str == entry.strValue
-	}
-	if p.unit == unitUndefined || entry.unit == unitUndefined {
-		return p.unit == entry.unit && p.value == entry.value
-	}
-	pu, ok := unitByAPIName(p.unit)
-	if !ok {
-		return false
-	}
-	eu, ok := unitByAPIName(entry.unit)
-	if !ok {
-		return false
-	}
-	return p.value*pu.factor == entry.value*eu.factor
+	return err == nil && parsedValueEqual(entry, p)
 }

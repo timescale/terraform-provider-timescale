@@ -801,7 +801,8 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 
 	planParams := knownParameterMap(plan.PostgresParameters)
 	stateParams := knownParameterMap(state.PostgresParameters)
-	if plan.Paused.ValueBool() && len(changedParameterKeys(stateParams, planParams)) > 0 {
+	changedParams := changedParameterKeys(stateParams, planParams)
+	if plan.Paused.ValueBool() && state.Paused.ValueBool() && len(changedParams) > 0 {
 		resp.Diagnostics.AddError(ErrUpdateService, "postgres_parameters cannot be changed while the service is paused")
 		return
 	}
@@ -815,6 +816,14 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if !plan.ReadReplicaNodes.IsNull() && !plan.ReadReplicaNodes.IsUnknown() && readReplicaSource == "" {
 		resp.Diagnostics.AddError(ErrInvalidAttribute, errReadReplicaNodesWithoutSrc)
 		return
+	}
+
+	// Pausing in this apply: set parameters first, while the service still runs.
+	if plan.Paused.ValueBool() && !state.Paused.ValueBool() && len(changedParams) > 0 {
+		resp.Diagnostics.Append(r.applyPostgresParameters(ctx, serviceID, planParams)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	if plan.Paused != state.Paused {
@@ -991,9 +1000,8 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	// Postgres parameters. A compute resize re-tunes several parameters, so re-apply
-	// the declared map after a resize even when the map itself did not change.
-	// Parameters cannot be read or set on a paused service.
+	// A compute resize re-tunes several parameters, so re-apply the declared map
+	// after a resize even when the map itself did not change.
 	if service.Status == "READY" && len(planParams) > 0 && (resizeRequested || !plan.PostgresParameters.Equal(state.PostgresParameters)) {
 		resp.Diagnostics.Append(r.applyPostgresParameters(ctx, serviceID, planParams)...)
 		if resp.Diagnostics.HasError() {

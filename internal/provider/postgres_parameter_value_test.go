@@ -57,6 +57,30 @@ func TestParseParameterValue(t *testing.T) {
 			want:  parsedParameterValue{numeric: true, value: 2.5, unit: unitUndefined},
 		},
 		{
+			name:    "plain numeric rejects NaN",
+			entry:   numericEntry("max_connections", unitUndefined, 100),
+			raw:     "NaN",
+			wantErr: "is not a number",
+		},
+		{
+			name:    "unit parameter rejects bare Inf",
+			entry:   numericEntry("work_mem", "KILOBYTES", 4096),
+			raw:     "-Inf",
+			wantErr: "is not a number followed by a unit",
+		},
+		{
+			name:  "unknown API unit takes a bare number",
+			entry: numericEntry("some_param", "BLOCKS", 8),
+			raw:   "16",
+			want:  parsedParameterValue{numeric: true, value: 16, unit: "BLOCKS"},
+		},
+		{
+			name:  "unit is not promoted above the written one",
+			entry: numericEntry("work_mem", "KILOBYTES", 4096),
+			raw:   "1024kB",
+			want:  parsedParameterValue{numeric: true, value: 1024, unit: "KILOBYTES"},
+		},
+		{
 			name:    "plain numeric rejects text",
 			entry:   numericEntry("max_connections", unitUndefined, 100),
 			raw:     "many",
@@ -191,6 +215,8 @@ func TestFormatParameterValue(t *testing.T) {
 	require.Equal(t, "3kB", formatParameterValue(numericEntry("work_mem", "KILOBYTES", 3)))
 	require.Equal(t, "200", formatParameterValue(numericEntry("max_connections", unitUndefined, 200)))
 	require.Equal(t, "2.5", formatParameterValue(numericEntry("random_page_cost", unitUndefined, 2.5)))
+	require.Equal(t, "8", formatParameterValue(numericEntry("some_param", "BLOCKS", 8)))
+	require.Equal(t, "512kB", formatParameterValue(numericEntry("work_mem", "MEGABYTES", 0.5)))
 	require.Equal(t, "on", formatParameterValue(stringEntry("hot_standby_feedback", "on")))
 }
 
@@ -225,6 +251,8 @@ func TestParameterValueEqual(t *testing.T) {
 		{"string equal", stringEntry("log_statement", "all"), "all", true},
 		{"string case differs", stringEntry("hot_standby_feedback", "on"), "ON", false},
 		{"unparseable", numericEntry("work_mem", "KILOBYTES", 65536), "lots", false},
+		{"unknown API unit", numericEntry("some_param", "BLOCKS", 8), "8", true},
+		{"unknown API unit differs", numericEntry("some_param", "BLOCKS", 8), "16", false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -234,13 +262,12 @@ func TestParameterValueEqual(t *testing.T) {
 }
 
 func TestBuildParameterCatalog(t *testing.T) {
-	maxVal := 500.0
 	p := &tsClient.PostgresParameters{
 		StringParameters: []tsClient.StringParameter{
-			{Info: tsClient.ParameterInfo{Name: "log_statement"}, CurrentValue: "none", AllowedValues: []string{"none", "all"}},
+			{Info: tsClient.ParameterInfo{Name: "log_statement"}, CurrentValue: "none"},
 		},
 		NumericParameters: []tsClient.NumericParameter{
-			{Info: tsClient.ParameterInfo{Name: "max_connections", RequiresRestart: true}, Unit: "UNDEFINED", CurrentValue: 100, MaxAllowedValue: &maxVal},
+			{Info: tsClient.ParameterInfo{Name: "max_connections", RequiresRestart: true}, Unit: "UNDEFINED", CurrentValue: 100},
 			{Info: tsClient.ParameterInfo{Name: "work_mem"}, Unit: "KILOBYTES", CurrentValue: 4096},
 		},
 	}

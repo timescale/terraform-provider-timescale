@@ -23,7 +23,7 @@ func TestPostgresParameters_Decode(t *testing.T) {
 
 	require.Len(t, p.StringParameters, 1)
 	require.Equal(t, "array_nulls", p.StringParameters[0].Info.Name)
-	require.Equal(t, []string{"on", "off"}, p.StringParameters[0].AllowedValues)
+	require.Equal(t, "on", p.StringParameters[0].CurrentValue)
 
 	require.Len(t, p.NumericParameters, 1)
 	n := p.NumericParameters[0]
@@ -31,8 +31,6 @@ func TestPostgresParameters_Decode(t *testing.T) {
 	require.True(t, n.Info.IsUserModified)
 	require.Equal(t, "KILOBYTES", n.Unit)
 	require.Equal(t, 65536.0, n.CurrentValue)
-	require.NotNil(t, n.MinAllowedValue)
-	require.Equal(t, 64.0, *n.MinAllowedValue)
 }
 
 func TestParameterErrors_Error(t *testing.T) {

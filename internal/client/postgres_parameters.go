@@ -8,32 +8,27 @@ import (
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-// ParameterInfo mirrors the GraphQL ParameterInfo type. Field names are snake_case on the wire.
+// ParameterInfo is the subset of the GraphQL ParameterInfo type the provider uses.
+// Field names are snake_case on the wire.
 type ParameterInfo struct {
-	Name              string `json:"name"`
-	Description       string `json:"description"`
-	IsUserEditable    bool   `json:"is_user_editable"`
-	RequiresRestart   bool   `json:"requires_restart"`
-	IsTuneOverridable bool   `json:"is_tune_overridable"`
-	IsPendingRestart  bool   `json:"is_pending_restart"`
-	IsUserModified    bool   `json:"is_user_modified"`
-	UIPriority        int64  `json:"ui_priority"`
+	Name             string `json:"name"`
+	IsUserEditable   bool   `json:"is_user_editable"`
+	RequiresRestart  bool   `json:"requires_restart"`
+	IsPendingRestart bool   `json:"is_pending_restart"`
+	IsUserModified   bool   `json:"is_user_modified"`
 }
 
-// StringParameter is a string or boolean parameter. Booleans use allowed values "on" and "off".
+// StringParameter is a string or boolean parameter. Booleans use "on" and "off".
 type StringParameter struct {
-	Info          ParameterInfo `json:"info"`
-	CurrentValue  string        `json:"current_value"`
-	AllowedValues []string      `json:"allowed_values"`
+	Info         ParameterInfo `json:"info"`
+	CurrentValue string        `json:"current_value"`
 }
 
 // NumericParameter is a numeric parameter. Unit is UNDEFINED for plain numbers.
 type NumericParameter struct {
-	Info            ParameterInfo `json:"info"`
-	Unit            string        `json:"unit"`
-	CurrentValue    float64       `json:"current_value"`
-	MaxAllowedValue *float64      `json:"max_allowed_value"`
-	MinAllowedValue *float64      `json:"min_allowed_value"`
+	Info         ParameterInfo `json:"info"`
+	Unit         string        `json:"unit"`
+	CurrentValue float64       `json:"current_value"`
 }
 
 type PostgresParameters struct {

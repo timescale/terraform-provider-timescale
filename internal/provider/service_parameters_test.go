@@ -164,10 +164,7 @@ func TestFetchParameterCatalogWithRetry(t *testing.T) {
 	})
 }
 
-// gqlMock is a minimal GraphQL test double for applyPostgresParameters and
-// readPostgresParameters. It dispatches on the request's operationName field and
-// records what it received. getBodies and setBodies are the raw JSON responses
-// returned in order for each operation; the last one repeats once exhausted.
+// gqlMock serves getBodies/setBodies in order by operationName; the last one repeats once exhausted.
 type gqlMock struct {
 	t *testing.T
 
@@ -456,14 +453,15 @@ func TestReadPostgresParameters(t *testing.T) {
 		require.Equal(t, 0, mock.getCallCount())
 	})
 
-	t.Run("import adopts every user-modified parameter, formatted", func(t *testing.T) {
+	t.Run("import adopts every user-modified editable parameter, formatted", func(t *testing.T) {
 		catalog := getParamsBody(t, tsClient.PostgresParameters{
 			NumericParameters: []tsClient.NumericParameter{
-				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserModified: true}, Unit: "KILOBYTES", CurrentValue: 65536},
-				{Info: tsClient.ParameterInfo{Name: "max_connections", IsUserModified: false}, Unit: unitUndefined, CurrentValue: 100},
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserModified: true, IsUserEditable: true}, Unit: "KILOBYTES", CurrentValue: 65536},
+				{Info: tsClient.ParameterInfo{Name: "max_connections", IsUserModified: false, IsUserEditable: true}, Unit: unitUndefined, CurrentValue: 100},
+				{Info: tsClient.ParameterInfo{Name: "shared_buffers", IsUserModified: true, IsUserEditable: false}, Unit: "KILOBYTES", CurrentValue: 1024},
 			},
 			StringParameters: []tsClient.StringParameter{
-				{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserModified: true}, CurrentValue: "on"},
+				{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserModified: true, IsUserEditable: true}, CurrentValue: "on"},
 			},
 		})
 		mock := newGQLMock(t, []string{catalog}, nil)

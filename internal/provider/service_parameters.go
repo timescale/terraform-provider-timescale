@@ -29,8 +29,7 @@ const (
 var (
 	parameterPollInterval = 10 * time.Second
 	parameterPollTimeout  = 5 * time.Minute
-	// parameterFetchRetryTimeout bounds fetchParameterCatalogWithRetry, kept short so a hard
-	// failure (bad credentials, unknown service) surfaces quickly instead of waiting out parameterPollTimeout.
+	// Short so hard failures (bad credentials, unknown service) surface quickly.
 	parameterFetchRetryTimeout = 90 * time.Second
 )
 
@@ -58,24 +57,13 @@ func parameterMapValue(ctx context.Context, in map[string]string) (types.Map, di
 	return types.MapValueFrom(ctx, types.StringType, in)
 }
 
-// removedParameterKeysFromPlan returns state keys that are absent from the planned map,
-// counting every planned key regardless of whether its value is known. This avoids
-// reporting a still-managed key such as work_mem = "${var.mem}MB" as removed just
-// because its value cannot be resolved yet. An unknown plan map means "cannot tell"
-// and reports nothing; a null plan map means the attribute was dropped and reports
-// every state key.
+// removedParameterKeysFromPlan returns state keys absent from the planned map. Planned
+// keys count even with unknown values, so work_mem = "${var.mem}MB" is not reported.
 func removedParameterKeysFromPlan(state map[string]string, plan types.Map) []string {
 	if plan.IsUnknown() {
 		return nil
 	}
 	var removed []string
-	if plan.IsNull() {
-		for k := range state {
-			removed = append(removed, k)
-		}
-		slices.Sort(removed)
-		return removed
-	}
 	planKeys := plan.Elements()
 	for k := range state {
 		if _, ok := planKeys[k]; !ok {
@@ -127,27 +115,43 @@ func (r *serviceResource) fetchParameterCatalog(ctx context.Context, serviceID s
 	return buildParameterCatalog(p), nil
 }
 
-// fetchParameterCatalogWithRetry retries the fetch: the API rejects reads while the
-// service is restarting after an earlier step such as exporter attachment.
-func (r *serviceResource) fetchParameterCatalogWithRetry(ctx context.Context, serviceID string) (map[string]parameterCatalogEntry, error) {
-	deadline := time.Now().Add(parameterFetchRetryTimeout)
-	var lastErr error
+// pollUntil calls fn every parameterPollInterval until it reports done. On timeout it
+// returns the last error fn produced, wrapped, or a plain timeout error if there was none.
+func pollUntil(ctx context.Context, timeout time.Duration, fn func() (bool, error)) error {
+	deadline := time.Now().Add(timeout)
 	for {
-		catalog, err := r.fetchParameterCatalog(ctx, serviceID)
-		if err == nil {
-			return catalog, nil
+		done, err := fn()
+		if done {
+			return nil
 		}
-		lastErr = err
-		tflog.Debug(ctx, "retrying postgres parameter catalog fetch", map[string]any{"service_id": serviceID, "error": err.Error()})
 		if time.Now().After(deadline) {
-			return nil, lastErr
+			if err != nil {
+				return fmt.Errorf("timed out after %s: %w", timeout, err)
+			}
+			return fmt.Errorf("timed out after %s", timeout)
 		}
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return ctx.Err()
 		case <-time.After(parameterPollInterval):
 		}
 	}
+}
+
+// fetchParameterCatalogWithRetry retries the fetch: the API rejects reads while the
+// service is restarting after an earlier step such as exporter attachment.
+func (r *serviceResource) fetchParameterCatalogWithRetry(ctx context.Context, serviceID string) (map[string]parameterCatalogEntry, error) {
+	var catalog map[string]parameterCatalogEntry
+	err := pollUntil(ctx, parameterFetchRetryTimeout, func() (bool, error) {
+		c, err := r.fetchParameterCatalog(ctx, serviceID)
+		if err != nil {
+			tflog.Debug(ctx, "retrying postgres parameter catalog fetch", map[string]any{"service_id": serviceID, "error": err.Error()})
+			return false, err
+		}
+		catalog = c
+		return true, nil
+	})
+	return catalog, err
 }
 
 // applyPostgresParameters sets desired values on a READY service and waits for them to be live.
@@ -182,7 +186,7 @@ func (r *serviceResource) applyPostgresParameters(ctx context.Context, serviceID
 			diags.AddAttributeError(attrPath, errPostgresParameters, err.Error())
 			continue
 		}
-		if !entry.info.IsPendingRestart && parameterValueEqual(entry, raw) {
+		if !entry.info.IsPendingRestart && parsedValueEqual(entry, parsed) {
 			continue
 		}
 		if parsed.numeric {
@@ -215,24 +219,15 @@ func (r *serviceResource) applyPostgresParameters(ctx context.Context, serviceID
 }
 
 func (r *serviceResource) waitForPostgresParameters(ctx context.Context, serviceID string, desired map[string]string) error {
-	deadline := time.Now().Add(parameterPollTimeout)
-	for {
+	return pollUntil(ctx, parameterPollTimeout, func() (bool, error) {
 		catalog, err := r.fetchParameterCatalog(ctx, serviceID)
 		if err != nil {
 			// The service is unreadable while it restarts. Keep polling.
 			tflog.Debug(ctx, "polling postgres parameters", map[string]any{"service_id": serviceID, "error": err.Error()})
-		} else if parametersSettled(catalog, desired) {
-			return nil
+			return false, err
 		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out after %s waiting for parameters to become live", parameterPollTimeout)
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(parameterPollInterval):
-		}
-	}
+		return parametersSettled(catalog, desired), nil
+	})
 }
 
 // readPostgresParameters refreshes the managed keys. Only keys already in prior state are
@@ -240,7 +235,7 @@ func (r *serviceResource) waitForPostgresParameters(ctx context.Context, service
 func (r *serviceResource) readPostgresParameters(ctx context.Context, service *tsClient.Service, prior types.Map, imported bool) (types.Map, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	priorMap := knownParameterMap(prior)
-	if !imported && (prior.IsNull() || prior.IsUnknown() || len(priorMap) == 0) {
+	if !imported && len(priorMap) == 0 {
 		return prior, diags
 	}
 	// Parameters cannot be read unless the service is running; keep what we have.
@@ -262,7 +257,8 @@ func (r *serviceResource) readPostgresParameters(ctx context.Context, service *t
 	if imported {
 		var adopted map[string]string
 		for name, entry := range catalog {
-			if entry.info.IsUserModified {
+			// Skip values this resource could never apply, such as work_mem on a replica.
+			if entry.info.IsUserModified && entry.info.IsUserEditable {
 				if adopted == nil {
 					adopted = map[string]string{}
 				}

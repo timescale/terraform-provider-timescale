@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/mapvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -33,6 +35,7 @@ import (
 // Ensure provider defined types fully satisfy framework interfaces.
 var _ resource.Resource = &serviceResource{}
 var _ resource.ResourceWithImportState = &serviceResource{}
+var _ resource.ResourceWithModifyPlan = &serviceResource{}
 
 const (
 	ErrCreateTimeout              = "Error waiting for service creation"
@@ -96,6 +99,7 @@ type serviceResourceModel struct {
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
 	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
 	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
+	PostgresParameters      types.Map      `tfsdk:"postgres_parameters"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -361,6 +365,28 @@ The change has been taken into account but must still be propagated. You can run
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
 			},
+			"postgres_parameters": schema.MapAttribute{
+				ElementType: types.StringType,
+				Optional:    true,
+				MarkdownDescription: "Postgres and TimescaleDB parameters to set on this service, keyed by parameter name. " +
+					"Values use postgresql.conf syntax, for example `\"64MB\"`, `\"30s\"`, `\"200\"` or `\"on\"`. " +
+					"Memory and time parameters need an explicit unit (`B`, `kB`, `MB`, `GB`, `TB`, `us`, `ms`, `s`, `min`, `h`, `d`), " +
+					"except the special values 0 and negative numbers.\n\n" +
+					"Only the keys listed here are managed. **Removing a key stops managing it and leaves the current value in place on the service.** " +
+					"Parameters left unmanaged keep whatever value is set in the Tiger Cloud console. " +
+					"Some parameters require a service restart of about 30 seconds; the provider applies them and waits for the restart to complete. " +
+					"A compute resize re-tunes several parameters; the provider re-applies the listed values after the resize. " +
+					"Session-level parameters such as `work_mem` cannot be set on read replicas. " +
+					"See the [configuration docs](https://www.tigerdata.com/docs/use-timescale/latest/configuration/customize-configuration).",
+				Description: "Postgres parameters to set on this service, keyed by name, in postgresql.conf syntax. Only listed keys are managed; removing a key leaves the value in place.",
+				Validators: []validator.Map{
+					mapvalidator.KeysAre(stringvalidator.RegexMatches(
+						regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_.]*$`),
+						"must be a Postgres parameter name such as work_mem or timescaledb.max_background_workers",
+					)),
+					mapvalidator.ValueStringsAre(stringvalidator.LengthAtLeast(1)),
+				},
+			},
 		},
 	}
 }
@@ -595,6 +621,20 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// Postgres parameters. Applied last: the service must be READY and every earlier
+	// step has already waited for that.
+	if desired := knownParameterMap(plan.PostgresParameters); len(desired) > 0 {
+		pdiags := r.applyPostgresParameters(ctx, service.ID, desired)
+		resp.Diagnostics.Append(pdiags...)
+		if pdiags.HasError() {
+			// Match the other Create failure paths: do not leave an orphaned service behind.
+			if _, err := r.client.DeleteService(context.Background(), service.ID); err != nil {
+				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("Failed to delete service after postgres_parameters error; remove orphaned resources from your account manually. Error: %s", err))
+			}
+			return
+		}
+	}
+
 	resourceModel := serviceToResource(resp.Diagnostics, service, plan)
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -712,6 +752,18 @@ func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	resourceModel := serviceToResource(resp.Diagnostics, service, state)
+	marker, mdiags := req.Private.GetKey(ctx, privateKeyImportParameters)
+	resp.Diagnostics.Append(mdiags...)
+	imported := len(marker) > 0
+	params, pdiags := r.readPostgresParameters(ctx, service, state.PostgresParameters, imported)
+	resp.Diagnostics.Append(pdiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resourceModel.PostgresParameters = params
+	if imported {
+		resp.Diagnostics.Append(resp.Private.SetKey(ctx, privateKeyImportParameters, nil)...)
+	}
 	// Save updated plan into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, resourceModel)...)
 	if resp.Diagnostics.HasError() {
@@ -740,6 +792,13 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	readReplicaSource := plan.ReadReplicaSource.ValueString()
 	if readReplicaSource != state.ReadReplicaSource.ValueString() {
 		resp.Diagnostics.AddError(ErrUpdateService, errUpdateReplicaSource)
+		return
+	}
+
+	planParams := knownParameterMap(plan.PostgresParameters)
+	stateParams := knownParameterMap(state.PostgresParameters)
+	if plan.Paused.ValueBool() && len(changedParameterKeys(stateParams, planParams)) > 0 {
+		resp.Diagnostics.AddError(ErrUpdateService, "postgres_parameters cannot be changed while the service is paused")
 		return
 	}
 
@@ -903,6 +962,8 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 	}
 
+	resizeRequested := !plan.MilliCPU.Equal(state.MilliCPU) || !plan.MemoryGB.Equal(state.MemoryGB)
+
 	{
 		isResizeRequested := false
 		const noop = "0" // Compute and storage could be resized separately. Setting value to 0 means a no-op.
@@ -929,6 +990,15 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError(ErrCreateTimeout, fmt.Sprintf("error occurred while waiting for service reconfiguration, got error: %s", err))
 		return
+	}
+
+	// Postgres parameters. A compute resize re-tunes several parameters, so re-apply
+	// the declared map after a resize even when the map itself did not change.
+	if len(planParams) > 0 && (resizeRequested || !plan.PostgresParameters.Equal(state.PostgresParameters)) {
+		resp.Diagnostics.Append(r.applyPostgresParameters(ctx, serviceID, planParams)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Update Password
@@ -995,6 +1065,51 @@ func (r *serviceResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *serviceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	// Tell the following Read to adopt every user-modified parameter.
+	resp.Diagnostics.Append(resp.Private.SetKey(ctx, privateKeyImportParameters, []byte(`{}`))...)
+}
+
+// ModifyPlan warns about parameters that stop being managed and about changes that restart the service.
+func (r *serviceResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	// Create and destroy plans have nothing to compare against.
+	if req.Plan.Raw.IsNull() || req.State.Raw.IsNull() {
+		return
+	}
+	var planAttr, stateAttr types.Map
+	resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(postgresParametersAttr), &planAttr)...)
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root(postgresParametersAttr), &stateAttr)...)
+	if resp.Diagnostics.HasError() || planAttr.IsUnknown() {
+		return
+	}
+	planParams := knownParameterMap(planAttr)
+	stateParams := knownParameterMap(stateAttr)
+
+	if removed := removedParameterKeys(stateParams, planParams); len(removed) > 0 {
+		resp.Diagnostics.AddAttributeWarning(path.Root(postgresParametersAttr),
+			"Postgres parameters no longer managed",
+			fmt.Sprintf("These parameters will no longer be managed by Terraform: %s. Their current values remain in place on the service.", strings.Join(removed, ", ")))
+	}
+
+	changed := changedParameterKeys(stateParams, planParams)
+	if len(changed) == 0 || r.client == nil {
+		return
+	}
+	var id types.String
+	resp.Diagnostics.Append(req.State.GetAttribute(ctx, path.Root("id"), &id)...)
+	if resp.Diagnostics.HasError() || id.IsNull() || id.IsUnknown() || id.ValueString() == "" {
+		return
+	}
+	catalog, err := r.fetchParameterCatalog(ctx, id.ValueString())
+	if err != nil {
+		// Never fail a plan over an advisory warning.
+		tflog.Debug(ctx, "unable to fetch parameter catalog during plan", map[string]any{"service_id": id.ValueString(), "error": err.Error()})
+		return
+	}
+	for _, name := range restartRequiredKeys(catalog, changed) {
+		resp.Diagnostics.AddAttributeWarning(path.Root(postgresParametersAttr).AtMapKey(name),
+			fmt.Sprintf("Changing postgres_parameters[%q] requires a service restart", name),
+			"Applying this change will restart the service, causing roughly 30 seconds of downtime.")
+	}
 }
 
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
@@ -1022,6 +1137,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		Password:                state.Password,
 		PasswordWo:              types.StringNull(),
 		PasswordWoVersion:       state.PasswordWoVersion,
+		PostgresParameters:      state.PostgresParameters,
 		Name:                    types.StringValue(s.Name),
 		MilliCPU:                types.Int64Value(s.Resources[0].Spec.MilliCPU),
 		MemoryGB:                types.Int64Value(s.Resources[0].Spec.MemoryGB),

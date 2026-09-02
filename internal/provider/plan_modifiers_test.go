@@ -350,3 +350,26 @@ func TestServiceSchema_EndpointsPreservedWhenTogglesUnchanged(t *testing.T) {
 		}
 	})
 }
+
+// TestServiceSchema_PostgresParameters verifies the attribute shape and its key validator.
+func TestServiceSchema_PostgresParameters(t *testing.T) {
+	s := getServiceSchema(t)
+	attr, ok := s.Attributes["postgres_parameters"]
+	if !ok {
+		t.Fatal("postgres_parameters attribute missing")
+	}
+	if !attr.IsOptional() || attr.IsComputed() || attr.IsRequired() {
+		t.Fatalf("postgres_parameters must be optional only, got optional=%v computed=%v required=%v",
+			attr.IsOptional(), attr.IsComputed(), attr.IsRequired())
+	}
+	mapAttr, ok := attr.(schema.MapAttribute)
+	if !ok {
+		t.Fatalf("postgres_parameters must be a MapAttribute, got %T", attr)
+	}
+	if !mapAttr.ElementType.Equal(types.StringType) {
+		t.Fatalf("postgres_parameters elements must be strings, got %s", mapAttr.ElementType)
+	}
+	if len(mapAttr.Validators) != 2 {
+		t.Fatalf("expected key and value validators, got %d", len(mapAttr.Validators))
+	}
+}

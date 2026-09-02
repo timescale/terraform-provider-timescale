@@ -2,14 +2,19 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/require"
 
@@ -45,15 +50,42 @@ func TestParameterMapValue(t *testing.T) {
 	require.Equal(t, map[string]string{"work_mem": "64MB"}, knownParameterMap(full))
 }
 
-func TestRemovedAndChangedParameterKeys(t *testing.T) {
+func TestChangedParameterKeys(t *testing.T) {
 	state := map[string]string{"a": "1", "b": "2", "c": "3"}
 	plan := map[string]string{"b": "2", "c": "30", "d": "4"}
 
-	require.Equal(t, []string{"a"}, removedParameterKeys(state, plan))
 	require.Equal(t, []string{"c", "d"}, changedParameterKeys(state, plan))
-	require.Empty(t, removedParameterKeys(nil, plan))
 	require.Equal(t, []string{"b", "c", "d"}, changedParameterKeys(nil, plan))
 	require.Empty(t, changedParameterKeys(state, state))
+}
+
+func TestRemovedParameterKeysFromPlan(t *testing.T) {
+	state := map[string]string{"a": "1", "b": "2"}
+
+	t.Run("genuinely dropped key is reported", func(t *testing.T) {
+		plan, diags := types.MapValue(types.StringType, map[string]attr.Value{
+			"a": types.StringValue("1"),
+		})
+		require.False(t, diags.HasError())
+		require.Equal(t, []string{"b"}, removedParameterKeysFromPlan(state, plan))
+	})
+
+	t.Run("unknown element present in plan is not reported as removed", func(t *testing.T) {
+		plan, diags := types.MapValue(types.StringType, map[string]attr.Value{
+			"a": types.StringValue("1"),
+			"b": types.StringUnknown(),
+		})
+		require.False(t, diags.HasError())
+		require.Empty(t, removedParameterKeysFromPlan(state, plan))
+	})
+
+	t.Run("null plan map reports all state keys", func(t *testing.T) {
+		require.Equal(t, []string{"a", "b"}, removedParameterKeysFromPlan(state, types.MapNull(types.StringType)))
+	})
+
+	t.Run("unknown plan map reports none", func(t *testing.T) {
+		require.Empty(t, removedParameterKeysFromPlan(state, types.MapUnknown(types.StringType)))
+	})
 }
 
 func TestRestartRequiredKeys(t *testing.T) {
@@ -98,12 +130,14 @@ func mockPostgresParametersServer(t *testing.T, failFirst int32) (*httptest.Serv
 }
 
 func TestFetchParameterCatalogWithRetry(t *testing.T) {
-	origInterval, origTimeout := parameterPollInterval, parameterPollTimeout
+	origInterval, origTimeout, origRetryTimeout := parameterPollInterval, parameterPollTimeout, parameterFetchRetryTimeout
 	parameterPollInterval = 5 * time.Millisecond
 	parameterPollTimeout = 50 * time.Millisecond
+	parameterFetchRetryTimeout = 50 * time.Millisecond
 	t.Cleanup(func() {
 		parameterPollInterval = origInterval
 		parameterPollTimeout = origTimeout
+		parameterFetchRetryTimeout = origRetryTimeout
 	})
 
 	t.Run("retries a transient failure then succeeds", func(t *testing.T) {
@@ -127,5 +161,341 @@ func TestFetchParameterCatalogWithRetry(t *testing.T) {
 		_, err := r.fetchParameterCatalogWithRetry(context.Background(), "svc-1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "service is restarting")
+	})
+}
+
+// gqlMock is a minimal GraphQL test double for applyPostgresParameters and
+// readPostgresParameters. It dispatches on the request's operationName field and
+// records what it received. getBodies and setBodies are the raw JSON responses
+// returned in order for each operation; the last one repeats once exhausted.
+type gqlMock struct {
+	t *testing.T
+
+	mu        sync.Mutex
+	getBodies []string
+	setBodies []string
+	getCalls  int
+	setCalls  int
+	setVars   []map[string]any
+}
+
+func newGQLMock(t *testing.T, getBodies, setBodies []string) *gqlMock {
+	return &gqlMock{t: t, getBodies: getBodies, setBodies: setBodies}
+}
+
+func (m *gqlMock) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	data, err := io.ReadAll(r.Body)
+	require.NoError(m.t, err)
+	var body map[string]any
+	require.NoError(m.t, json.Unmarshal(data, &body))
+	op, _ := body["operationName"].(string)
+	w.Header().Set("Content-Type", "application/json")
+	switch op {
+	case "GetPostgresParameters":
+		idx := m.getCalls
+		if idx >= len(m.getBodies) {
+			idx = len(m.getBodies) - 1
+		}
+		m.getCalls++
+		_, _ = fmt.Fprint(w, m.getBodies[idx])
+	case "SetPostgresParameters":
+		vars, _ := body["variables"].(map[string]any)
+		m.setVars = append(m.setVars, vars)
+		idx := m.setCalls
+		if idx >= len(m.setBodies) {
+			idx = len(m.setBodies) - 1
+		}
+		m.setCalls++
+		_, _ = fmt.Fprint(w, m.setBodies[idx])
+	default:
+		m.t.Fatalf("unexpected GraphQL operation %q", op)
+	}
+}
+
+func (m *gqlMock) getCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.getCalls
+}
+
+func (m *gqlMock) setCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.setCalls
+}
+
+func (m *gqlMock) lastSetVars() map[string]any {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.setVars) == 0 {
+		return nil
+	}
+	return m.setVars[len(m.setVars)-1]
+}
+
+// newTestServiceResourceFor points a fresh client at the mock, following the pattern
+// used by TestFetchParameterCatalogWithRetry.
+func newTestServiceResourceFor(t *testing.T, mock *gqlMock) *serviceResource {
+	t.Helper()
+	srv := httptest.NewServer(mock)
+	t.Cleanup(srv.Close)
+	t.Setenv("TIMESCALE_DEV_URL", srv.URL)
+	return &serviceResource{client: tsClient.NewClient("", "project", "test", "test")}
+}
+
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	require.NoError(t, err)
+	return string(b)
+}
+
+func getParamsBody(t *testing.T, p tsClient.PostgresParameters) string {
+	t.Helper()
+	return mustJSON(t, tsClient.Response[tsClient.GetPostgresParametersResponse]{
+		Data: &tsClient.GetPostgresParametersResponse{PostgresParameters: p},
+	})
+}
+
+func setParamsBody(t *testing.T, errs []tsClient.ParameterError) string {
+	t.Helper()
+	return mustJSON(t, tsClient.Response[tsClient.SetPostgresParametersResponse]{
+		Data: &tsClient.SetPostgresParametersResponse{ParameterErrors: errs},
+	})
+}
+
+// diagnosticPath returns the path of a diagnostic that must carry one.
+func diagnosticPath(t *testing.T, d diag.Diagnostic) path.Path {
+	t.Helper()
+	wp, ok := d.(diag.DiagnosticWithPath)
+	require.True(t, ok, "diagnostic %v does not carry a path", d)
+	return wp.Path()
+}
+
+func TestApplyPostgresParameters(t *testing.T) {
+	origInterval, origTimeout, origRetryTimeout := parameterPollInterval, parameterPollTimeout, parameterFetchRetryTimeout
+	parameterPollInterval = 5 * time.Millisecond
+	parameterPollTimeout = 50 * time.Millisecond
+	parameterFetchRetryTimeout = 50 * time.Millisecond
+	t.Cleanup(func() {
+		parameterPollInterval = origInterval
+		parameterPollTimeout = origTimeout
+		parameterFetchRetryTimeout = origRetryTimeout
+	})
+
+	t.Run("unknown key produces one error diagnostic and no set call", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		diags := r.applyPostgresParameters(context.Background(), "svc-1", map[string]string{"nosuch": "1"})
+		require.True(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.True(t, path.Root(postgresParametersAttr).AtMapKey("nosuch").Equal(diagnosticPath(t, diags[0])))
+		require.Equal(t, 0, mock.setCallCount())
+	})
+
+	t.Run("not user-editable produces an error and no set call", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserEditable: false}, Unit: "KILOBYTES", CurrentValue: 4096},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		diags := r.applyPostgresParameters(context.Background(), "svc-1", map[string]string{"work_mem": "64MB"})
+		require.True(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.Contains(t, diags[0].Detail(), "not user-editable")
+		require.Equal(t, 0, mock.setCallCount())
+	})
+
+	t.Run("value already semantically equal produces no set call and no diagnostics", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserEditable: true}, Unit: "KILOBYTES", CurrentValue: 65536},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		diags := r.applyPostgresParameters(context.Background(), "svc-1", map[string]string{"work_mem": "64MB"})
+		require.False(t, diags.HasError())
+		require.Empty(t, diags)
+		require.Equal(t, 0, mock.setCallCount())
+	})
+
+	t.Run("valid change sends one set call and maps returned errors to attribute diagnostics", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserEditable: true}, Unit: "KILOBYTES", CurrentValue: 65536},
+			},
+		})
+		setResp := setParamsBody(t, []tsClient.ParameterError{{Name: "work_mem", ErrorMessage: "rejected by tuner"}})
+		mock := newGQLMock(t, []string{catalog}, []string{setResp})
+		r := newTestServiceResourceFor(t, mock)
+
+		diags := r.applyPostgresParameters(context.Background(), "svc-1", map[string]string{"work_mem": "128MB"})
+		require.Equal(t, 1, mock.setCallCount())
+
+		vars := mock.lastSetVars()
+		require.NotNil(t, vars)
+		numeric, ok := vars["numericParameters"].([]any)
+		require.True(t, ok)
+		require.Len(t, numeric, 1)
+		entry, ok := numeric[0].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "work_mem", entry["name"])
+		require.Equal(t, float64(128), entry["value"])
+		require.Equal(t, "MEGABYTES", entry["unit"])
+
+		require.True(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.True(t, path.Root(postgresParametersAttr).AtMapKey("work_mem").Equal(diagnosticPath(t, diags[0])))
+	})
+
+	t.Run("valid change with no errors and a settled follow-up read produces no diagnostics", func(t *testing.T) {
+		before := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserEditable: true}, Unit: "KILOBYTES", CurrentValue: 65536},
+			},
+		})
+		after := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserEditable: true, IsPendingRestart: false}, Unit: "KILOBYTES", CurrentValue: 131072},
+			},
+		})
+		setResp := setParamsBody(t, nil)
+		mock := newGQLMock(t, []string{before, after}, []string{setResp})
+		r := newTestServiceResourceFor(t, mock)
+
+		diags := r.applyPostgresParameters(context.Background(), "svc-1", map[string]string{"work_mem": "128MB"})
+		require.False(t, diags.HasError())
+		require.Empty(t, diags)
+		require.Equal(t, 1, mock.setCallCount())
+	})
+}
+
+func TestReadPostgresParameters(t *testing.T) {
+	ctx := context.Background()
+
+	newPrior := func(t *testing.T, m map[string]string) types.Map {
+		t.Helper()
+		v, diags := parameterMapValue(ctx, m)
+		require.False(t, diags.HasError())
+		return v
+	}
+
+	t.Run("value semantically equal to running keeps the state string", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem"}, Unit: "KILOBYTES", CurrentValue: 65536},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+		prior := newPrior(t, map[string]string{"work_mem": "64MB"})
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, prior, false)
+		require.False(t, diags.HasError())
+		require.Equal(t, map[string]string{"work_mem": "64MB"}, knownParameterMap(got))
+	})
+
+	t.Run("drift replaces the state string with the formatted running value", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem"}, Unit: "KILOBYTES", CurrentValue: 32768},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+		prior := newPrior(t, map[string]string{"work_mem": "64MB"})
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, prior, false)
+		require.False(t, diags.HasError())
+		require.Equal(t, map[string]string{"work_mem": "32768kB"}, knownParameterMap(got))
+	})
+
+	t.Run("pending restart keeps the state string even if the running value differs", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "max_connections", IsPendingRestart: true}, Unit: unitUndefined, CurrentValue: 150},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+		prior := newPrior(t, map[string]string{"max_connections": "200"})
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, prior, false)
+		require.False(t, diags.HasError())
+		require.Equal(t, map[string]string{"max_connections": "200"}, knownParameterMap(got))
+	})
+
+	t.Run("key missing from catalog is dropped", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+		prior := newPrior(t, map[string]string{"stale_key": "1"})
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, prior, false)
+		require.False(t, diags.HasError())
+		require.Empty(t, knownParameterMap(got))
+	})
+
+	t.Run("non-READY service returns the prior map untouched without any request", func(t *testing.T) {
+		mock := newGQLMock(t, nil, nil)
+		r := newTestServiceResourceFor(t, mock)
+		prior := newPrior(t, map[string]string{"work_mem": "64MB"})
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "PAUSED"}, prior, false)
+		require.False(t, diags.HasError())
+		require.True(t, prior.Equal(got))
+		require.Equal(t, 0, mock.getCallCount())
+	})
+
+	t.Run("import adopts every user-modified parameter, formatted", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserModified: true}, Unit: "KILOBYTES", CurrentValue: 65536},
+				{Info: tsClient.ParameterInfo{Name: "max_connections", IsUserModified: false}, Unit: unitUndefined, CurrentValue: 100},
+			},
+			StringParameters: []tsClient.StringParameter{
+				{Info: tsClient.ParameterInfo{Name: "hot_standby_feedback", IsUserModified: true}, CurrentValue: "on"},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, types.MapNull(types.StringType), true)
+		require.False(t, diags.HasError())
+		require.Equal(t, map[string]string{"work_mem": "65536kB", "hot_standby_feedback": "on"}, knownParameterMap(got))
+	})
+
+	t.Run("import with nothing user-modified returns null", func(t *testing.T) {
+		catalog := getParamsBody(t, tsClient.PostgresParameters{
+			NumericParameters: []tsClient.NumericParameter{
+				{Info: tsClient.ParameterInfo{Name: "work_mem", IsUserModified: false}, Unit: "KILOBYTES", CurrentValue: 65536},
+			},
+		})
+		mock := newGQLMock(t, []string{catalog}, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "READY"}, types.MapNull(types.StringType), true)
+		require.False(t, diags.HasError())
+		require.True(t, got.IsNull())
+	})
+
+	t.Run("import on a non-READY service returns null with a warning", func(t *testing.T) {
+		mock := newGQLMock(t, nil, nil)
+		r := newTestServiceResourceFor(t, mock)
+
+		got, diags := r.readPostgresParameters(ctx, &tsClient.Service{ID: "svc-1", Status: "CONFIGURING"}, types.MapNull(types.StringType), true)
+		require.False(t, diags.HasError())
+		require.Len(t, diags, 1)
+		require.True(t, got.IsNull())
+		require.Equal(t, 0, mock.getCallCount())
 	})
 }

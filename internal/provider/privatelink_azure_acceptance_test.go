@@ -155,7 +155,10 @@ resource "timescale_privatelink_connection" "test" {
 }
 
 func testAccPrivateLinkAzureServiceConfig(attached bool) string {
-	connectionIDLine := ""
+	// private_endpoint_connection_ids is Optional and Computed, so omitting it
+	// means "keep whatever is attached" rather than "attach nothing". Detaching
+	// has to be spelled out as an empty set.
+	connectionIDLine := "\n  private_endpoint_connection_ids = []"
 	if attached {
 		connectionIDLine = "\n  private_endpoint_connection_ids = [timescale_privatelink_connection.test.connection_id]"
 	}

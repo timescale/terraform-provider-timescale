@@ -9,6 +9,7 @@ import (
 )
 
 func TestAccConnectorS3Resource(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -39,6 +40,7 @@ func TestAccConnectorS3Resource(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceParquet(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -126,6 +128,7 @@ resource "timescale_connector_s3" "test" {
 }
 
 func TestAccConnectorS3ResourceMinimal(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -152,6 +155,7 @@ func TestAccConnectorS3ResourceMinimal(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceFull(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -298,6 +302,7 @@ resource "timescale_connector_s3" "test" {
 }
 
 func TestAccConnectorS3ResourceColumnMapping(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -370,6 +375,7 @@ resource "timescale_connector_s3" "test" {
 }
 
 func TestAccConnectorS3ResourceImport(t *testing.T) {
+	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,

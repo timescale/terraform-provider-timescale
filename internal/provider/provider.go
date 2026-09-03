@@ -133,6 +133,9 @@ func (p *timescaleProvider) DataSources(ctx context.Context) []func() datasource
 		NewProductsDataSource,
 		NewServiceDataSource,
 		NewVpcsDataSource,
+		NewPrivateLinkAvailableRegionsDataSource,
+		NewPrivateLinkRegionDataSource,
+		NewPrivateLinkConnectionDataSource,
 	}
 }
 
@@ -146,6 +149,7 @@ func (p *timescaleProvider) Resources(ctx context.Context) []func() resource.Res
 		NewMetricExporterResource,
 		NewLogExporterResource,
 		NewConnectorS3Resource,
+		NewPrivateLinkConnectionResource,
 		NewConnectorSrcPostgresResource,
 	}
 }

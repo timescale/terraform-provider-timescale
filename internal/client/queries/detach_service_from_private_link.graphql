@@ -1,0 +1,7 @@
+mutation DetachServiceFromPrivateLinkConnection($projectId: ID!, $serviceId: ID!, $connectionIds: [ID!]!) {
+    detachServiceFromPrivateLinkConnection(data: {
+        projectId: $projectId
+        serviceId: $serviceId
+        connectionIds: $connectionIds
+    })
+}

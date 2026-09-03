@@ -1,0 +1,17 @@
+mutation ClaimPrivateLinkConnection($projectId: ID!, $claimIdentifier: String!) {
+    claimPrivateLinkConnection(data: {
+        projectId: $projectId
+        claimIdentifier: $claimIdentifier
+    }) {
+        connectionId
+        linkIdentifier
+        state
+        name
+        region
+        principalId
+        cloudProvider
+        providerConnectionId
+        createdAt
+        updatedAt
+    }
+}

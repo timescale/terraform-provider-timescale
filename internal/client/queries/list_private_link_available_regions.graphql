@@ -1,0 +1,7 @@
+query ListPrivateLinkAvailableRegions {
+    listPrivateLinkAvailableRegions {
+        region
+        cloudProvider
+        serviceName
+    }
+}

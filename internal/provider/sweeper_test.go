@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	tsClient "github.com/timescale/terraform-provider-timescale/internal/client"
 )
 
 func TestMain(m *testing.M) {
@@ -21,6 +22,10 @@ func init() {
 	resource.AddTestSweepers("timescale_vpcs", &resource.Sweeper{
 		Name: "timescale_vpcs",
 		F:    sweepVPCs,
+	})
+	resource.AddTestSweepers("timescale_privatelink_connection", &resource.Sweeper{
+		Name: "timescale_privatelink_connection",
+		F:    sweepPrivateLinkConnections,
 	})
 }
 
@@ -52,6 +57,33 @@ func sweepVPCs(_ string) error {
 			if err := c.DeleteVPC(ctx, vpcID); err != nil {
 				log.Printf("Error deleting VPC %s (%s): %s", vpc.Name, vpc.ID, err)
 			}
+		}
+	}
+
+	return nil
+}
+
+func sweepPrivateLinkConnections(_ string) error {
+	log.Printf("Sweeper starting for Private Link connections...")
+	c, err := createSweepClient()
+	if err != nil {
+		return fmt.Errorf("error creating client: %s", err)
+	}
+
+	ctx := context.Background()
+
+	connections, err := c.ListPrivateLinkConnections(ctx, "")
+	if err != nil {
+		return fmt.Errorf("error retrieving Private Link connections: %s", err)
+	}
+
+	for _, conn := range connections {
+		if !strings.HasPrefix(conn.Name, "test-") {
+			continue
+		}
+		log.Printf("Rejecting Private Link connection %s (%s)", conn.Name, conn.ConnectionID)
+		if err := c.DeletePrivateLinkConnection(ctx, conn.ConnectionID); err != nil {
+			log.Printf("Error rejecting Private Link connection %s: %s", conn.Name, err)
 		}
 	}
 

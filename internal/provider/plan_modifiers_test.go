@@ -350,3 +350,106 @@ func TestServiceSchema_EndpointsPreservedWhenTogglesUnchanged(t *testing.T) {
 		}
 	})
 }
+
+// Detaching a VPC by removing vpc_id from the configuration does change the
+// hostname, so a toggle going from set to null must still refresh it. This is
+// the counterpart to treating a never-set Optional attribute as unchanged:
+// only one of the two can be inferred from a null plan value alone.
+func TestServiceSchema_HostnameRefreshesOnVpcRemoval(t *testing.T) {
+	s := getServiceSchema(t)
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
+
+	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
+		"hostname": tftypes.NewValue(tftypes.String, "old-host.example.com"),
+		"vpc_id":   tftypes.NewValue(tftypes.Number, 100),
+	})
+	planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+		"hostname": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"vpc_id":   tftypes.NewValue(tftypes.Number, nil),
+	})
+
+	req := planmodifier.StringRequest{
+		PlanValue:  types.StringUnknown(),
+		StateValue: types.StringValue("old-host.example.com"),
+		State:      tfsdk.State{Schema: s, Raw: stateRaw},
+		Plan:       tfsdk.Plan{Schema: s, Raw: planRaw},
+	}
+	resp := &planmodifier.StringResponse{PlanValue: req.PlanValue}
+	for _, mod := range hostnameAttr.PlanModifiers {
+		mod.PlanModifyString(context.Background(), req, resp)
+	}
+
+	if !resp.PlanValue.IsUnknown() {
+		t.Errorf("hostname should be unknown when vpc_id is removed, got %q", resp.PlanValue.ValueString())
+	}
+}
+
+// Private Link keeps the hostname and only reallocates the port, so attaching
+// a connection must not mark the hostname unknown. A hostname that goes
+// unknown cascades into replacing anything derived from it, such as the
+// private DNS zone the examples build from it.
+func TestServiceSchema_HostnameStableOnPrivateLinkChange(t *testing.T) {
+	s := getServiceSchema(t)
+
+	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
+		"hostname": tftypes.NewValue(tftypes.String, "svc.example.com"),
+		"private_endpoint_connection_ids": tftypes.NewValue(
+			tftypes.Set{ElementType: tftypes.String},
+			[]tftypes.Value{},
+		),
+	})
+	planRaw := buildTFValues(t, s, map[string]tftypes.Value{
+		"hostname": tftypes.NewValue(tftypes.String, tftypes.UnknownValue),
+		"private_endpoint_connection_ids": tftypes.NewValue(
+			tftypes.Set{ElementType: tftypes.String},
+			[]tftypes.Value{tftypes.NewValue(tftypes.String, "conn-123")},
+		),
+	})
+	state := tfsdk.State{Schema: s, Raw: stateRaw}
+	plan := tfsdk.Plan{Schema: s, Raw: planRaw}
+
+	req := planmodifier.StringRequest{
+		PlanValue:  types.StringUnknown(),
+		StateValue: types.StringValue("svc.example.com"),
+		State:      state,
+		Plan:       plan,
+	}
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
+
+	resp := &planmodifier.StringResponse{PlanValue: req.PlanValue}
+	for _, mod := range hostnameAttr.PlanModifiers {
+		mod.PlanModifyString(context.Background(), req, resp)
+	}
+	if resp.PlanValue.IsUnknown() {
+		t.Error("hostname should stay known when private link connections change")
+	}
+	if resp.PlanValue.ValueString() != "svc.example.com" {
+		t.Errorf("hostname = %q, want the prior value", resp.PlanValue.ValueString())
+	}
+
+	// The port, by contrast, is allocated per binding and must refresh.
+	portReq := planmodifier.Int64Request{
+		PlanValue:  types.Int64Unknown(),
+		StateValue: types.Int64Value(5432),
+		State:      state,
+		Plan:       plan,
+	}
+	portAttr, ok := s.Attributes["port"].(schema.Int64Attribute)
+	if !ok {
+		t.Fatal("port attribute is not an Int64Attribute")
+	}
+
+	portResp := &planmodifier.Int64Response{PlanValue: portReq.PlanValue}
+	for _, mod := range portAttr.PlanModifiers {
+		mod.PlanModifyInt64(context.Background(), portReq, portResp)
+	}
+	if !portResp.PlanValue.IsUnknown() {
+		t.Errorf("port should be unknown when private link connections change, got %v", portResp.PlanValue)
+	}
+}

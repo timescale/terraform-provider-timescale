@@ -357,7 +357,10 @@ func TestServiceSchema_EndpointsPreservedWhenTogglesUnchanged(t *testing.T) {
 // only one of the two can be inferred from a null plan value alone.
 func TestServiceSchema_HostnameRefreshesOnVpcRemoval(t *testing.T) {
 	s := getServiceSchema(t)
-	hostnameAttr := s.Attributes["hostname"].(schema.StringAttribute)
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
 
 	stateRaw := buildTFValues(t, s, map[string]tftypes.Value{
 		"hostname": tftypes.NewValue(tftypes.String, "old-host.example.com"),
@@ -414,8 +417,13 @@ func TestServiceSchema_HostnameStableOnPrivateLinkChange(t *testing.T) {
 		State:      state,
 		Plan:       plan,
 	}
+	hostnameAttr, ok := s.Attributes["hostname"].(schema.StringAttribute)
+	if !ok {
+		t.Fatal("hostname attribute is not a StringAttribute")
+	}
+
 	resp := &planmodifier.StringResponse{PlanValue: req.PlanValue}
-	for _, mod := range s.Attributes["hostname"].(schema.StringAttribute).PlanModifiers {
+	for _, mod := range hostnameAttr.PlanModifiers {
 		mod.PlanModifyString(context.Background(), req, resp)
 	}
 	if resp.PlanValue.IsUnknown() {
@@ -432,8 +440,13 @@ func TestServiceSchema_HostnameStableOnPrivateLinkChange(t *testing.T) {
 		State:      state,
 		Plan:       plan,
 	}
+	portAttr, ok := s.Attributes["port"].(schema.Int64Attribute)
+	if !ok {
+		t.Fatal("port attribute is not an Int64Attribute")
+	}
+
 	portResp := &planmodifier.Int64Response{PlanValue: portReq.PlanValue}
-	for _, mod := range s.Attributes["port"].(schema.Int64Attribute).PlanModifiers {
+	for _, mod := range portAttr.PlanModifiers {
 		mod.PlanModifyInt64(context.Background(), portReq, portResp)
 	}
 	if !portResp.PlanValue.IsUnknown() {

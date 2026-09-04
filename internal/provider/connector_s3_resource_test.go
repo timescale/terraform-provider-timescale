@@ -8,17 +8,26 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
+// The S3 connector API validates s3:ListBucket and s3:GetObject when the connector is
+// created, so these tests need a bucket that really exists and a role the connectors
+// account can assume. Both are provisioned by the connectors-canaries prod stack
+// (terraform/modules/connector_s3), whose role trusts any service under this repo's CI
+// project. Nothing here writes to the bucket; only the create-time permission check runs.
+const (
+	testS3Bucket  = "connector-s3-canary-prod"
+	testS3RoleARN = "arn:aws:iam::142548018081:role/connector-s3-canary-terraform-provider-customer-role-prod"
+)
+
 func TestAccConnectorS3Resource(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with CSV
 			{
-				Config: testAccConnectorS3ResourceConfigCSV("test-bucket", "*.csv", "test_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "*.csv", "test_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.csv"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "CSV"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "table_identifier.table_name", "test_table"),
@@ -29,7 +38,7 @@ func TestAccConnectorS3Resource(t *testing.T) {
 			},
 			// Update testing
 			{
-				Config: testAccConnectorS3ResourceConfigCSV("test-bucket", "data/*.csv", "test_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "data/*.csv", "test_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
 				),
@@ -40,16 +49,15 @@ func TestAccConnectorS3Resource(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceParquet(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with Parquet
 			{
-				Config: testAccConnectorS3ResourceConfigParquet("test-bucket-parquet", "*.parquet", "parquet_table"),
+				Config: testAccConnectorS3ResourceConfigParquet(testS3Bucket, "*.parquet", "parquet_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "test-bucket-parquet"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.parquet"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "PARQUET"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "table_identifier.table_name", "parquet_table"),
@@ -73,7 +81,8 @@ resource "timescale_connector_s3" "test" {
   pattern    = %[2]q
 
   credentials = {
-    type = "Public"
+    type     = "RoleARN"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -91,7 +100,7 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func testAccConnectorS3ResourceConfigParquet(bucket, pattern, tableName string) string {
@@ -107,7 +116,8 @@ resource "timescale_connector_s3" "test" {
   pattern    = %[2]q
 
   credentials = {
-    type = "Public"
+    type     = "RoleARN"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -124,20 +134,19 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func TestAccConnectorS3ResourceMinimal(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with minimal configuration
 			{
-				Config: testAccConnectorS3ResourceConfigMinimal("minimal-test-bucket", "*.csv", "minimal_table"),
+				Config: testAccConnectorS3ResourceConfigMinimal(testS3Bucket, "*.csv", "minimal_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "minimal-test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.csv"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "CSV"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "table_identifier.table_name", "minimal_table"),
@@ -155,23 +164,22 @@ func TestAccConnectorS3ResourceMinimal(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceFull(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with full configuration
 			{
-				Config: testAccConnectorS3ResourceConfigFull("full-test-bucket", "data/*.csv", "full_table"),
+				Config: testAccConnectorS3ResourceConfigFull(testS3Bucket, "data/*.csv", "full_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "name", "full-config-connector"),
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "full-test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "frequency", "@30minutes"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "on_conflict_do_nothing", "true"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "enabled", "false"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "credentials.type", "RoleARN"),
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "credentials.role_arn", "arn:aws:iam::123456789012:role/TestRole"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "credentials.role_arn", testS3RoleARN),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "CSV"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.delimiter", "|"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.skip_header", "false"),
@@ -186,7 +194,7 @@ func TestAccConnectorS3ResourceFull(t *testing.T) {
 			},
 			// Update to enable the connector
 			{
-				Config: testAccConnectorS3ResourceConfigFullEnabled("full-test-bucket", "data/*.csv", "full_table"),
+				Config: testAccConnectorS3ResourceConfigFullEnabled(testS3Bucket, "data/*.csv", "full_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "enabled", "true"),
 				),
@@ -208,7 +216,8 @@ resource "timescale_connector_s3" "test" {
   pattern    = %[2]q
 
   credentials = {
-    type = "Public"
+    type     = "RoleARN"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -224,7 +233,7 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func testAccConnectorS3ResourceConfigFull(bucket, pattern, tableName string) string {
@@ -244,7 +253,7 @@ resource "timescale_connector_s3" "test" {
 
   credentials = {
     type     = "RoleARN"
-    role_arn = "arn:aws:iam::123456789012:role/TestRole"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -261,7 +270,7 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func testAccConnectorS3ResourceConfigFullEnabled(bucket, pattern, tableName string) string {
@@ -281,7 +290,7 @@ resource "timescale_connector_s3" "test" {
 
   credentials = {
     type     = "RoleARN"
-    role_arn = "arn:aws:iam::123456789012:role/TestRole"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -298,19 +307,18 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func TestAccConnectorS3ResourceColumnMapping(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccConnectorS3ResourceConfigColumnMapping("mapping-test-bucket", "data/*.csv", "mapped_table"),
+				Config: testAccConnectorS3ResourceConfigColumnMapping(testS3Bucket, "data/*.csv", "mapped_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "mapping-test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.type", "CSV"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "definition.csv.skip_header", "true"),
@@ -340,7 +348,8 @@ resource "timescale_connector_s3" "test" {
   pattern    = %[2]q
 
   credentials = {
-    type = "Public"
+    type     = "RoleARN"
+    role_arn = %[4]q
   }
 
   definition = {
@@ -371,19 +380,18 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName)
+`, bucket, pattern, tableName, testS3RoleARN)
 }
 
 func TestAccConnectorS3ResourceImport(t *testing.T) {
-	t.Skip("skipped until the CI test bucket grants s3:ListBucket; the connectors team owns the fix")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccConnectorS3ResourceConfigCSV("import-test-bucket", "*.csv", "import_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "*.csv", "import_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", "import-test-bucket"),
+					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttrSet("timescale_connector_s3.test", "id"),
 					resource.TestCheckResourceAttrSet("timescale_connector_s3.test", "service_id"),
 				),

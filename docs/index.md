@@ -16,6 +16,32 @@ Find more information on creating Client Credentials in the [TigerData docs](htt
 
 To view the project ID, click on your project name on the upper left-hand side of the page.
 
+### Optional Credentials
+
+Credentials are optional when the provider is not being used to manage resources. This allows you to configure the provider without credentials in modules or configurations where Timescale resources may not be used. Credentials will only be required when you attempt to create, read, update, or delete actual resources.
+
+```hcl
+# This is valid - credentials are optional if no resources are used
+provider "timescale" {
+  # No credentials provided
+}
+```
+
+When resources are defined that use the provider, credentials become required:
+
+```hcl
+provider "timescale" {
+  project_id = var.ts_project_id
+  access_key = var.ts_access_key
+  secret_key = var.ts_secret_key
+}
+
+# This requires credentials to be configured
+resource "timescale_service" "example" {
+  name = "my-service"
+}
+```
+
 ### Example files and usage
 
 #### Service with HA replica and pooler

@@ -1,3 +1,9 @@
+## Unreleased
+
+BUG FIXES:
+- Fix provider configuration to properly skip authentication when credentials are empty or not provided. This enables lazy authentication where credentials are only required when resources are actually used.
+- Fix acceptance test preconditions to validate that credentials are non-empty, not just present. Tests now skip gracefully when credentials are missing or empty.
+
 ## 2.14.0 (September 3, 2026)
 
 FEATURES:

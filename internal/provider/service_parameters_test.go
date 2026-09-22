@@ -239,7 +239,7 @@ func newTestServiceResourceFor(t *testing.T, mock *gqlMock) *serviceResource {
 	srv := httptest.NewServer(mock)
 	t.Cleanup(srv.Close)
 	t.Setenv("TIMESCALE_DEV_URL", srv.URL)
-	return &serviceResource{client: tsClient.NewClient("", "project", "test", "test")}
+	return &serviceResource{client: tsClient.NewClient("test-token", "project", "test", "test")}
 }
 
 func mustJSON(t *testing.T, v any) string {

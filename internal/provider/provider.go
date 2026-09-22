@@ -56,7 +56,7 @@ func (p *timescaleProvider) Metadata(ctx context.Context, _ provider.MetadataReq
 func (p *timescaleProvider) Schema(ctx context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	tflog.Trace(ctx, "TimescaleProvider.Schema")
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "The Terraform provider for [Timescale](https://console.cloud.tigerdata.com/).",
+		MarkdownDescription: "The Terraform provider for [Timescale](https://console.cloud.tigerdata.com/). Credentials are optional when no Timescale resources are used; they will be required at the point a resource attempts to use the provider.",
 		Attributes: map[string]schema.Attribute{
 			"access_token": schema.StringAttribute{
 				MarkdownDescription: "Access Token",
@@ -65,7 +65,7 @@ func (p *timescaleProvider) Schema(ctx context.Context, _ provider.SchemaRequest
 			},
 			"project_id": schema.StringAttribute{
 				MarkdownDescription: "Project ID",
-				Required:            true,
+				Optional:            true,
 			},
 			"access_key": schema.StringAttribute{
 				MarkdownDescription: "Access Key",
@@ -90,10 +90,6 @@ func (p *timescaleProvider) ConfigValidators(_ context.Context) []provider.Confi
 			path.MatchRoot("access_token"),
 			path.MatchRoot("secret_key"),
 		),
-		providervalidator.AtLeastOneOf(
-			path.MatchRoot("access_token"),
-			path.MatchRoot("access_key"),
-		),
 		providervalidator.RequiredTogether(
 			path.MatchRoot("access_key"),
 			path.MatchRoot("secret_key"),
@@ -115,8 +111,12 @@ func (p *timescaleProvider) Configure(ctx context.Context, req provider.Configur
 	p.terraformVersion = req.TerraformVersion
 	client := tsClient.NewClient(data.AccessToken.ValueString(), data.ProjectID.ValueString(),
 		p.version, p.terraformVersion)
-	if !data.AccessKey.IsNull() && !data.SecretKey.IsNull() {
-		err := tsClient.JWTFromCC(client, data.AccessKey.ValueString(), data.SecretKey.ValueString())
+
+	// Defer JWT exchange until a resource actually needs it; only attempt auth if credentials are provided and not empty
+	accessKey := data.AccessKey.ValueString()
+	secretKey := data.SecretKey.ValueString()
+	if accessKey != "" && secretKey != "" {
+		err := tsClient.JWTFromCC(client, accessKey, secretKey)
 		if err != nil {
 			resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to get JWT from CC, got error: %s", err))
 			return

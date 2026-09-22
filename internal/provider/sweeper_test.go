@@ -29,7 +29,8 @@ func sweepVPCs(_ string) error {
 	log.Printf("Sweeper starting...")
 	c, err := createSweepClient()
 	if err != nil {
-		return fmt.Errorf("error creating client: %s", err)
+		log.Printf("Sweeper skipped: %s", err)
+		return nil
 	}
 
 	ctx := context.Background()

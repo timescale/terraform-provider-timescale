@@ -87,6 +87,53 @@ func TestPeeringConnResource_tgw_basic(t *testing.T) {
 	})
 }
 
+// Two peerings on one VPC are created and destroyed in parallel, so the second change hits the busy VPC.
+func TestPeeringConnResource_concurrentOnOneVPC(t *testing.T) {
+	vpcName := fmt.Sprintf("test-vpc-for-concurrent-pc-%s", acctest.RandString(8))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: providerConfig + concurrentPeeringConnectionsConfig(vpcName, peerAccountID, peerRegion, peerVPCID, peerTGWID),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrSet("timescale_peering_connection.vpc", "id"),
+					resource.TestCheckResourceAttr("timescale_peering_connection.vpc", "peering_type", "vpc"),
+					resource.TestCheckResourceAttrSet("timescale_peering_connection.tgw", "id"),
+					resource.TestCheckResourceAttr("timescale_peering_connection.tgw", "peering_type", "tgw"),
+				),
+			},
+		},
+	})
+}
+
+func concurrentPeeringConnectionsConfig(vpcName, peerAccountId, peerRegion, peerVPCID, peerTGWID string) string {
+	return fmt.Sprintf(`
+resource "timescale_vpcs" "test" {
+  name        = %q
+  cidr        = "10.0.0.0/16"
+  region_code = "us-east-1"
+}
+
+resource "timescale_peering_connection" "vpc" {
+  timescale_vpc_id = timescale_vpcs.test.id
+  peer_account_id  = %q
+  peer_region_code = %q
+  peer_vpc_id      = %q
+  peer_cidr_blocks = ["10.1.0.0/16", "10.2.0.0/16"]
+}
+
+resource "timescale_peering_connection" "tgw" {
+  timescale_vpc_id = timescale_vpcs.test.id
+  peer_account_id  = %[2]q
+  peer_region_code = %[3]q
+  peer_tgw_id      = %[5]q
+  peer_cidr_blocks = ["12.1.0.0/16", "12.2.0.0/16"]
+}
+`, vpcName, peerAccountId, peerRegion, peerVPCID, peerTGWID)
+}
+
 func vpcPeeringConnectionConfig(vpcName, peerAccountId, peerRegion, peerVPCID string) string {
 	return fmt.Sprintf(`
 resource "timescale_vpcs" "test" {

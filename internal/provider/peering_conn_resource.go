@@ -233,11 +233,9 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 	pc, err := r.waitForPCReadiness(ctx, plan.TimescaleVPCID.ValueInt64(), pcID)
 	if err != nil {
 		resp.Diagnostics.AddError("Create PC Error", "error waiting for PC readiness: "+err.Error())
-		return
-	}
-
-	if err := r.waitForVPCIdle(ctx, plan.TimescaleVPCID.ValueInt64()); err != nil {
-		resp.Diagnostics.AddError("Create PC Error", "error waiting for VPC to finish updating: "+err.Error())
+		// The peering connection already exists, so keep it in state: Terraform marks it
+		// tainted and replaces it on the next apply instead of losing track of it.
+		resp.Diagnostics.Append(resp.State.Set(ctx, partialPeeringState(plan, pcID))...)
 		return
 	}
 
@@ -347,8 +345,9 @@ func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.Del
 		return r.client.DeletePeeringConnection(ctx, vpcID, pcID)
 	})
 	if err != nil {
-		if gone, goneErr := r.peeringConnectionGone(ctx, vpcID, pcID); goneErr != nil || !gone {
-			resp.Diagnostics.AddError("Error Deleting Timescale peering connection", err.Error())
+		gone, goneErr := r.peeringConnectionGone(ctx, vpcID, pcID)
+		if goneErr != nil || !gone {
+			resp.Diagnostics.AddError("Error Deleting Timescale peering connection", errors.Join(err, goneErr).Error())
 			return
 		}
 	}
@@ -374,28 +373,23 @@ func retryWhileVPCBusy(ctx context.Context, timeout time.Duration, fn func() err
 	})
 }
 
-// waitForVPCIdle waits until the VPC is back to CREATED, so the next change on it is not rejected as busy.
-func (r *peeringConnectionResource) waitForVPCIdle(ctx context.Context, vpcID int64) error {
-	conf := retry.StateChangeConf{
-		Target:       []string{"CREATED"},
-		Timeout:      peeringWaitTimeout,
-		PollInterval: peeringPollInterval,
-		Refresh: func() (interface{}, string, error) {
-			vpc, err := r.client.GetVPCByID(ctx, vpcID)
-			if errors.Is(err, tsClient.ErrVPCNotFound) {
-				return struct{}{}, "CREATED", nil
-			}
-			if err != nil {
-				return nil, "", err
-			}
-			return vpc, vpc.Status, nil
-		},
+// partialPeeringState is the state saved for a peering connection that was opened but never became ready.
+func partialPeeringState(plan peeringConnectionResourceModel, pcID int64) peeringConnectionResourceModel {
+	plan.ID = types.Int64Value(pcID)
+	plan.VpcID = types.StringNull()
+	plan.ProvisionedID = types.StringNull()
+	plan.AccepterProvisionedID = types.StringNull()
+	plan.Status = types.StringNull()
+	plan.ErrorMessage = types.StringNull()
+	plan.PeerCIDR = types.StringValue("deprecated")
+	if plan.PeerCIDRBlocks.IsUnknown() {
+		plan.PeerCIDRBlocks = types.ListNull(types.StringType)
 	}
-	_, err := conf.WaitForStateContext(ctx)
-	return err
+	return plan
 }
 
-// waitForPCDeletion waits until the VPC no longer lists the peering connection and is idle again.
+// waitForPCDeletion waits until the VPC no longer lists the peering connection.
+// The backend removes it at the end of the unpeer workflow, which also releases the VPC for the next change.
 func (r *peeringConnectionResource) waitForPCDeletion(ctx context.Context, vpcID, pcID int64) error {
 	conf := retry.StateChangeConf{
 		Target:       []string{"DELETED"},
@@ -412,10 +406,8 @@ func (r *peeringConnectionResource) waitForPCDeletion(ctx context.Context, vpcID
 			return struct{}{}, "DELETING", nil
 		},
 	}
-	if _, err := conf.WaitForStateContext(ctx); err != nil {
-		return err
-	}
-	return r.waitForVPCIdle(ctx, vpcID)
+	_, err := conf.WaitForStateContext(ctx)
+	return err
 }
 
 // peeringConnectionGone reports whether the peering connection, or its whole VPC, no longer exists.
@@ -461,7 +453,10 @@ func (r *peeringConnectionResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	if err := r.client.UpdatePeeringConnectionCIDRs(ctx, plan.TimescaleVPCID.ValueInt64(), plan.ID.ValueInt64(), peerCIDRBlocks); err != nil {
+	err := retryWhileVPCBusy(ctx, peeringWaitTimeout, func() error {
+		return r.client.UpdatePeeringConnectionCIDRs(ctx, plan.TimescaleVPCID.ValueInt64(), plan.ID.ValueInt64(), peerCIDRBlocks)
+	})
+	if err != nil {
 		resp.Diagnostics.AddError(ErrPeeringConnectionUpdate, err.Error())
 		return
 	}

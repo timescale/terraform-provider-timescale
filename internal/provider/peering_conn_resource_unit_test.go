@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
@@ -171,8 +172,8 @@ const (
 	vpcNotFoundBody = `{"errors":[{"message":"target VPC does not exist"}]}`
 )
 
-func vpcBody(status string, peerings ...string) string {
-	return fmt.Sprintf(`{"data":{"getVpc":{"id":"7","provisionedId":"vpc-timescale","status":%q,"peeringConnections":[%s]}}}`, status, strings.Join(peerings, ","))
+func vpcBody(peerings ...string) string {
+	return fmt.Sprintf(`{"data":{"getVpc":{"id":"7","provisionedId":"vpc-timescale","status":"CREATED","peeringConnections":[%s]}}}`, strings.Join(peerings, ","))
 }
 
 // opMock serves the bodies listed for each GraphQL operationName in order; the last one repeats once exhausted.
@@ -262,8 +263,7 @@ func TestPeeringConnectionCreate_RetriesWhileVPCBusy(t *testing.T) {
 	ctx := context.Background()
 	r, mock := newTestPeeringResource(t, map[string][]string{
 		"OpenPeerRequest": {vpcBusyBody, `{"data":{"openPeerRequest":{"id":"5"}}}`},
-		// Readiness sees the peering, then the VPC stays busy for one more poll.
-		"GetVPCByID": {vpcBody("CREATING", peeringListed), vpcBody("CREATING", peeringListed), vpcBody("CREATED", peeringListed)},
+		"GetVPCByID":      {vpcBody(peeringListed)},
 	})
 
 	plan := tfsdk.Plan{Schema: peeringSchema(t)}
@@ -275,7 +275,6 @@ func TestPeeringConnectionCreate_RetriesWhileVPCBusy(t *testing.T) {
 	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
 	require.False(t, resp.Diagnostics.HasError(), "diags: %v", resp.Diagnostics)
 	require.Equal(t, 2, mock.callCount("OpenPeerRequest"))
-	require.Equal(t, 3, mock.callCount("GetVPCByID"), "create must wait for the VPC to be CREATED again")
 
 	var got peeringConnectionResourceModel
 	require.False(t, resp.State.Get(ctx, &got).HasError())
@@ -287,7 +286,7 @@ func TestPeeringConnectionDelete_RetriesWhileVPCBusy(t *testing.T) {
 	ctx := context.Background()
 	r, mock := newTestPeeringResource(t, map[string][]string{
 		"DeletePeeringConnection": {vpcBusyBody, `{"data":{"deletePeeringConnection":true}}`},
-		"GetVPCByID":              {vpcBody("CREATED", peeringListed), vpcBody("CREATED")},
+		"GetVPCByID":              {vpcBody(peeringListed), vpcBody()},
 	})
 
 	state := emptyPeeringState(t)
@@ -297,7 +296,7 @@ func TestPeeringConnectionDelete_RetriesWhileVPCBusy(t *testing.T) {
 	r.Delete(ctx, resource.DeleteRequest{State: state}, resp)
 	require.False(t, resp.Diagnostics.HasError(), "diags: %v", resp.Diagnostics)
 	require.Equal(t, 2, mock.callCount("DeletePeeringConnection"))
-	require.Equal(t, 3, mock.callCount("GetVPCByID"), "delete must wait for the peering to disappear and the VPC to be idle")
+	require.Equal(t, 2, mock.callCount("GetVPCByID"), "delete must wait for the peering to disappear")
 }
 
 func TestPeeringConnectionDelete_Errors(t *testing.T) {
@@ -306,9 +305,9 @@ func TestPeeringConnectionDelete_Errors(t *testing.T) {
 		getVPC    string
 		wantError bool
 	}{
-		{name: "peering already gone", getVPC: vpcBody("CREATED")},
+		{name: "peering already gone", getVPC: vpcBody()},
 		{name: "vpc already gone", getVPC: vpcNotFoundBody},
-		{name: "peering still listed", getVPC: vpcBody("CREATED", peeringListed), wantError: true},
+		{name: "peering still listed", getVPC: vpcBody(peeringListed), wantError: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -337,4 +336,46 @@ func TestRetryWhileVPCBusy_GivesUpAtTimeout(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "already being updated")
 	require.Greater(t, calls, 1)
+}
+
+func TestPeeringConnectionCreate_KeepsStateWhenNotReady(t *testing.T) {
+	ctx := context.Background()
+	failed := `{"id":"5","vpcId":"vpc-timescale","provisionedId":"pcx-1","status":"INVALID","errorMessage":"rejected","peerVpc":{"id":"vpc-peer"}}`
+	r, _ := newTestPeeringResource(t, map[string][]string{
+		"OpenPeerRequest": {`{"data":{"openPeerRequest":{"id":"5"}}}`},
+		"GetVPCByID":      {vpcBody(failed)},
+	})
+
+	plan := tfsdk.Plan{Schema: peeringSchema(t)}
+	model := peeringModel()
+	model.ID = types.Int64Unknown()
+	model.Status = types.StringUnknown()
+	model.PeerCIDRBlocks = types.ListUnknown(types.StringType)
+	require.False(t, plan.Set(ctx, model).HasError())
+	resp := &resource.CreateResponse{State: emptyPeeringState(t)}
+
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
+	require.True(t, resp.Diagnostics.HasError())
+
+	var got peeringConnectionResourceModel
+	require.False(t, resp.State.Get(ctx, &got).HasError())
+	require.Equal(t, int64(5), got.ID.ValueInt64(), "an opened peering must stay in state so it can be replaced")
+	require.True(t, got.PeerCIDRBlocks.IsNull())
+}
+
+func TestPeeringConnectionUpdate_RetriesWhileVPCBusy(t *testing.T) {
+	ctx := context.Background()
+	r, mock := newTestPeeringResource(t, map[string][]string{
+		"UpdatePeeringConnectionCIDRs": {vpcBusyBody, `{"data":{"updatePeeringConnectionCIDRs":true}}`},
+	})
+
+	model := peeringModel()
+	model.PeerCIDRBlocks = types.ListValueMust(types.StringType, []attr.Value{types.StringValue("10.3.0.0/16")})
+	plan := tfsdk.Plan{Schema: peeringSchema(t)}
+	require.False(t, plan.Set(ctx, model).HasError())
+	resp := &resource.UpdateResponse{State: emptyPeeringState(t)}
+
+	r.Update(ctx, resource.UpdateRequest{Plan: plan}, resp)
+	require.False(t, resp.Diagnostics.HasError(), "diags: %v", resp.Diagnostics)
+	require.Equal(t, 2, mock.callCount("UpdatePeeringConnectionCIDRs"))
 }

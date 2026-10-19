@@ -16,9 +16,10 @@ on:
       - 'README.md'
 
 # Don't run multiple acceptance tests actions simultaneously to avoid conflicts (f.e. VPCs).
+# Never cancel a run in progress: it skips the post-test destroy and leaves services behind.
 concurrency:
   group: ${{ github.workflow }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # Testing only needs permissions to read the repository contents.
 permissions:

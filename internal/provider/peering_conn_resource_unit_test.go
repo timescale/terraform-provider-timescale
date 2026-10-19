@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -256,6 +257,7 @@ func peeringModel() peeringConnectionResourceModel {
 		PeerRegionCode:        types.StringValue("us-east-1"),
 		TimescaleVPCID:        types.Int64Value(7),
 		PeeringType:           types.StringNull(),
+		Timeouts:              nullPeeringTimeouts(),
 	}
 }
 
@@ -378,4 +380,26 @@ func TestPeeringConnectionUpdate_RetriesWhileVPCBusy(t *testing.T) {
 	r.Update(ctx, resource.UpdateRequest{Plan: plan}, resp)
 	require.False(t, resp.Diagnostics.HasError(), "diags: %v", resp.Diagnostics)
 	require.Equal(t, 2, mock.callCount("UpdatePeeringConnectionCIDRs"))
+}
+
+func TestPeeringConnectionCreate_HonorsCreateTimeout(t *testing.T) {
+	ctx := context.Background()
+	r, _ := newTestPeeringResource(t, map[string][]string{
+		"OpenPeerRequest": {vpcBusyBody},
+	})
+
+	model := peeringModel()
+	model.ID = types.Int64Unknown()
+	model.Timeouts = timeouts.Value{Object: types.ObjectValueMust(
+		nullPeeringTimeouts().AttributeTypes(ctx),
+		map[string]attr.Value{"create": types.StringValue("1s"), "update": types.StringNull(), "delete": types.StringNull()},
+	)}
+	plan := tfsdk.Plan{Schema: peeringSchema(t)}
+	require.False(t, plan.Set(ctx, model).HasError())
+	resp := &resource.CreateResponse{State: emptyPeeringState(t)}
+
+	start := time.Now()
+	r.Create(ctx, resource.CreateRequest{Plan: plan}, resp)
+	require.True(t, resp.Diagnostics.HasError())
+	require.Less(t, time.Since(start), 4*time.Second, "the 1s create timeout must cut the busy retry short of its 10s default")
 }

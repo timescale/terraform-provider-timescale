@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-framework-timeouts/resource/timeouts"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
 
@@ -56,20 +57,21 @@ type peeringConnectionResource struct {
 }
 
 type peeringConnectionResourceModel struct {
-	ID                    types.Int64  `tfsdk:"id"`
-	VpcID                 types.String `tfsdk:"vpc_id"`
-	ProvisionedID         types.String `tfsdk:"provisioned_id"`
-	AccepterProvisionedID types.String `tfsdk:"accepter_provisioned_id"`
-	Status                types.String `tfsdk:"status"`
-	ErrorMessage          types.String `tfsdk:"error_message"`
-	PeerVPCID             types.String `tfsdk:"peer_vpc_id"`
-	PeerTGWID             types.String `tfsdk:"peer_tgw_id"`
-	PeerCIDRBlocks        types.List   `tfsdk:"peer_cidr_blocks"`
-	PeerCIDR              types.String `tfsdk:"peer_cidr"`
-	PeerAccountID         types.String `tfsdk:"peer_account_id"`
-	PeerRegionCode        types.String `tfsdk:"peer_region_code"`
-	TimescaleVPCID        types.Int64  `tfsdk:"timescale_vpc_id"`
-	PeeringType           types.String `tfsdk:"peering_type"`
+	ID                    types.Int64    `tfsdk:"id"`
+	VpcID                 types.String   `tfsdk:"vpc_id"`
+	ProvisionedID         types.String   `tfsdk:"provisioned_id"`
+	AccepterProvisionedID types.String   `tfsdk:"accepter_provisioned_id"`
+	Status                types.String   `tfsdk:"status"`
+	ErrorMessage          types.String   `tfsdk:"error_message"`
+	PeerVPCID             types.String   `tfsdk:"peer_vpc_id"`
+	PeerTGWID             types.String   `tfsdk:"peer_tgw_id"`
+	PeerCIDRBlocks        types.List     `tfsdk:"peer_cidr_blocks"`
+	PeerCIDR              types.String   `tfsdk:"peer_cidr"`
+	PeerAccountID         types.String   `tfsdk:"peer_account_id"`
+	PeerRegionCode        types.String   `tfsdk:"peer_region_code"`
+	TimescaleVPCID        types.Int64    `tfsdk:"timescale_vpc_id"`
+	PeeringType           types.String   `tfsdk:"peering_type"`
+	Timeouts              timeouts.Value `tfsdk:"timeouts"`
 }
 
 // Metadata returns the data source type name.
@@ -153,6 +155,7 @@ func (r *peeringConnectionResource) Read(ctx context.Context, req resource.ReadR
 		resp.State.RemoveResource(ctx)
 	}
 
+	pcm.Timeouts = state.Timeouts
 	resp.Diagnostics.Append(resp.State.Set(ctx, pcm)...)
 	if resp.Diagnostics.HasError() {
 		tflog.Error(ctx, fmt.Sprintf("error updating terraform state %v", resp.Diagnostics.Errors()))
@@ -166,6 +169,16 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	createTimeout, diags := plan.Timeouts.Create(ctx, 2*peeringWaitTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, createTimeout)
+	defer cancel()
 
 	if plan.PeerRegionCode.IsNull() {
 		resp.Diagnostics.AddError(ErrPeeringConnCreate, "Peer region code is required")
@@ -215,7 +228,7 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 	}
 
 	var pcIDStr string
-	err := retryWhileVPCBusy(ctx, peeringWaitTimeout, func() error {
+	err := retryWhileVPCBusy(ctx, createTimeout, func() error {
 		var openErr error
 		pcIDStr, openErr = r.client.OpenPeerRequest(ctx, plan.TimescaleVPCID.ValueInt64(), peerID, plan.PeerAccountID.ValueString(), plan.PeerRegionCode.ValueString(), peerCIDRBlocks)
 		return openErr
@@ -230,7 +243,7 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	pc, err := r.waitForPCReadiness(ctx, plan.TimescaleVPCID.ValueInt64(), pcID)
+	pc, err := r.waitForPCReadiness(ctx, plan.TimescaleVPCID.ValueInt64(), pcID, createTimeout)
 	if err != nil {
 		resp.Diagnostics.AddError("Create PC Error", "error waiting for PC readiness: "+err.Error())
 		// The peering connection already exists, so keep it in state: Terraform marks it
@@ -264,7 +277,7 @@ func (r *peeringConnectionResource) Create(ctx context.Context, req resource.Cre
 	}
 }
 
-func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcID int64, pcID int64) (*tsClient.PeeringConnection, error) {
+func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcID int64, pcID int64, timeout time.Duration) (*tsClient.PeeringConnection, error) {
 	tflog.Trace(ctx, "PeeringConnectionResource.waitForPCReadiness", map[string]interface{}{
 		"vpcID": vpcID,
 		"pcID":  pcID,
@@ -273,7 +286,7 @@ func (r *peeringConnectionResource) waitForPCReadiness(ctx context.Context, vpcI
 	conf := retry.StateChangeConf{
 		Target:                    []string{"PENDING", "ACTIVE", "APPROVED"},
 		Delay:                     peeringWaitDelay,
-		Timeout:                   peeringWaitTimeout,
+		Timeout:                   timeout,
 		PollInterval:              peeringPollInterval,
 		NotFoundChecks:            40,
 		ContinuousTargetOccurence: 1,
@@ -340,8 +353,16 @@ func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
+	deleteTimeout, diags := state.Timeouts.Delete(ctx, 2*peeringWaitTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, deleteTimeout)
+	defer cancel()
+
 	vpcID, pcID := state.TimescaleVPCID.ValueInt64(), state.ID.ValueInt64()
-	err := retryWhileVPCBusy(ctx, peeringWaitTimeout, func() error {
+	err := retryWhileVPCBusy(ctx, deleteTimeout, func() error {
 		return r.client.DeletePeeringConnection(ctx, vpcID, pcID)
 	})
 	if err != nil {
@@ -352,7 +373,7 @@ func (r *peeringConnectionResource) Delete(ctx context.Context, req resource.Del
 		}
 	}
 
-	if err := r.waitForPCDeletion(ctx, vpcID, pcID); err != nil {
+	if err := r.waitForPCDeletion(ctx, vpcID, pcID, deleteTimeout); err != nil {
 		resp.Diagnostics.AddError("Error Deleting Timescale peering connection", "error waiting for peering connection deletion: "+err.Error())
 		return
 	}
@@ -390,10 +411,10 @@ func partialPeeringState(plan peeringConnectionResourceModel, pcID int64) peerin
 
 // waitForPCDeletion waits until the VPC no longer lists the peering connection.
 // The backend removes it at the end of the unpeer workflow, which also releases the VPC for the next change.
-func (r *peeringConnectionResource) waitForPCDeletion(ctx context.Context, vpcID, pcID int64) error {
+func (r *peeringConnectionResource) waitForPCDeletion(ctx context.Context, vpcID, pcID int64, timeout time.Duration) error {
 	conf := retry.StateChangeConf{
 		Target:       []string{"DELETED"},
-		Timeout:      peeringWaitTimeout,
+		Timeout:      timeout,
 		PollInterval: peeringPollInterval,
 		Refresh: func() (interface{}, string, error) {
 			gone, err := r.peeringConnectionGone(ctx, vpcID, pcID)
@@ -453,7 +474,15 @@ func (r *peeringConnectionResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	err := retryWhileVPCBusy(ctx, peeringWaitTimeout, func() error {
+	updateTimeout, diags := plan.Timeouts.Update(ctx, peeringWaitTimeout)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout)
+	defer cancel()
+
+	err := retryWhileVPCBusy(ctx, updateTimeout, func() error {
 		return r.client.UpdatePeeringConnectionCIDRs(ctx, plan.TimescaleVPCID.ValueInt64(), plan.ID.ValueInt64(), peerCIDRBlocks)
 	})
 	if err != nil {
@@ -528,9 +557,19 @@ func upgradePeeringConnectionV0ToV1(ctx context.Context, req resource.UpgradeSta
 		PeerRegionCode:        upgradeString(raw["peer_region_code"]),
 		TimescaleVPCID:        upgradeInt64(raw["timescale_vpc_id"]),
 		PeeringType:           upgradeString(raw["peering_type"]),
+		Timeouts:              nullPeeringTimeouts(),
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, model)...)
+}
+
+// nullPeeringTimeouts is the timeouts value for state written before the attribute existed.
+func nullPeeringTimeouts() timeouts.Value {
+	return timeouts.Value{Object: types.ObjectNull(map[string]attr.Type{
+		"create": types.StringType,
+		"update": types.StringType,
+		"delete": types.StringType,
+	})}
 }
 
 func upgradeString(v any) types.String {
@@ -602,7 +641,7 @@ func (r *peeringConnectionResource) ImportState(ctx context.Context, req resourc
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("timescale_vpc_id"), vpcID)...)
 }
 
-func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *peeringConnectionResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Version:     1,
 		Description: "Schema for a peering connection (VPC or Transit Gateway). Import can be done with `peering_connection_id,timescale_vpc_id` format. Both internal IDs can be retrieved using the timescale_vpcs datasource.",
@@ -713,6 +752,14 @@ func (r *peeringConnectionResource) Schema(_ context.Context, _ resource.SchemaR
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"timeouts": timeoutSchema(ctx, timeouts.Opts{
+				Create:            true,
+				Update:            true,
+				Delete:            true,
+				CreateDescription: "Time to wait for the VPC to accept the change and for the peering connection to be ready. Defaults to 20m.",
+				UpdateDescription: "Time to wait for the VPC to accept the CIDR update. Defaults to 10m.",
+				DeleteDescription: "Time to wait for the VPC to accept the deletion and for the peering connection to be removed. Defaults to 20m.",
+			}),
 		},
 	}
 }

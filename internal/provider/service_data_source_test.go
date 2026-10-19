@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -12,14 +13,14 @@ func TestServiceDataSource(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: providerConfig + `
+				Config: providerConfig + fmt.Sprintf(`
 resource "timescale_service" "resource" {
-	name = "test-new-service"
+	name = %q
 }
 data "timescale_service" "data_source" {
 	id = timescale_service.resource.id
 }
-`,
+`, testServiceName("data-source")),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "id"),
 					resource.TestCheckResourceAttrSet("data.timescale_service.data_source", "name"),

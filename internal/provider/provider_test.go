@@ -1,12 +1,14 @@
 package provider
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-testing/helper/acctest"
 )
 
 const (
@@ -81,4 +83,13 @@ func testAccPreCheck(t *testing.T) {
 	if !ok {
 		t.Fatal("environment variable TF_VAR_ts_project_id not set")
 	}
+}
+
+// testResourcePrefix marks resources created by acceptance tests.
+const testResourcePrefix = "tf-acc-test"
+
+// testServiceName returns a unique service name carrying the acceptance test prefix, so a service
+// left behind by a failed run neither blocks the next run nor escapes the sweeper.
+func testServiceName(base string) string {
+	return fmt.Sprintf("%s-%s-%s", testResourcePrefix, base, acctest.RandString(6))
 }

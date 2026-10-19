@@ -19,13 +19,14 @@ const (
 )
 
 func TestAccConnectorS3Resource(t *testing.T) {
+	serviceName := testServiceName("connector-s3")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with CSV
 			{
-				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "*.csv", "test_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(serviceName, testS3Bucket, "*.csv", "test_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.csv"),
@@ -38,7 +39,7 @@ func TestAccConnectorS3Resource(t *testing.T) {
 			},
 			// Update testing
 			{
-				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "data/*.csv", "test_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(serviceName, testS3Bucket, "data/*.csv", "test_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
 				),
@@ -49,13 +50,14 @@ func TestAccConnectorS3Resource(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceParquet(t *testing.T) {
+	serviceName := testServiceName("connector-s3-parquet")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with Parquet
 			{
-				Config: testAccConnectorS3ResourceConfigParquet(testS3Bucket, "*.parquet", "parquet_table"),
+				Config: testAccConnectorS3ResourceConfigParquet(serviceName, testS3Bucket, "*.parquet", "parquet_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.parquet"),
@@ -68,10 +70,10 @@ func TestAccConnectorS3ResourceParquet(t *testing.T) {
 	})
 }
 
-func testAccConnectorS3ResourceConfigCSV(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigCSV(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -100,13 +102,13 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
-func testAccConnectorS3ResourceConfigParquet(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigParquet(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-parquet-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -134,17 +136,18 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
 func TestAccConnectorS3ResourceMinimal(t *testing.T) {
+	serviceName := testServiceName("connector-s3-minimal")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with minimal configuration
 			{
-				Config: testAccConnectorS3ResourceConfigMinimal(testS3Bucket, "*.csv", "minimal_table"),
+				Config: testAccConnectorS3ResourceConfigMinimal(serviceName, testS3Bucket, "*.csv", "minimal_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "*.csv"),
@@ -164,13 +167,14 @@ func TestAccConnectorS3ResourceMinimal(t *testing.T) {
 }
 
 func TestAccConnectorS3ResourceFull(t *testing.T) {
+	serviceName := testServiceName("connector-s3-full")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing with full configuration
 			{
-				Config: testAccConnectorS3ResourceConfigFull(testS3Bucket, "data/*.csv", "full_table"),
+				Config: testAccConnectorS3ResourceConfigFull(serviceName, testS3Bucket, "data/*.csv", "full_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "name", "full-config-connector"),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
@@ -194,7 +198,7 @@ func TestAccConnectorS3ResourceFull(t *testing.T) {
 			},
 			// Update to enable the connector
 			{
-				Config: testAccConnectorS3ResourceConfigFullEnabled(testS3Bucket, "data/*.csv", "full_table"),
+				Config: testAccConnectorS3ResourceConfigFullEnabled(serviceName, testS3Bucket, "data/*.csv", "full_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "enabled", "true"),
 				),
@@ -203,10 +207,10 @@ func TestAccConnectorS3ResourceFull(t *testing.T) {
 	})
 }
 
-func testAccConnectorS3ResourceConfigMinimal(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigMinimal(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-minimal-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -233,13 +237,13 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
-func testAccConnectorS3ResourceConfigFull(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigFull(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-full-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -270,13 +274,13 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
-func testAccConnectorS3ResourceConfigFullEnabled(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigFullEnabled(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-full-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -307,16 +311,17 @@ resource "timescale_connector_s3" "test" {
     table_name  = %[3]q
   }
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
 func TestAccConnectorS3ResourceColumnMapping(t *testing.T) {
+	serviceName := testServiceName("connector-s3-mapping")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccConnectorS3ResourceConfigColumnMapping(testS3Bucket, "data/*.csv", "mapped_table"),
+				Config: testAccConnectorS3ResourceConfigColumnMapping(serviceName, testS3Bucket, "data/*.csv", "mapped_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "pattern", "data/*.csv"),
@@ -335,10 +340,10 @@ func TestAccConnectorS3ResourceColumnMapping(t *testing.T) {
 	})
 }
 
-func testAccConnectorS3ResourceConfigColumnMapping(bucket, pattern, tableName string) string {
+func testAccConnectorS3ResourceConfigColumnMapping(serviceName, bucket, pattern, tableName string) string {
 	return providerConfig + fmt.Sprintf(`
 resource "timescale_service" "test" {
-  name = "connector-s3-mapping-test"
+  name = %[5]q
 }
 
 resource "timescale_connector_s3" "test" {
@@ -380,16 +385,17 @@ resource "timescale_connector_s3" "test" {
 
   enabled = true
 }
-`, bucket, pattern, tableName, testS3RoleARN)
+`, bucket, pattern, tableName, testS3RoleARN, serviceName)
 }
 
 func TestAccConnectorS3ResourceImport(t *testing.T) {
+	serviceName := testServiceName("connector-s3-import")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccConnectorS3ResourceConfigCSV(testS3Bucket, "*.csv", "import_table"),
+				Config: testAccConnectorS3ResourceConfigCSV(serviceName, testS3Bucket, "*.csv", "import_table"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("timescale_connector_s3.test", "bucket", testS3Bucket),
 					resource.TestCheckResourceAttrSet("timescale_connector_s3.test", "id"),

@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -145,7 +147,10 @@ var (
 type Client struct {
 	httpClient       *http.Client
 	retryClient      *retryablehttp.Client
+	mu               sync.RWMutex
 	token            string
+	accessKey        string
+	secretKey        string
 	projectID        string
 	url              string
 	version          string
@@ -206,17 +211,28 @@ type JWTFromCCResponse struct {
 }
 
 func JWTFromCC(c *Client, accessKey, secretKey string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.accessKey, c.secretKey = accessKey, secretKey
+	return c.fetchJWT(context.Background())
+}
+
+// fetchJWT exchanges the client credentials for a new token. The caller must hold c.mu.
+func (c *Client) fetchJWT(ctx context.Context) error {
 	req := map[string]interface{}{
 		"operationName": "GetJWTForClientCredentials",
 		"query":         JWTFromCCQuery,
 		"variables": map[string]any{
-			"accessKey": accessKey,
-			"secretKey": secretKey,
+			"accessKey": c.accessKey,
+			"secretKey": c.secretKey,
 		},
 	}
+	data, err := c.post(ctx, req, "")
+	if err != nil {
+		return err
+	}
 	var resp Response[JWTFromCCResponse]
-
-	if err := c.do(context.Background(), req, &resp); err != nil {
+	if err := decodeResponse(ctx, data, &resp); err != nil {
 		return err
 	}
 	if len(resp.Errors) > 0 {
@@ -229,36 +245,89 @@ func JWTFromCC(c *Client, accessKey, secretKey string) error {
 	return nil
 }
 
+// refreshJWT gets a new token unless another request already replaced the stale one.
+func (c *Client) refreshJWT(ctx context.Context, stale string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.token != stale {
+		return nil
+	}
+	return c.fetchJWT(ctx)
+}
+
+func (c *Client) currentToken() (token string, canRefresh bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.token, c.accessKey != "" && c.secretKey != ""
+}
+
+// isInvalidToken reports whether the gateway rejected the request's token, which happens once a JWT expires.
+func isInvalidToken(data []byte) bool {
+	var resp Response[json.RawMessage]
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return false
+	}
+	for _, e := range resp.Errors {
+		if strings.Contains(e.Message, "Invalid token provided") {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Error) Error() string {
 	return e.Message
 }
 
 func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interface{}) error {
 	tflog.Trace(ctx, "Client.do")
-	jsonValue, err := json.Marshal(req)
+	token, canRefresh := c.currentToken()
+	data, err := c.post(ctx, req, token)
 	if err != nil {
 		return err
+	}
+
+	// A JWT obtained from client credentials expires during long applies, so get a new one and retry once.
+	if canRefresh && isInvalidToken(data) {
+		tflog.Debug(ctx, "Token rejected, refreshing it from the client credentials")
+		if err := c.refreshJWT(ctx, token); err != nil {
+			return fmt.Errorf("refreshing expired token: %w", err)
+		}
+		token, _ = c.currentToken()
+		if data, err = c.post(ctx, req, token); err != nil {
+			return err
+		}
+	}
+
+	return decodeResponse(ctx, data, resp)
+}
+
+// post sends the GraphQL request with the given token and returns the response body of a 2xx response.
+func (c *Client) post(ctx context.Context, req map[string]interface{}, token string) ([]byte, error) {
+	jsonValue, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create retryable request
 	retryableReq, err := retryablehttp.NewRequestWithContext(ctx, http.MethodPost, c.url, bytes.NewBuffer(jsonValue))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	c.setRequestHeaders(retryableReq.Request)
+	c.setRequestHeaders(retryableReq.Request, token)
 
 	// Execute with automatic retries
 	response, err := c.retryClient.Do(retryableReq)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("The HTTP request failed with error %s\n", err))
-		return err
+		return nil, err
 	}
 	defer response.Body.Close()
 
 	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		tflog.Error(ctx, fmt.Sprintf("Failed to read response body: %s\n", err))
-		return err
+		return nil, err
 	}
 
 	// Check HTTP status code before attempting to parse JSON
@@ -270,9 +339,12 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 			bodyPreview = bodyPreview[:500] + "..."
 		}
 
-		return fmt.Errorf("HTTP request failed with status code %d: %s", response.StatusCode, bodyPreview)
+		return nil, fmt.Errorf("HTTP request failed with status code %d: %s", response.StatusCode, bodyPreview)
 	}
+	return data, nil
+}
 
+func decodeResponse(ctx context.Context, data []byte, resp interface{}) error {
 	// Parse JSON response
 	if err := json.Unmarshal(data, resp); err != nil {
 		tflog.Error(ctx, fmt.Sprintf("Failed to parse JSON response: %s", err))
@@ -288,9 +360,9 @@ func (c *Client) do(ctx context.Context, req map[string]interface{}, resp interf
 	return nil
 }
 
-func (c *Client) setRequestHeaders(request *http.Request) {
-	if c.token != "" {
-		request.Header.Set("Authorization", "Bearer "+c.token)
+func (c *Client) setRequestHeaders(request *http.Request, token string) {
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
 	}
 	request.Header.Set("Content-Type", "application/json")
 

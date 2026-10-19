@@ -149,6 +149,7 @@ resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
 - `peer_cidr_blocks` (List of String) List of CIDR blocks for the peering connection. Required for Transit Gateway peering, optional for VPC peering
 - `peer_tgw_id` (String) AWS ID for the Transit Gateway to be paired. Mutually exclusive with peer_vpc_id
 - `peer_vpc_id` (String) AWS ID for the VPC to be paired. Mutually exclusive with peer_tgw_id
+- `timeouts` (Attributes) (see [below for nested schema](#nestedatt--timeouts))
 
 ### Read-Only
 
@@ -160,3 +161,12 @@ resource "aws_ec2_transit_gateway_peering_attachment_accepter" "tgw_peer" {
 - `provisioned_id` (String) AWS ID of the peering connection requester (starts with pcx-... for VPC peering or tgw-... for TGW.)
 - `status` (String) Peering connection status
 - `vpc_id` (String) AWS VPC ID of the timescale instance VPC
+
+<a id="nestedatt--timeouts"></a>
+### Nested Schema for `timeouts`
+
+Optional:
+
+- `create` (String) Time to wait for the VPC to accept the change and for the peering connection to be ready. Defaults to 20m.
+- `delete` (String) Time to wait for the VPC to accept the deletion and for the peering connection to be removed. Defaults to 20m.
+- `update` (String) Time to wait for the VPC to accept the CIDR update. Defaults to 10m.

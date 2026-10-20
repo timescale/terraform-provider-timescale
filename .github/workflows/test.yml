@@ -48,12 +48,12 @@ jobs:
               - 'examples/**'
               - 'templates/**'
               - 'GNUmakefile'
+            # Only provider code; CI-only changes skip the acceptance tests.
             acceptance:
               - 'internal/**'
               - 'main.go'
               - 'go.mod'
               - 'go.sum'
-              - '.github/workflows/test.yml'
 
   # Ensure project builds before running testing matrix
   build:

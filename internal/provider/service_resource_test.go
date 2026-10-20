@@ -23,9 +23,10 @@ import (
 func TestServiceResource_Default_Success(t *testing.T) {
 	// Test resource creation succeeds
 	config := &ServiceConfig{
-		Name:         "test-default",
+		Name:         testServiceName("default"),
 		ResourceName: "resource",
 	}
+	renamed := testServiceName("default-renamed")
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -101,9 +102,9 @@ func TestServiceResource_Default_Success(t *testing.T) {
 			},
 			// Update service name
 			{
-				Config: getServiceConfig(t, config.WithName("service resource test update")),
+				Config: getServiceConfig(t, config.WithName(renamed)),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.resource", "name", "service resource test update"),
+					resource.TestCheckResourceAttr("timescale_service.resource", "name", renamed),
 				),
 			},
 			// Update tag
@@ -179,12 +180,15 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 		replicaFQID = "timescale_service." + replicaName
 	)
 	var (
-		primaryConfig = &ServiceConfig{
+		primaryServiceName = testServiceName("replica-source")
+		replicaRenamed     = testServiceName("replica-renamed")
+		primaryConfig      = &ServiceConfig{
 			ResourceName: primaryName,
-			Name:         "service resource test init",
+			Name:         primaryServiceName,
 		}
 		extraConfig = &ServiceConfig{
 			ResourceName: extraName,
+			Name:         testServiceName("replica-extra"),
 		}
 		replicaConfig = &ServiceConfig{
 			ResourceName:      replicaName,
@@ -206,7 +210,7 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 				Config: getServiceConfig(t, primaryConfig, replicaConfig),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					// Verify service attributes
-					resource.TestCheckResourceAttr(primaryFQID, "name", "service resource test init"),
+					resource.TestCheckResourceAttr(primaryFQID, "name", primaryServiceName),
 					resource.TestCheckResourceAttrSet(primaryFQID, "id"),
 					resource.TestCheckResourceAttrSet(primaryFQID, "password"),
 					resource.TestCheckResourceAttrSet(primaryFQID, "hostname"),
@@ -220,7 +224,7 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 					resource.TestCheckNoResourceAttr(primaryFQID, "vpc_id"),
 
 					// Verify read replica attributes
-					resource.TestCheckResourceAttr(replicaFQID, "name", "replica-service resource test init"),
+					resource.TestCheckResourceAttr(replicaFQID, "name", "replica-"+primaryServiceName),
 					resource.TestCheckResourceAttrSet(replicaFQID, "id"),
 					resource.TestCheckResourceAttrSet(replicaFQID, "password"),
 					resource.TestCheckResourceAttrSet(replicaFQID, "hostname"),
@@ -237,16 +241,16 @@ func TestServiceResource_Read_Replica(t *testing.T) {
 			},
 			// Update replica name
 			{
-				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithName("replica")),
+				Config: getServiceConfig(t, primaryConfig, replicaConfig.WithName(replicaRenamed)),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
+					resource.TestCheckResourceAttr(replicaFQID, "name", replicaRenamed),
 				),
 			},
 			// Test creating a second read replica
 			{
 				Config: getServiceConfig(t, primaryConfig, replicaConfig, extraReplicaConfig),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr(replicaFQID, "name", "replica"),
+					resource.TestCheckResourceAttr(replicaFQID, "name", replicaRenamed),
 					resource.TestCheckResourceAttr(extraFQID, "name", extraReplicaConfig.Name),
 				),
 			},
@@ -308,10 +312,11 @@ func TestServiceResource_Read_Replica_Nodes(t *testing.T) {
 	var (
 		primaryConfig = &ServiceConfig{
 			ResourceName: primaryName,
-			Name:         "primary-for-read-replica",
+			Name:         testServiceName("replica-nodes"),
 		}
 		replicaConfig = &ServiceConfig{
 			ResourceName:      replicaName,
+			Name:              testServiceName("replica-nodes-replica"),
 			ReadReplicaSource: primaryFQID + ".id",
 			MilliCPU:          500,
 			MemoryGB:          2,
@@ -420,7 +425,7 @@ func TestServiceResource_HA_Validation(t *testing.T) {
 }
 
 func TestServiceResource_With_Exporter(t *testing.T) {
-	const serviceConfig = `
+	serviceConfig := fmt.Sprintf(`
 resource "timescale_metric_exporter" "test_datadog" {
   name   = "test-datadog"
   region = "us-east-1"
@@ -430,13 +435,13 @@ resource "timescale_metric_exporter" "test_datadog" {
   }
 }
 resource "timescale_service" "resource" {
-  name               = "test-metric-exporter"
+  name               = %q
   milli_cpu          = 1000
   memory_gb          = 4
   region_code        = "us-east-1"
   metric_exporter_id = timescale_metric_exporter.test_datadog.id
 }
-`
+`, testServiceName("metric-exporter"))
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -459,7 +464,7 @@ func TestServiceResource_Timeout(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: newServiceConfig(ServiceConfig{
-					Name: "test-service-timeout",
+					Name: testServiceName("timeout"),
 					Timeouts: Timeouts{
 						Create: "1s",
 					},
@@ -471,6 +476,7 @@ func TestServiceResource_Timeout(t *testing.T) {
 }
 
 func TestServiceResource_CustomConf(t *testing.T) {
+	serviceName := testServiceName("custom-conf")
 	// Test resource creation succeeds and update is not allowed
 	resource.ParallelTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -504,14 +510,14 @@ func TestServiceResource_CustomConf(t *testing.T) {
 			// Create with custom conf and region
 			{
 				Config: newServiceCustomConfig("custom", ServiceConfig{
-					Name:       "test-service-conf",
+					Name:       serviceName,
 					RegionCode: "eu-central-1",
 					MilliCPU:   1000,
 					MemoryGB:   4,
 					Password:   "test123456789",
 				}),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("timescale_service.custom", "name", "test-service-conf"),
+					resource.TestCheckResourceAttr("timescale_service.custom", "name", serviceName),
 					resource.TestCheckResourceAttr("timescale_service.custom", "password", "test123456789"),
 					resource.TestCheckResourceAttr("timescale_service.custom", "region_code", "eu-central-1"),
 					resource.TestCheckNoResourceAttr("timescale_service.custom", "vpc_id"),
@@ -522,7 +528,7 @@ func TestServiceResource_CustomConf(t *testing.T) {
 }
 
 func TestServiceResource_Import(t *testing.T) {
-	config := newServiceConfig(ServiceConfig{Name: "test-import"})
+	config := newServiceConfig(ServiceConfig{Name: testServiceName("import")})
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		PreCheck:                 func() { testAccPreCheck(t) },
@@ -834,7 +840,7 @@ func getServiceConfig(t *testing.T, cfgs ...*ServiceConfig) string {
 
 func TestServiceResource_WriteOnlyPassword(t *testing.T) {
 	config := &ServiceConfig{
-		Name:         "tf-wo-pw-test",
+		Name:         testServiceName("wo-password"),
 		ResourceName: "wo_password",
 	}
 	resource.ParallelTest(t, resource.TestCase{

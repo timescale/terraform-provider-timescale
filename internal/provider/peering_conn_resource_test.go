@@ -87,7 +87,9 @@ func TestPeeringConnResource_tgw_basic(t *testing.T) {
 	})
 }
 
-// Two peerings on one VPC are created and destroyed in parallel, so the second change hits the busy VPC.
+// Two peerings on one VPC are created and destroyed back to back, so the second change hits the busy VPC.
+// The TGW peering waits for the VPC peering: if it takes the VPC first, the backend holds the VPC until
+// the peer account accepts the TGW attachment, which never happens in CI.
 func TestPeeringConnResource_concurrentOnOneVPC(t *testing.T) {
 	vpcName := fmt.Sprintf("test-vpc-for-concurrent-pc-%s", acctest.RandString(8))
 
@@ -130,6 +132,8 @@ resource "timescale_peering_connection" "tgw" {
   peer_region_code = %[3]q
   peer_tgw_id      = %[5]q
   peer_cidr_blocks = ["12.1.0.0/16", "12.2.0.0/16"]
+
+  depends_on = [timescale_peering_connection.vpc]
 }
 `, vpcName, peerAccountId, peerRegion, peerVPCID, peerTGWID)
 }

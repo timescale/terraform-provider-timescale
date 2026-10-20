@@ -5,6 +5,7 @@ FEATURES:
 
 BUG FIXES:
 - Fix "VPC is already being updated, try again later" errors when several `timescale_peering_connection` resources on the same `timescale_vpcs` are created or deleted in one apply. Peering create, update and delete now retry while the VPC is busy.
+- Fix "Unauthorized. Invalid token provided." errors during long applies when the provider authenticates with `access_key` and `secret_key`. The provider now gets a new token from those credentials once the old one expires.
 
 
 ## 2.14.0 (September 3, 2026)

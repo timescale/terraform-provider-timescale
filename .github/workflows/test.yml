@@ -3,32 +3,63 @@ name: Tests
 
 # This GitHub action runs your tests for each pull request and push.
 # Optionally, you can turn it on using a schedule for regular testing.
+# No paths filter here: Build and generate are required checks and must report even on docs-only
+# changes. The jobs below skip themselves instead, and a skipped job satisfies a required check.
 on:
   pull_request:
     branches:
       - main
-    paths-ignore:
-      - 'README.md'
   push:
     branches:
       - main
-    paths-ignore:
-      - 'README.md'
-
-# Don't run multiple acceptance tests actions simultaneously to avoid conflicts (f.e. VPCs).
-# Never cancel a run in progress: it skips the post-test destroy and leaves services behind.
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: false
 
 # Testing only needs permissions to read the repository contents.
 permissions:
   contents: read
 
 jobs:
+  # Decide which jobs the changed files need.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      docs: ${{ steps.filter.outputs.docs }}
+      acceptance: ${{ steps.filter.outputs.acceptance }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            go: &go
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'tools/**'
+              - '.golangci.yml'
+              - '.github/workflows/test.yml'
+            docs:
+              - *go
+              - 'docs/**'
+              - 'examples/**'
+              - 'templates/**'
+              - 'GNUmakefile'
+            acceptance:
+              - 'internal/**'
+              - 'main.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/test.yml'
+
   # Ensure project builds before running testing matrix
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.go == 'true' || needs.changes.outputs.acceptance == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -45,6 +76,8 @@ jobs:
           version: latest
 
   generate:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,10 +98,16 @@ jobs:
   # Run acceptance tests in a matrix with Terraform CLI versions
   test:
     name: Terraform Provider Acceptance Tests
-    needs: build
+    needs: [changes, build]
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.acceptance == 'true'
+    # Don't run multiple acceptance tests simultaneously to avoid conflicts (f.e. VPCs).
+    # Never cancel a run in progress: it skips the post-test destroy and leaves services behind.
+    # Skipped runs get their own group so they never cancel a pending acceptance run.
+    concurrency:
+      group: ${{ github.event_name == 'pull_request' && needs.changes.outputs.acceptance == 'true' && format('{0}-acceptance', github.workflow) || format('{0}-skip-{1}', github.workflow, github.run_id) }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:

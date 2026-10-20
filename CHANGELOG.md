@@ -1,4 +1,4 @@
-## Unreleased
+## 2.15.0 (October 20, 2026)
 
 FEATURES:
 - Add a `timeouts` block (`create`, `update`, `delete`) to `timescale_peering_connection`. Create and delete default to 20m and update to 10m, matching the previous fixed waits.

@@ -1,0 +1,7 @@
+mutation UnbindIPAllowList($projectId: ID!, $serviceId: ID!, $listId: Int!) {
+    unbindIPAllowList(data: {
+        projectId: $projectId,
+        serviceId: $serviceId,
+        listId: $listId
+    })
+}

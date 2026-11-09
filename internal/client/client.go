@@ -53,6 +53,16 @@ var (
 	//go:embed queries/set_postgres_parameters.graphql
 	SetPostgresParametersMutation string
 
+	// IP allow lists
+	//go:embed queries/get_ip_allow_lists.graphql
+	GetIPAllowListsQuery string
+	//go:embed queries/configure_ip_allow_list.graphql
+	ConfigureIPAllowListMutation string
+	//go:embed queries/bind_ip_allow_list.graphql
+	BindIPAllowListMutation string
+	//go:embed queries/unbind_ip_allow_list.graphql
+	UnbindIPAllowListMutation string
+
 	// VCPs
 	//go:embed queries/vpcs.graphql
 	GetVPCsQuery string

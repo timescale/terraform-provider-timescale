@@ -1,0 +1,8 @@
+query GetIPAllowLists($projectId: ID!) {
+    getIPAllowLists(projectID: $projectId) {
+        listId
+        description
+        cidrBlocks
+        associatedServices
+    }
+}

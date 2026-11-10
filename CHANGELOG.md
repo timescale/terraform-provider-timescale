@@ -1,3 +1,9 @@
+## 2.16.0 (November 10, 2026)
+
+FEATURES:
+- Add the `timescale_ip_allow_list` resource to manage project IP allow lists (IPv4 addresses or CIDR blocks), optionally bound to services.
+
+
 ## 2.15.0 (October 20, 2026)
 
 FEATURES:

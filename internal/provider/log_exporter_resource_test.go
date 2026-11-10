@@ -84,6 +84,8 @@ resource "timescale_log_exporter" "test_cloudwatch_key" {
 				ResourceName:      "timescale_log_exporter.test_cloudwatch_key",
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The API never returns the secret key, so it can't be populated on import.
+				ImportStateVerifyIgnore: []string{"cloudwatch.secret_key"},
 			},
 		},
 	})

@@ -1,0 +1,7 @@
+mutation BindIPAllowList($projectId: ID!, $serviceId: ID!, $listId: Int!) {
+    bindIPAllowList(data: {
+        projectId: $projectId,
+        serviceId: $serviceId,
+        listId: $listId
+    })
+}

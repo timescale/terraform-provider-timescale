@@ -38,6 +38,8 @@ resource "timescale_metric_exporter" "test_datadog" {
 				ResourceName:      "timescale_metric_exporter.test_datadog",
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The API never returns the API key, so it can't be populated on import.
+				ImportStateVerifyIgnore: []string{"datadog.api_key"},
 			},
 		},
 	})
@@ -73,6 +75,8 @@ resource "timescale_metric_exporter" "test_prometheus" {
 				ResourceName:      "timescale_metric_exporter.test_prometheus",
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The API never returns the password, so it can't be populated on import.
+				ImportStateVerifyIgnore: []string{"prometheus.password"},
 			},
 		},
 	})
@@ -157,6 +161,8 @@ resource "timescale_metric_exporter" "test_cloudwatch_key" {
 				ResourceName:      "timescale_metric_exporter.test_cloudwatch_key",
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The API never returns the secret key, so it can't be populated on import.
+				ImportStateVerifyIgnore: []string{"cloudwatch.secret_key"},
 			},
 		},
 	})

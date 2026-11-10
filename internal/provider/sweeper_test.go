@@ -28,6 +28,11 @@ func init() {
 		Dependencies: []string{"timescale_services"},
 		F:            sweepVPCs,
 	})
+	resource.AddTestSweepers("timescale_ip_allow_list", &resource.Sweeper{
+		Name:         "timescale_ip_allow_list",
+		Dependencies: []string{"timescale_services"},
+		F:            sweepIPAllowLists,
+	})
 }
 
 // sweepServices finds and deletes any services named with the acceptance test prefix,
@@ -96,6 +101,34 @@ func sweepVPCs(_ string) error {
 		}
 	}
 
+	return nil
+}
+
+// sweepIPAllowLists deletes leftover allow lists created by the acceptance tests.
+func sweepIPAllowLists(_ string) error {
+	c, err := createSweepClient()
+	if err != nil {
+		return fmt.Errorf("error creating client: %s", err)
+	}
+	ctx := context.Background()
+	lists, err := c.GetIPAllowLists(ctx)
+	if err != nil {
+		return fmt.Errorf("error retrieving IP allow lists: %s", err)
+	}
+	for _, l := range lists {
+		if !strings.HasPrefix(l.Description, testIPAllowListPrefix) {
+			continue
+		}
+		log.Printf("Destroying IP allow list %q (%d)", l.Description, l.ListID)
+		for _, svc := range l.AssociatedServices {
+			if err := c.UnbindIPAllowList(ctx, svc, l.ListID); err != nil {
+				log.Printf("Error unbinding service %s from list %d: %s", svc, l.ListID, err)
+			}
+		}
+		if err := c.DeleteIPAllowList(ctx, l.ListID); err != nil {
+			log.Printf("Error deleting IP allow list %d: %s", l.ListID, err)
+		}
+	}
 	return nil
 }
 

@@ -1,0 +1,10 @@
+mutation ConfigureIPAllowList($projectId: ID!, $description: String!, $cidrBlocks: [String!], $listId: Int) {
+    configureIPAllowList(data: {
+        projectId: $projectId,
+        description: $description,
+        cidrBlocks: $cidrBlocks,
+        listId: $listId
+    }) {
+        listId
+    }
+}

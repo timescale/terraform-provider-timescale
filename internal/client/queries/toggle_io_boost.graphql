@@ -1,0 +1,7 @@
+mutation ToggleIOBoost($projectId: ID!, $serviceId: ID!, $enable: Boolean!) {
+    toggleIOBoost (data:{
+        serviceId: $serviceId,
+        projectId: $projectId,
+        enable: $enable
+    })
+}

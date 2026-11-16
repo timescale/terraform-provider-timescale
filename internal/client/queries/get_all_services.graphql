@@ -17,6 +17,7 @@ query GetAllServices($projectId: ID!) {
                 poolerHostName
                 poolerPort
                 connectionPoolerEnabled
+                IOBoostEnabled
                 metricExporterUuid
                 genericExporterID
             }

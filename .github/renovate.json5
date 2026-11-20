@@ -1,23 +1,14 @@
-// Copy of default.json5, go.json5 and go-toolchain-bump.json5 from
-// timescale/renovate-config at eda0f559df. The Mend Renovate app does not
-// resolve presets from that private repo in a public repo, so the rules
-// live here. Update this copy by hand when the shared presets change.
-// The org default still applies secure-registry.json5, own-releases.json5
-// and security-alerts.json5. This repo has no npm packages, so it does not
-// extend own-releases.json5 again after config:best-practices.
+// The rules of default.json5, go.json5, go-toolchain-bump.json5 and
+// security-alerts.json5 from timescale/renovate-config at eda0f559df that
+// match this repo. The Mend Renovate app cannot read presets from that
+// private repo in a public repo, and the org inherited config does not apply
+// here either. Update this file by hand when those presets change.
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  // config:best-practices adds digest pins for Docker images and GitHub
-  // Actions, configMigration and abandonment checks on top of
-  // config:recommended.
   extends: [
     'config:best-practices',
     'mergeConfidence:all-badges',
     'schedule:weekly',
-    // The pre-commit manager is off by default. It updates the rev of each
-    // hook repo in .pre-commit-config.yaml (pre-commit and prek).
-    ':enablePreCommit',
-    // From go.json5.
     'security:gomodIndirectSecurityUpdates',
   ],
   labels: [
@@ -26,54 +17,33 @@
   semanticCommitType: 'chore',
   minimumReleaseAge: '7 days',
   prConcurrentLimit: 10,
-  mise: {
-    // The defaults cover .config/mise/conf.d but not .mise/conf.d.
-    managerFilePatterns: [
-      '/(^|/)\\.mise/conf\\.d/[^/]+\\.toml$/',
-    ],
-  },
-  customManagers: [
-    {
-      // Tracks any pin with a comment on the line above it, so a repo needs
-      // no own regex manager:
-      //   # renovate: datasource=<ds> depName=<name> [packageName=<p>] [versioning=<v>] [extractVersion=<re>]
-      customType: 'regex',
-      description: 'Pins annotated with a "# renovate:" comment',
-      managerFilePatterns: [
-        '/(^|/)Dockerfile[^/]*$/',
-        '/(^|/)[^/]*\\.Dockerfile$/',
-        '/(^|/)Makefile$/',
-        '/(^|/)[^/]*\\.mk$/',
-        // Any YAML: workflows, actions, compose, Helm values, k8s manifests.
-        '/\\.ya?ml$/',
-        '/\\.sh$/',
-        '/\\.toml$/',
-        '/\\.(tf|tfvars|hcl)$/',
-        '/(^|/)\\.env[^/]*$/',
-      ],
-      matchStrings: [
-        '# renovate: datasource=(?<datasource>[^\\s]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?(?: extractVersion=(?<extractVersion>[^\\s]+))?\\s+[^\\n]*?(?::=|[:=])\\s*["\']?(?<currentValue>[^"\'\\s]+)',
-      ],
-      // A template wins over a capture group, so fall back only when the
-      // comment has no versioning.
-      versioningTemplate: '{{#if versioning}}{{{versioning}}}{{else}}semver-coerced{{/if}}',
-    },
-  ],
-  // gomodTidyAll also tidies every module that replaces the bumped one
-  // (multi-module repos), so their indirect pins follow the bump.
   // gomodUpdateImportPaths rewrites the /vN import paths of a major bump.
   postUpdateOptions: [
     'gomodTidyAll',
     'gomodUpdateImportPaths',
   ],
+  osvVulnerabilityAlerts: true,
+  vulnerabilityAlerts: {
+    labels: [
+      'dependencies',
+      'security',
+    ],
+    schedule: [
+      'at any time',
+    ],
+    // Renovate gives security PRs no release age, and its alert rules come
+    // after all other rules. CI here does not use Secure Registry, so this
+    // 3-day wait is the org policy, not a fix for a registry 403.
+    minimumReleaseAge: '3 days',
+  },
   packageRules: [
     {
-      description: 'One weekly PR for every non-major update not handled by a more specific rule. Majors stay out so that one breaking bump does not block the rest.',
+      // No automerge: main requires a code-owner review, and the
+      // renovate-approve app is not a code owner. Without automerge,
+      // Renovate also rebases the PR only on a conflict, so it does not
+      // run the acceptance tests again after each merge to main.
+      description: 'One weekly PR for every non-major update not handled by a more specific rule',
       groupName: 'non-major dependencies',
-      // renovate-approve (installed on all org repos) approves the PR, and
-      // it merges when its checks pass. Only these update types: majors and
-      // lockfile maintenance (which can cross a major) stay manual.
-      automerge: true,
       matchUpdateTypes: [
         'digest',
         'patch',
@@ -100,60 +70,9 @@
       separateMajorMinor: false,
     },
     {
-      description: 'Group docker-compose image updates into a single PR',
-      matchManagers: [
-        'docker-compose',
-      ],
-      groupName: 'docker-compose images',
-    },
-    {
-      // config:best-practices sets npm to 3 days in a preset rule, which
-      // overrides the top-level 7 days. Lockfile, pin and other updates
-      // without a release timestamp keep the preset value. Our own packages
-      // are left out, so that the own-releases.json5 rule stays in effect.
-      description: 'npm: 7-day gate, same as every other datasource',
-      matchDatasources: [
-        'npm',
-      ],
-      matchPackageNames: [
-        '!@timescale/**',
-      ],
-      matchUpdateTypes: [
-        'major',
-        'minor',
-        'patch',
-      ],
-      minimumReleaseAge: '7 days',
-    },
-    // From go.json5. These rules come last, so they win over the rules above.
-    {
-      description: 'Group kubernetes SDKs into a single PR',
-      matchManagers: [
-        'gomod',
-      ],
-      matchPackageNames: [
-        'k8s.io/**',
-        'sigs.k8s.io/**',
-      ],
-      groupName: 'kubernetes SDKs',
-    },
-    {
-      // own-releases.json5 removes the age gate for these modules.
-      description: 'Group all timescale module updates into a single PR',
-      matchManagers: [
-        'gomod',
-      ],
-      matchPackageNames: [
-        'github.com/timescale/**',
-      ],
-      groupName: 'timescale dependencies',
-    },
-    {
-      description: 'Keep the Go version in sync across mise, go.mod toolchain and the golang Docker image',
+      description: 'Keep the Go version of mise and the go directive of go.mod in one PR',
       matchDepNames: [
         'go',
-        'golang',
-        '/(^|/)library/golang$/',
       ],
       groupName: 'go toolchain',
     },
@@ -168,8 +87,6 @@
       abandonmentThreshold: null,
     },
     {
-      // enabled: false drops the update before the dashboard sees it, so
-      // the approval keeps it visible.
       description: 'Go major bumps: Renovate opens the PR only after a person approves it on the Dependency Dashboard',
       matchManagers: [
         'gomod',
@@ -179,52 +96,9 @@
       ],
       dependencyDashboardApproval: true,
     },
-    // mise names a Go tool by the package path of its main package, but the
-    // Go proxy serves modules only, and secure-registry.json5 has no direct
-    // fallback. Each rule points the lookup at the module that holds the tags.
     {
-      description: 'mise Go tools: look up gosimports in its module',
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'go:github.com/rinchsan/gosimports/cmd/gosimports',
-      ],
-      overridePackageName: 'github.com/rinchsan/gosimports',
-    },
-    {
-      description: 'mise Go tools: look up govulncheck in its module',
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'go:golang.org/x/vuln/cmd/govulncheck',
-      ],
-      overridePackageName: 'golang.org/x/vuln',
-    },
-    {
-      description: 'mise Go tools: look up controller-gen in its module',
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'go:sigs.k8s.io/controller-tools/cmd/controller-gen',
-      ],
-      overridePackageName: 'sigs.k8s.io/controller-tools',
-    },
-    {
-      description: 'mise Go tools: look up protoc-gen-go in its module',
-      matchManagers: [
-        'mise',
-      ],
-      matchDepNames: [
-        'go:github.com/golang/protobuf/protoc-gen-go',
-      ],
-      overridePackageName: 'github.com/golang/protobuf',
-    },
-    // From go-toolchain-bump.json5. This provider is a binary that no module
-    // imports, so a higher go directive forces no consumer onto a newer Go.
-    {
+      // No module imports this provider, so a higher go directive forces no
+      // consumer onto a newer Go.
       description: 'Renovate skips the go directive in go.mod unless the range strategy is bump',
       matchManagers: [
         'gomod',

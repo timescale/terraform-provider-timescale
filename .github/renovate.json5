@@ -1,0 +1,115 @@
+// The rules of default.json5, go.json5, go-toolchain-bump.json5 and
+// security-alerts.json5 from timescale/renovate-config at eda0f559df that
+// match this repo. The Mend Renovate app cannot read presets from that
+// private repo in a public repo, and the org inherited config does not apply
+// here either. Update this file by hand when those presets change.
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'config:best-practices',
+    'mergeConfidence:all-badges',
+    'schedule:weekly',
+    'security:gomodIndirectSecurityUpdates',
+  ],
+  labels: [
+    'dependencies',
+  ],
+  semanticCommitType: 'chore',
+  minimumReleaseAge: '7 days',
+  prConcurrentLimit: 10,
+  // gomodUpdateImportPaths rewrites the /vN import paths of a major bump.
+  postUpdateOptions: [
+    'gomodTidyAll',
+    'gomodUpdateImportPaths',
+  ],
+  osvVulnerabilityAlerts: true,
+  vulnerabilityAlerts: {
+    labels: [
+      'dependencies',
+      'security',
+    ],
+    schedule: [
+      'at any time',
+    ],
+    // Renovate gives security PRs no release age, and its alert rules come
+    // after all other rules. CI here does not use Secure Registry, so this
+    // 3-day wait is the org policy, not a fix for a registry 403.
+    minimumReleaseAge: '3 days',
+  },
+  packageRules: [
+    {
+      // No automerge: main requires a code-owner review, and the
+      // renovate-approve app is not a code owner. Without automerge,
+      // Renovate also rebases the PR only on a conflict, so it does not
+      // run the acceptance tests again after each merge to main.
+      description: 'One weekly PR for every non-major update not handled by a more specific rule',
+      groupName: 'non-major dependencies',
+      matchUpdateTypes: [
+        'digest',
+        'patch',
+        'minor',
+        'pin',
+        'pinDigest',
+      ],
+    },
+    {
+      description: 'Label major updates for manual review',
+      matchUpdateTypes: [
+        'major',
+      ],
+      addLabels: [
+        'major-update',
+      ],
+    },
+    {
+      description: 'Group GitHub Actions updates into a single PR, majors included',
+      matchManagers: [
+        'github-actions',
+      ],
+      groupName: 'github actions',
+      separateMajorMinor: false,
+    },
+    {
+      description: 'Keep the Go version of mise and the go directive of go.mod in one PR',
+      matchDepNames: [
+        'go',
+      ],
+      groupName: 'go toolchain',
+    },
+    {
+      description: 'Indirect Go deps: skip abandonment flagging (transitive, not ours to replace)',
+      matchManagers: [
+        'gomod',
+      ],
+      matchDepTypes: [
+        'indirect',
+      ],
+      abandonmentThreshold: null,
+    },
+    {
+      description: 'Go major bumps: Renovate opens the PR only after a person approves it on the Dependency Dashboard',
+      matchManagers: [
+        'gomod',
+      ],
+      matchUpdateTypes: [
+        'major',
+      ],
+      dependencyDashboardApproval: true,
+    },
+    {
+      // No module imports this provider, so a higher go directive forces no
+      // consumer onto a newer Go.
+      description: 'Renovate skips the go directive in go.mod unless the range strategy is bump',
+      matchManagers: [
+        'gomod',
+      ],
+      matchDepNames: [
+        'go',
+      ],
+      matchDepTypes: [
+        'golang',
+      ],
+      rangeStrategy: 'bump',
+    },
+  ],
+}

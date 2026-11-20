@@ -127,6 +127,7 @@ resource "timescale_service" "tuned_replica" {
 - `enable_ha_replica` (Boolean, Deprecated) Enable HA Replica (deprecated - use ha_replicas and sync_replicas instead)
 - `environment_tag` (String) Set environment tag for this service.
 - `ha_replicas` (Number) Number of HA replicas (0, 1 or 2). Modes: 1 for 'High availability'; 2 'Highest availability'. Async replicas (i.e. 'High performance' mode) will be created by default if sync_replicas is not set.
+- `io_boost_enabled` (Boolean) Enable I/O Boost for this service, which raises the disk IOPS and throughput available to it. Available on plans that include the I/O Boost add-on. Defaults to `false`.
 - `log_exporter_id` (String) The Log Exporter ID attached to this service, only supported in AWS for now.
 				WARNING: To complete the logs exporter attachment, a service restart is required.
 - `memory_gb` (Number) Memory GB

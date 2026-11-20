@@ -96,6 +96,7 @@ type serviceResourceModel struct {
 	VpcID                   types.Int64    `tfsdk:"vpc_id"`
 	ConnectionPoolerEnabled types.Bool     `tfsdk:"connection_pooler_enabled"`
 	DataTieringEnabled      types.Bool     `tfsdk:"data_tiering_enabled"`
+	IOBoostEnabled          types.Bool     `tfsdk:"io_boost_enabled"`
 	EnvironmentTag          types.String   `tfsdk:"environment_tag"`
 	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
 	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
@@ -294,6 +295,16 @@ The change has been taken into account but must still be propagated. You can run
 			"connection_pooler_enabled": schema.BoolAttribute{
 				MarkdownDescription: "Set connection pooler status for this service.",
 				Description:         "Set connection pooler status for this service.",
+				Optional:            true,
+				Computed:            true,
+				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"io_boost_enabled": schema.BoolAttribute{
+				MarkdownDescription: "Enable I/O Boost for this service, which raises the disk IOPS and throughput available to it. Available on plans that include the I/O Boost add-on. Defaults to `false`.",
+				Description:         "Enable I/O Boost for this service, which raises the disk IOPS and throughput available to it. Available on plans that include the I/O Boost add-on. Defaults to false.",
 				Optional:            true,
 				Computed:            true,
 				Default:             booldefault.StaticBool(false),
@@ -606,6 +617,20 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// I/O Boost — services are created without it. Enable it after creation and
+	// refresh state. Replicas are created without it as well, so this also applies to them.
+	if plan.IOBoostEnabled.ValueBool() {
+		if err := r.client.ToggleIOBoost(ctx, service.ID, true); err != nil {
+			resp.Diagnostics.AddError("Failed to enable I/O Boost", err.Error())
+			return
+		}
+		service, err = r.client.GetService(ctx, service.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Failed to enable I/O Boost", "unable to refresh service after enabling I/O Boost")
+			return
+		}
+	}
+
 	// Data tiering — services are created with tiering disabled. If the plan asks
 	// for it enabled, toggle it on and refresh state. Toggling false on a freshly
 	// created service is a no-op so we skip the call when not requested.
@@ -841,6 +866,13 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 	if plan.ConnectionPoolerEnabled != state.ConnectionPoolerEnabled {
 		if err := r.client.ToggleConnectionPooler(ctx, serviceID, plan.ConnectionPoolerEnabled.ValueBool()); err != nil {
 			resp.Diagnostics.AddError("Failed to toggle connection pooler", err.Error())
+			return
+		}
+	}
+	// I/O Boost ////////////////////////////////////////////////
+	if plan.IOBoostEnabled != state.IOBoostEnabled {
+		if err := r.client.ToggleIOBoost(ctx, serviceID, plan.IOBoostEnabled.ValueBool()); err != nil {
+			resp.Diagnostics.AddError("Failed to toggle I/O Boost", err.Error())
 			return
 		}
 	}
@@ -1159,6 +1191,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		ReadReplicaNodes:        readReplicaNodes,
 		ConnectionPoolerEnabled: types.BoolValue(hasPooler),
 		DataTieringEnabled:      types.BoolValue(hasDataTiering),
+		IOBoostEnabled:          types.BoolValue(s.ServiceSpec.IOBoostEnabled),
 		EnableHAReplica:         types.BoolNull(),
 		Hostname:                types.StringNull(),
 		Port:                    types.Int64Null(),

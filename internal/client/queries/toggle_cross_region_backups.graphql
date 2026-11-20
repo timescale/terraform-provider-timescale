@@ -1,0 +1,5 @@
+mutation ToggleCrossRegionBackups($projectId: ID!, $serviceId: ID!, $region: String!, $enable: Boolean!) {
+    toggleCrossRegionBackupsV2(
+        data: { projectID: $projectId, serviceID: $serviceId, region: $region, enable: $enable }
+    )
+}

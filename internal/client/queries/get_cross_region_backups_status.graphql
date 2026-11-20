@@ -1,0 +1,9 @@
+query GetCrossRegionBackupsStatus($projectId: ID!, $serviceId: ID!) {
+    crossRegionBackupsStatusV2(data: { projectId: $projectId, serviceId: $serviceId }) {
+        enabled
+        regions {
+            region
+            createdAt
+        }
+    }
+}

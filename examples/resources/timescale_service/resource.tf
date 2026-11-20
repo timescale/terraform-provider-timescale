@@ -87,3 +87,13 @@ resource "timescale_service" "tuned_replica" {
     max_standby_streaming_delay = "5min"
   }
 }
+
+# Service with cross-region backups. A service has one backup region; removing
+# the attribute disables cross-region backups.
+resource "timescale_service" "with_backup_region" {
+  name          = "backup-region"
+  milli_cpu     = 1000
+  memory_gb     = 4
+  region_code   = "us-east-1"
+  backup_region = "eu-central-1"
+}

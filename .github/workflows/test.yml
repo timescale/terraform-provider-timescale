@@ -17,10 +17,12 @@ on:
 permissions:
   contents: read
 
+# RunsOn runners fetch Go modules through StepSecurity Secure Registry, which
+# blocks compromised and too-new versions.
 jobs:
   # Decide which jobs the changed files need.
   changes:
-    runs-on: ubuntu-latest
+    runs-on: runs-on/fleet=linux-small/env=ue1
     timeout-minutes: 5
     permissions:
       contents: read
@@ -30,6 +32,7 @@ jobs:
       docs: ${{ steps.filter.outputs.docs }}
       acceptance: ${{ steps.filter.outputs.acceptance }}
     steps:
+      - uses: runs-on/action@4a3bfc79f21a9b97e972e2ba75a2b0b1e9688670 # v2.7.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -60,9 +63,10 @@ jobs:
     name: Build
     needs: changes
     if: needs.changes.outputs.go == 'true' || needs.changes.outputs.acceptance == 'true'
-    runs-on: ubuntu-latest
+    runs-on: runs-on/fleet=linux-2cpu/env=ue1
     timeout-minutes: 5
     steps:
+      - uses: runs-on/action@4a3bfc79f21a9b97e972e2ba75a2b0b1e9688670 # v2.7.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -78,8 +82,9 @@ jobs:
   generate:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
+    runs-on: runs-on/fleet=linux-2cpu/env=ue1
     steps:
+      - uses: runs-on/action@4a3bfc79f21a9b97e972e2ba75a2b0b1e9688670 # v2.7.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -99,7 +104,8 @@ jobs:
   test:
     name: Terraform Provider Acceptance Tests
     needs: [changes, build]
-    runs-on: ubuntu-latest
+    # On-demand: a spot reclaim would skip the post-test destroy, like a cancel.
+    runs-on: runs-on/fleet=linux-2cpu-ondemand/env=ue1
     timeout-minutes: 60
     if: github.event_name == 'pull_request' && needs.changes.outputs.acceptance == 'true'
     # Don't run multiple acceptance tests simultaneously to avoid conflicts (f.e. VPCs).
@@ -115,6 +121,7 @@ jobs:
         terraform:
           - '1.*.*'
     steps:
+      - uses: runs-on/action@4a3bfc79f21a9b97e972e2ba75a2b0b1e9688670 # v2.7.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:

@@ -44,8 +44,9 @@
       // Every advisory must be high or critical, or Renovate can pick a newer
       // fix that the registry blocks. vulnerabilitySeverity ranks UNKNOWN
       // above CRITICAL, so the rule reads each PR note. An unscored GO- note
-      // counts as high if its alias line shares an id with a high note. If
-      // the note format changes, the 3-day hold applies again.
+      // counts as high if its alias line shares an id with a high note. The
+      // rule sees the notes only when the lookup applies the rules again. If
+      // that or the note format changes, the hold applies.
       description: 'High and critical vulnerability fixes: no release-age hold, so their PRs open at once',
       matchDatasources: [
         'go',

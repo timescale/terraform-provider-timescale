@@ -40,20 +40,12 @@
   },
   packageRules: [
     {
-      // Secure Registry lets the fix version of a high or critical advisory
-      // through its cooldown at once. Keep the severities and datasources
-      // here equal to the registries that have this exemption.
-      // The rule matches only when every advisory of the package is high or
-      // critical. With a lower-severity advisory, Renovate can pick a newer
-      // fix that the registry blocks, and then CI fails with no new commit
-      // to run it again.
-      // The rule reads the severity of each advisory from the PR notes,
-      // because vulnerabilitySeverity keeps one value per dependency and
-      // ranks UNKNOWN above CRITICAL. A GO- record has no severity, so the
-      // rule accepts an unscored note whose alias line shares a GHSA or CVE
-      // id with a high or critical note.
-      // If Renovate changes the note format, the rule stops matching and
-      // the 3-day hold applies again.
+      // Secure Registry skips the cooldown for a high or critical Go fix.
+      // Every advisory must be high or critical, or Renovate can pick a newer
+      // fix that the registry blocks. vulnerabilitySeverity ranks UNKNOWN
+      // above CRITICAL, so the rule reads each PR note. An unscored GO- note
+      // counts as high if its alias line shares an id with a high note. If
+      // the note format changes, the 3-day hold applies again.
       description: 'High and critical vulnerability fixes: no release-age hold, so their PRs open at once',
       matchDatasources: [
         'go',

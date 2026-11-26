@@ -1,6 +1,6 @@
 // The rules of default.json5, go.json5, go-toolchain-bump.json5 and
-// security-alerts.json5 from timescale/renovate-config at eda0f559df that
-// match this repo. The Mend Renovate app cannot read presets from that
+// security-alerts.json5 from timescale/renovate-config at 0221b5a, with
+// timescale/renovate-config#9, that match this repo. The Mend Renovate app cannot read presets from that
 // private repo in a public repo, and the org inherited config does not apply
 // here either. Update this file by hand when those presets change.
 {
@@ -32,11 +32,40 @@
       'at any time',
     ],
     // Renovate gives security PRs no release age, and its alert rules come
-    // after all other rules. CI here does not use Secure Registry, so this
-    // 3-day wait is the org policy, not a fix for a registry 403.
+    // after all other rules. CI installs through Secure Registry, which
+    // blocks a version for 3 days after its release.
+    // Renovate forces this value on every vulnerability PR, so no package
+    // rule can change it. The rule below skips the check instead.
     minimumReleaseAge: '3 days',
   },
   packageRules: [
+    {
+      // Secure Registry skips the cooldown for a high or critical Go fix.
+      // Every advisory must be high or critical, or Renovate can pick a newer
+      // fix that the registry blocks. vulnerabilitySeverity ranks UNKNOWN
+      // above CRITICAL, so the rule reads each PR note. An unscored GO- note
+      // counts as high if its alias line shares an id with a high note. The
+      // rule sees the notes only when the lookup applies the rules again. If
+      // that or the note format changes, the hold applies.
+      description: 'High and critical vulnerability fixes: no release-age hold, so their PRs open at once',
+      matchDatasources: [
+        'go',
+      ],
+      matchJsonata: [
+        "( \
+          $notes := prBodyNotes[$contains($, /(^|\\n)#### Severity\\n/)]; \
+          $sev := function($n) { $match($n, /(?:^|\\n)#### Severity\\n(?:- CVSS Score: [0-9.]+ \\/ 10 \\()?([A-Za-z]+)/)[0].groups[0] }; \
+          $ids := function($n) { $match($split($substringBefore($n, '\\n\\n<details>'), '\\n')[-1], /GHSA(?:-[0-9a-z]{4}){3}|CVE-[0-9]+-[0-9]+/).match }; \
+          $high := $notes[$sev($) in ['High', 'Critical']]; \
+          $highIds := $high.$ids($); \
+          isVulnerabilityAlert = true and $count($high) > 0 and $count($notes[$not($sev($) in ['High', 'Critical'] or ($sev($) = 'Unknown' and $count($ids($)[$ in $highIds]) > 0))]) = 0 \
+        )",
+      ],
+      internalChecksFilter: 'none',
+      statusCheckWhen: {
+        minimumReleaseAge: 'never',
+      },
+    },
     {
       // No automerge: main requires a code-owner review, and the
       // renovate-approve app is not a code owner. Without automerge,
@@ -70,9 +99,12 @@
       separateMajorMinor: false,
     },
     {
-      description: 'Keep the Go version of mise and the go directive of go.mod in one PR',
+      // golangci-lint refuses to load a module whose go directive is newer
+      // than the Go it was built with, so it must move with the toolchain.
+      description: 'Keep the Go version of mise, the go directive of go.mod and golangci-lint in one PR',
       matchDepNames: [
         'go',
+        'golangci-lint',
       ],
       groupName: 'go toolchain',
     },

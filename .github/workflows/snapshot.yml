@@ -1,0 +1,42 @@
+name: Snapshot
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: runs-on/fleet=linux-small/env=ue1
+    timeout-minutes: 30
+    steps:
+      - uses: runs-on/action@4a3bfc79f21a9b97e972e2ba75a2b0b1e9688670 # v2.7.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          install-only: true
+      - name: Machine
+        run: |
+          nproc
+          free -m
+          token=$(curl -s -m 2 -X PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' || true)
+          curl -s -m 2 -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/instance-type || true
+      - name: Snapshot build
+        run: |
+          (while sleep 2; do free -m | awk '/^Mem:/ {print $3}'; done) > "$RUNNER_TEMP/mem.log" &
+          start=$(date +%s)
+          goreleaser release --snapshot --clean --skip=sign
+          echo "seconds: $(( $(date +%s) - start ))"
+          echo "peak used MiB: $(sort -n "$RUNNER_TEMP/mem.log" | tail -1)"
+          ls dist/*.zip | wc -l
+      - name: OOM check
+        if: always()
+        run: sudo dmesg | grep -i -E 'out of memory|killed process' || echo "no OOM"

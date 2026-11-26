@@ -32,3 +32,5 @@ func main() {
 		log.Fatal(err.Error())
 	}
 }
+
+// Temporary line to start the acceptance tests.

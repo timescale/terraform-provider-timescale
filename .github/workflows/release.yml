@@ -15,8 +15,6 @@ permissions:
 
 jobs:
   goreleaser:
-    # RunsOn fetches the Go modules of the release build through StepSecurity
-    # Secure Registry.
     runs-on: runs-on/fleet=linux-small/env=ue1
     # Only v* tags can use this environment, and each run needs an approval.
     environment: release

@@ -100,6 +100,7 @@ type serviceResourceModel struct {
 	MetricExporterID        types.String   `tfsdk:"metric_exporter_id"`
 	LogExporterID           types.String   `tfsdk:"log_exporter_id"`
 	PostgresParameters      types.Map      `tfsdk:"postgres_parameters"`
+	BackupRegion            types.String   `tfsdk:"backup_region"`
 }
 
 func (r *serviceResource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -365,6 +366,17 @@ The change has been taken into account but must still be propagated. You can run
 				WARNING: To complete the logs exporter attachment, a service restart is required.`,
 				Optional: true,
 			},
+			"backup_region": schema.StringAttribute{
+				MarkdownDescription: "Region to copy this service's backups to (cross-region backups), for example `eu-central-1`. " +
+					"A service can have one backup region. Changing it removes the old region and adds the new one. " +
+					"Removing the attribute disables cross-region backups, including ones enabled outside Terraform.",
+				Description: "Region to copy this service's backups to (cross-region backups). " +
+					"Removing the attribute disables cross-region backups.",
+				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.LengthAtLeast(1),
+				},
+			},
 			"postgres_parameters": schema.MapAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
@@ -621,6 +633,20 @@ func (r *serviceResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 	}
 
+	// Cross-region backups
+	if region := plan.BackupRegion.ValueString(); region != "" {
+		if err := r.client.ToggleCrossRegionBackups(ctx, service.ID, region, true); err != nil {
+			resp.Diagnostics.AddError("Failed to enable cross-region backups", err.Error())
+			// Match the other Create failure paths: do not leave an orphaned service behind.
+			if _, err := r.client.DeleteService(context.Background(), service.ID); err != nil {
+				resp.Diagnostics.AddWarning("Error Deleting Resource", fmt.Sprintf("The service was deleted because backup_region could not be applied, but deleting it failed; remove orphaned resources from your account manually. Error: %s", err))
+			} else {
+				resp.Diagnostics.AddWarning("Service Deleted", "The service was deleted because backup_region could not be applied.")
+			}
+			return
+		}
+	}
+
 	// Postgres parameters. Applied last; the catalog fetch retries because earlier
 	// steps such as exporter attachment can leave the service briefly unreadable.
 	if desired := knownParameterMap(plan.PostgresParameters); len(desired) > 0 {
@@ -765,6 +791,11 @@ func (r *serviceResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	resourceModel.PostgresParameters = params
+	resourceModel.BackupRegion, err = r.readBackupRegion(ctx, service.ID, state.BackupRegion)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read cross-region backups status, got error: %s", err))
+		return
+	}
 	if imported {
 		resp.Diagnostics.Append(resp.Private.SetKey(ctx, privateKeyImportParameters, nil)...)
 	}
@@ -1000,6 +1031,23 @@ func (r *serviceResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	// Cross-region backups. A service has one backup region, so a change removes the
+	// old region first and then adds the new one.
+	if !plan.BackupRegion.Equal(state.BackupRegion) {
+		if old := state.BackupRegion.ValueString(); old != "" {
+			if err := r.client.ToggleCrossRegionBackups(ctx, serviceID, old, false); err != nil {
+				resp.Diagnostics.AddError("Failed to disable cross-region backups", err.Error())
+				return
+			}
+		}
+		if region := plan.BackupRegion.ValueString(); region != "" {
+			if err := r.client.ToggleCrossRegionBackups(ctx, serviceID, region, true); err != nil {
+				resp.Diagnostics.AddError("Failed to enable cross-region backups", err.Error())
+				return
+			}
+		}
+	}
+
 	// A compute resize re-tunes several parameters, so re-apply the declared map
 	// after a resize even when the map itself did not change.
 	if service.Status == "READY" && len(planParams) > 0 && (resizeRequested || !plan.PostgresParameters.Equal(state.PostgresParameters)) {
@@ -1120,6 +1168,24 @@ func (r *serviceResource) ModifyPlan(ctx context.Context, req resource.ModifyPla
 	}
 }
 
+// readBackupRegion returns the service's backup region as a state value. Reading is
+// best-effort while backup_region is unmanaged (null in state): a status failure must
+// not break services of configurations that never use the attribute.
+func (r *serviceResource) readBackupRegion(ctx context.Context, serviceID string, current types.String) (types.String, error) {
+	status, err := r.client.GetCrossRegionBackupsStatus(ctx, serviceID)
+	if err != nil {
+		if current.IsNull() {
+			tflog.Warn(ctx, "unable to read cross-region backups status, leaving backup_region unset", map[string]any{"service_id": serviceID, "error": err.Error()})
+			return types.StringNull(), nil
+		}
+		return types.StringNull(), err
+	}
+	if region := status.BackupRegion(); region != "" {
+		return types.StringValue(region), nil
+	}
+	return types.StringNull(), nil
+}
+
 func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state serviceResourceModel) serviceResourceModel {
 	hasPooler := s.ServiceSpec.PoolerEnabled
 	hasDataTiering := s.DataTieringSettings != nil && s.DataTieringSettings.Enabled
@@ -1146,6 +1212,7 @@ func serviceToResource(diag diag.Diagnostics, s *tsClient.Service, state service
 		PasswordWo:              types.StringNull(),
 		PasswordWoVersion:       state.PasswordWoVersion,
 		PostgresParameters:      state.PostgresParameters,
+		BackupRegion:            state.BackupRegion,
 		Name:                    types.StringValue(s.Name),
 		MilliCPU:                types.Int64Value(s.Resources[0].Spec.MilliCPU),
 		MemoryGB:                types.Int64Value(s.Resources[0].Spec.MemoryGB),

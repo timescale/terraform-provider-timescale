@@ -457,6 +457,45 @@ resource "timescale_service" "resource" {
 	})
 }
 
+func TestServiceResource_BackupRegion(t *testing.T) {
+	name := testServiceName("backup-region")
+	config := &ServiceConfig{Name: name, ResourceName: "resource"}
+	const res = "timescale_service.resource"
+	resource.ParallelTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		PreCheck:                 func() { testAccPreCheck(t) },
+		Steps: []resource.TestStep{
+			// Create with a backup region.
+			{
+				Config: getServiceConfig(t, config.WithBackupRegion("eu-central-1")),
+				Check:  resource.TestCheckResourceAttr(res, "backup_region", "eu-central-1"),
+			},
+			// Change it: the old region is removed and the new one added.
+			{
+				Config: getServiceConfig(t, config.WithBackupRegion("us-west-2")),
+				Check:  resource.TestCheckResourceAttr(res, "backup_region", "us-west-2"),
+			},
+			// Import reads the backup region from the API.
+			{
+				ResourceName:            res,
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "timeouts", "postgres_parameters"},
+			},
+			// Unset it: cross-region backups are disabled.
+			{
+				Config: getServiceConfig(t, config.WithBackupRegion("")),
+				Check:  resource.TestCheckNoResourceAttr(res, "backup_region"),
+			},
+			// Enable it again on an existing service.
+			{
+				Config: getServiceConfig(t, config.WithBackupRegion("eu-central-1")),
+				Check:  resource.TestCheckResourceAttr(res, "backup_region", "eu-central-1"),
+			},
+		},
+	})
+}
+
 func TestServiceResource_Timeout(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -656,6 +695,7 @@ type ServiceConfig struct {
 	MetricExporterID   string
 	LogExporterID      string
 	PostgresParameters map[string]string
+	BackupRegion       string
 }
 
 type Timeouts struct {
@@ -744,6 +784,11 @@ func (c *ServiceConfig) WithPostgresParameters(params map[string]string) *Servic
 	return c
 }
 
+func (c *ServiceConfig) WithBackupRegion(region string) *ServiceConfig {
+	c.BackupRegion = region
+	return c
+}
+
 func (c *ServiceConfig) String(t *testing.T) string {
 	c.setDefaults()
 	b := &strings.Builder{}
@@ -797,6 +842,9 @@ func (c *ServiceConfig) String(t *testing.T) string {
 	}
 	if c.PasswordWoVersion != nil {
 		write("password_wo_version = %d \n", *c.PasswordWoVersion)
+	}
+	if c.BackupRegion != "" {
+		write("backup_region = %q \n", c.BackupRegion)
 	}
 	if c.PostgresParameters != nil {
 		write("postgres_parameters = {\n")

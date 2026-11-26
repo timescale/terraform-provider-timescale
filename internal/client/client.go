@@ -53,6 +53,12 @@ var (
 	//go:embed queries/set_postgres_parameters.graphql
 	SetPostgresParametersMutation string
 
+	// Cross-region backups
+	//go:embed queries/toggle_cross_region_backups.graphql
+	ToggleCrossRegionBackupsMutation string
+	//go:embed queries/get_cross_region_backups_status.graphql
+	GetCrossRegionBackupsStatusQuery string
+
 	// IP allow lists
 	//go:embed queries/get_ip_allow_lists.graphql
 	GetIPAllowListsQuery string

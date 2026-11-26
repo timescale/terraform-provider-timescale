@@ -16,8 +16,8 @@ permissions:
 jobs:
   goreleaser:
     # RunsOn fetches the Go modules of the release build through StepSecurity
-    # Secure Registry. On-demand, so a spot reclaim cannot stop a release.
-    runs-on: runs-on/fleet=linux-2cpu-ondemand/env=ue1
+    # Secure Registry.
+    runs-on: runs-on/fleet=linux-small/env=ue1
     # Only v* tags can use this environment, and each run needs an approval.
     environment: release
     steps:

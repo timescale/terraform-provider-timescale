@@ -38,6 +38,7 @@ type ServiceSpec struct {
 	PoolerHostname     string  `json:"poolerHostName"`
 	PoolerPort         int64   `json:"poolerPort"`
 	PoolerEnabled      bool    `json:"connectionPoolerEnabled"`
+	IOBoostEnabled     bool    `json:"IOBoostEnabled"`
 	MetricExporterUUID *string `json:"metricExporterUuid"`
 	GenericExporterID  *string `json:"genericExporterID"`
 }
@@ -413,6 +414,30 @@ func (c *Client) ToggleConnectionPooler(ctx context.Context, serviceID string, e
 	req := map[string]interface{}{
 		"operationName": "ToggleConnectionPooler",
 		"query":         ToggleConnectionPoolerMutation,
+		"variables": map[string]any{
+			"projectId": c.projectID,
+			"serviceId": serviceID,
+			"enable":    enable,
+		},
+	}
+	var resp Response[any]
+	if err := c.do(ctx, req, &resp); err != nil {
+		return err
+	}
+	if len(resp.Errors) > 0 {
+		return resp.Errors[0]
+	}
+	if resp.Data == nil {
+		return errors.New("no response found")
+	}
+	return nil
+}
+
+func (c *Client) ToggleIOBoost(ctx context.Context, serviceID string, enable bool) error {
+	tflog.Trace(ctx, "Client.ToggleIOBoost")
+	req := map[string]interface{}{
+		"operationName": "ToggleIOBoost",
+		"query":         ToggleIOBoostMutation,
 		"variables": map[string]any{
 			"projectId": c.projectID,
 			"serviceId": serviceID,
